@@ -26,7 +26,7 @@ jobs:
             image: ghcr.io/${{ github.repository_owner }}/radiologyos-python
           - name: web
             context: ./apps/web
-            dockerfile: Dockerfile
+            dockerfile: apps/web/Dockerfile
             image: ghcr.io/${{ github.repository_owner }}/radiologyos-web
 
     steps:
