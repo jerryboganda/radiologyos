@@ -73,14 +73,14 @@ jobs:
           done
           echo "tunnel did not come up" >&2; exit 1
 
-      - name: Close the database tunnel
-        if: always()
-        run: |
-          if [ -f /tmp/tunnel.pid ]; then kill "$(cat /tmp/tunnel.pid)" 2>/dev/null || true; fi
-
       - name: Run the two-tenant runtime-role proof
         env:
           RADBRAIN_RLS_REQUIRED: '1'
           RADBRAIN_RLS_ADMIN_DATABASE_URL: ${{ secrets.RADBRAIN_PROD_RLS_ADMIN_DATABASE_URL }}
           RADBRAIN_RLS_RUNTIME_DATABASE_URL: ${{ secrets.RADBRAIN_PROD_RLS_RUNTIME_DATABASE_URL }}
         run: python -m pytest -q evals/checks/test_rls_live.py
+
+      - name: Close the database tunnel
+        if: always()
+        run: |
+          if [ -f /tmp/tunnel.pid ]; then kill "$(cat /tmp/tunnel.pid)" 2>/dev/null || true; fi
