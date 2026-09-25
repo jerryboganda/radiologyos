@@ -11,12 +11,13 @@ name: Deploy production (shared platform VPS)
 # CI only needs SSH access, so it holds one secret: the deploy key.
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["Build images"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       image_tag:
-        description: Image tag to deploy (default: the pushed commit SHA)
+        description: "Image tag to deploy. Defaults to the pushed commit SHA."
         required: false
         type: string
 
@@ -31,14 +32,29 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
+    # Only deploy after a successful image build for main (or on manual dispatch).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
     steps:
+      # Check out the exact revision whose images were just built, so the
+      # compose file deployed matches the images.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Resolve image refs
         id: refs
+        env:
+          DISPATCH_TAG: ${{ inputs.image_tag }}
+          BUILT_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          tag="${{ inputs.image_tag }}"
-          if [ -z "$tag" ]; then tag="${GITHUB_SHA}"; fi
+          set -euo pipefail
+          tag="${DISPATCH_TAG:-${BUILT_SHA}}"
+          if [ -z "$tag" ]; then
+            echo "no image tag resolvable" >&2; exit 1
+          fi
           ns="${IMAGE_NAMESPACE}"
           {
             echo "tag=$tag"
