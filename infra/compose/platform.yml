@@ -60,7 +60,12 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
-    networks: [default, platform]
+    networks:
+      default:
+      platform:
+        # Stable internal name, so health probes and verification jobs address
+        # the service rather than a container id.
+        aliases: [radbrain-api]
     cpus: "1.0"
     mem_limit: 768m
 
@@ -114,9 +119,7 @@ services:
     networks:
       default:
       platform:
-        # Stable internal name, alongside the web alias, so health probes and
-        # verification jobs address the service rather than a container id.
-        aliases: [radbrain-api]
+      # nginx-proxy-manager forwards the public domain to this alias.
       ingress:
         aliases: [radbrain-web]
     cpus: "0.5"
