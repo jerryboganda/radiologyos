@@ -33,6 +33,7 @@ permissions:
 
 env:
   IMAGE_NAMESPACE: ${{ github.repository_owner }}
+  VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
 
 jobs:
   deploy:
