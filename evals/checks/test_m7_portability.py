@@ -1,12 +1,13 @@
-"""M7 eval gate: local-model boundary, export round-trip, and portability.
+"""M7 eval gate: online-provider boundary, export round-trip, and portability.
 
-Covers slices W and X of the A-Z queue:
-  W  local-model mode, which must stay uncertified until a provider and
+Covers the rescoped slice W and slice X of the A-Z queue:
+  W  online model providers only. There is no local model and no local-mode
+     surface, and external egress stays closed until a provider key and a
      privacy review exist
   X  Markdown export and its round-trip links, with provenance preserved
 
-Slice Y (mobile wrapper, institution SSO, Core authoring) is deliberately not
-simulated: each extension needs its own human decision.
+Slice Y is mobile PWA and Core Library authoring only. Institution SSO was
+removed from the project by ADR 0009 and is not simulated here.
 
 All content is synthetic.
 """
@@ -14,11 +15,12 @@ All content is synthetic.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from uuid import UUID
 
 from apps.api.app.main import app, settings
 from apps.api.app.preview.library import ingest_source
-from apps.api.app.preview.operations import local_mode_status, markdown_export
+from apps.api.app.preview.operations import markdown_export
 from apps.api.app.preview.service import reset_preview_state
 from apps.api.app.preview.tutor import ask
 from evals.checks._harness import (
@@ -32,8 +34,10 @@ from evals.checks._harness import (
     seed,
 )
 from fastapi.testclient import TestClient
+from packages.models.routing import RouteName, load_model_routing_config
 
 client = TestClient(app)
+MODEL_CONFIG = Path(__file__).resolve().parents[2] / "packages" / "models" / "models.yaml"
 BASE = {
     "x-user-id": "10000000-0000-0000-0000-00000000000a",
     "x-tenant-id": "30000000-0000-0000-0000-00000000000a",
@@ -63,22 +67,41 @@ def exported():
 # ---------------------------------------------------------------- slice W
 
 
-def test_local_mode_is_reported_as_uncertified() -> None:
-    status = local_mode_status()
-    assert status["certified"] is False
-    assert status["backend"] == "mock"
-    message = str(status["message"])
-    assert "certification" in message.lower()
-    assert "approval" in message.lower() or "review" in message.lower()
+def test_no_local_model_route_exists() -> None:
+    """ADR 0009: online providers only. The local route is gone for good."""
+    assert not hasattr(RouteName, "LOCAL")
+    assert [route.value for route in RouteName] == [
+        "reason",
+        "extract",
+        "classify",
+        "vision",
+    ]
 
 
-def test_local_mode_never_claims_a_lower_threshold_is_approved() -> None:
-    """Slice W: approved thresholds are a human decision and must stay unclaimed."""
-    body = client.get("/v1/preview/local-mode", headers=BASE).json()
-    assert body["certified"] is False
-    # No threshold may be presented as approved.
-    assert "approved_threshold" not in body
-    assert "thresholds" not in body
+def test_no_local_mode_endpoint_exists() -> None:
+    assert client.get("/v1/preview/local-mode", headers=BASE).status_code == 404
+
+
+def test_checked_in_routes_are_still_mock_only_and_egress_is_closed() -> None:
+    """Enabling real egress needs a provider key plus the ADR-0009 approval."""
+    config = load_model_routing_config(MODEL_CONFIG)
+    assert config.provider_gate.external_egress_allowed is False
+    assert config.provider_gate.status == "blocked"
+    assert config.default_backend == "mock"
+    for name in RouteName:
+        route = config.routes[name]
+        assert route.targets, name
+        for target in route.targets:
+            assert target.backend == "mock", name
+            assert target.api_key_env is None, name
+            assert target.base_url is None, name
+
+
+def test_no_undeclared_route_survives_in_the_config_file() -> None:
+    """A stale `local:` block left in the YAML would fail the strict schema."""
+    config = load_model_routing_config(MODEL_CONFIG)
+    assert set(config.routes) == set(RouteName)
+    assert "local" not in config.routes
 
 
 def test_no_grounded_answer_is_produced_while_the_provider_is_mocked() -> None:

@@ -11,13 +11,16 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class RouteName(StrEnum):
-    """Stable application-facing model routes."""
+    """Stable application-facing model routes.
+
+    There is deliberately no local route: this project uses online providers
+    only, per ADR 0009.
+    """
 
     REASON = "reason"
     EXTRACT = "extract"
     CLASSIFY = "classify"
     VISION = "vision"
-    LOCAL = "local"
 
 
 class ModelTarget(BaseModel):

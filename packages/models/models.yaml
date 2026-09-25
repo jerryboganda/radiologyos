@@ -43,12 +43,5 @@ routes:
     fallbacks: []
     timeout_ms: 1000
     max_retries: 0
-  local:
-    targets:
-      - backend: mock
-        model: mock-only
-        api_key_env: null
-        base_url: null
-    fallbacks: []
     timeout_ms: 1000
     max_retries: 0

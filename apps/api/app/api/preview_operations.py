@@ -6,14 +6,12 @@ from apps.api.app.api.preview import preview_principal_context
 from apps.api.app.preview.contracts import (
     PreviewBillingResponse,
     PreviewCapabilitiesResponse,
-    PreviewLocalModeResponse,
     PreviewMarkdownResponse,
     PreviewReleaseAuditResponse,
 )
 from apps.api.app.preview.operations import (
     billing_status,
     capabilities,
-    local_mode_status,
     markdown_export,
     release_audit,
 )
@@ -53,12 +51,6 @@ def capability_matrix(
 ) -> PreviewCapabilitiesResponse:
     return PreviewCapabilitiesResponse(capabilities=tuple(capabilities()))
 
-
-@router.get("/local-mode", response_model=PreviewLocalModeResponse)
-def local_mode(
-    _principal: Annotated[Principal, Depends(preview_principal_context)],
-) -> PreviewLocalModeResponse:
-    return PreviewLocalModeResponse.model_validate(local_mode_status())
 
 
 @router.get("/release-audit", response_model=PreviewReleaseAuditResponse)

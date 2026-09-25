@@ -21,7 +21,6 @@ export async function previewFetch(
     questions: '/v1/preview/questions',
     tutor: '/v1/preview/tutor/ask',
     markdown: '/v1/preview/export/markdown',
-    local_mode: '/v1/preview/local-mode',
     capabilities: '/v1/preview/capabilities',
     audit: '/v1/preview/release-audit'
   };

@@ -280,14 +280,6 @@ class PreviewReleaseAuditResponse(BaseModel):
     blocked: tuple[str, ...]
 
 
-class PreviewLocalModeResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    mode: Literal["preview"] = "preview"
-    backend: Literal["mock"]
-    certified: Literal[False]
-    message: str
-
-
 class PreviewCapabilityResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     slice: str

@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from apps.api.app.main import app, settings
 from apps.api.app.preview.service import reset_preview_state
 from fastapi.testclient import TestClient
+from packages.models.routing import RouteName
 
 client = TestClient(app)
 HEADERS = {
@@ -127,12 +128,17 @@ def test_editor_and_admin_boundaries_are_server_enforced() -> None:
 def test_operations_are_explicitly_non_release() -> None:
     billing = client.get("/v1/preview/billing/status", headers=HEADERS)
     markdown = client.get("/v1/preview/export/markdown", headers=HEADERS)
-    local_mode = client.get("/v1/preview/local-mode", headers=HEADERS)
     capabilities = client.get("/v1/preview/capabilities", headers=HEADERS)
     audit = client.get("/v1/preview/release-audit", headers=HEADERS)
 
     assert billing.json()["provider"] == "mock_stripe_test_mode"
     assert markdown.json()["filename"] == "radbrain-preview.md"
-    assert local_mode.json()["certified"] is False
     assert len(capabilities.json()["capabilities"]) == 26
     assert audit.json()["status"] == "blocked"
+
+
+def test_local_model_mode_is_absent_entirely() -> None:
+    """ADR 0009: online providers only, so no local-mode surface may exist."""
+    assert client.get("/v1/preview/local-mode", headers=HEADERS).status_code == 404
+    assert not hasattr(RouteName, "LOCAL")
+

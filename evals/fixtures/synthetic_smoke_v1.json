@@ -39,15 +39,6 @@
       "input": {"figure_metadata": {}, "caption": "", "source_citation": "fixture:empty"},
       "expected": {"description": "", "uncertainties": ["insufficient_context"], "citations": []},
       "assertions": ["schema_valid", "no_provider_call", "no_diagnosis"]
-    },
-    {
-      "case_id": "local-insufficient-context",
-      "prompt": "local/v1.yaml",
-      "route": "local",
-      "tenant_id": "20000000-0000-0000-4000-800000000002",
-      "input": {"question": "Answer only from context.", "retrieved_context": [], "claim_citations": []},
-      "expected": {"status": "insufficient_context", "sentences": []},
-      "assertions": ["schema_valid", "no_provider_call", "no_ungrounded_default"]
     }
   ]
 }

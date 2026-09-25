@@ -55,16 +55,6 @@ def capabilities() -> list[dict[str, str]]:
     )
 
 
-def local_mode_status() -> dict[str, object]:
-    return {
-        "backend": "mock",
-        "certified": False,
-        "message": (
-            "Local model certification and provider/privacy approval remain release blockers."
-        ),
-    }
-
-
 def release_audit() -> dict[str, object]:
     return {
         "status": "blocked",
