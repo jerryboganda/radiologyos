@@ -19,16 +19,18 @@ policy and a protected staging acceptance entry point.
 
 All compute-intensive verification MUST run in GitHub Actions. Local execution is
 limited to lightweight syntax, unit, lint, type, and diff checks, and those results are
-never substitutes for a missing or failed Actions result. M0 browser/OIDC acceptance
-runs only through the manual `m0-staging-acceptance.yml` workflow on `main`, using the
-protected `staging` GitHub Environment and an exact candidate revision.
+never substitutes for a missing or failed Actions result. M0 browser/OIDC and
+runtime-role RLS acceptance run only through the manual `m0-staging-acceptance.yml` and
+`m0-staging-rls.yml` workflows on `main`, using the protected `staging` GitHub
+Environment and exact candidate revisions.
 
-The staging workflow uses protected environment variables/secrets, keeps Playwright
-screenshots/video/traces disabled, uploads no artifacts, and records only redacted
-operational references. It executes only the trusted `main` workflow SHA, requires that
-SHA to have green CI, and requires the protected deployed-revision variable to match.
+The staging workflows use protected environment variables/secrets, keep Playwright
+screenshots/video/traces disabled, upload no artifacts, and record only redacted
+operational references. They execute only the trusted `main` workflow SHA, require that
+SHA to have green CI, and require the protected deployed-revision variable to match.
 The protected environment must have human reviewer rules; a workflow success is not a
-security or release approval.
+security or release approval. The RLS workflow fails closed when its disposable database
+URLs are absent rather than treating a skipped proof as a pass.
 
 ## Consequences
 
@@ -54,7 +56,7 @@ security or release approval.
 
 ## Verification
 
-The repository static check verifies that the workflow is manual, environment-bound,
-secret-safe, artifact-free, and uses the browser target. The exact candidate must also
-have a green CI run and a green M0 staging acceptance run before the M0 checklist can be
-completed.
+The repository static check verifies that the staging workflows are manual,
+environment-bound, secret-safe, artifact-free, and use the required browser/database
+targets. The exact candidate must also have a green CI run and green M0 staging OIDC
+and RLS runs before the M0 checklist can be completed.

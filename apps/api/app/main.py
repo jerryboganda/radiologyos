@@ -4,6 +4,12 @@ from collections.abc import AsyncIterator
 from typing import Annotated, Any, cast
 from uuid import UUID, uuid4
 
+from apps.api.app.api.preview import router as preview_router
+from apps.api.app.api.preview_admin import router as preview_admin_router
+from apps.api.app.api.preview_assessment import router as preview_assessment_router
+from apps.api.app.api.preview_knowledge import router as preview_knowledge_router
+from apps.api.app.api.preview_learning import router as preview_learning_router
+from apps.api.app.api.preview_operations import router as preview_operations_router
 from apps.api.app.core.config import get_settings
 from apps.api.app.db.session import (
     get_system_session,
@@ -11,12 +17,7 @@ from apps.api.app.db.session import (
     tenant_session,
 )
 from apps.api.app.observability import logger
-from apps.api.app.schemas.common import (
-    ErrorResponse,
-    ExportJobResponse,
-    HealthResponse,
-    TenantResponse,
-)
+from apps.api.app.schemas.common import ErrorResponse, HealthResponse, TenantResponse
 from apps.api.app.security.oidc import (
     OIDCVerificationError,
     OIDCVerifier,
@@ -39,6 +40,12 @@ app = FastAPI(
 settings = get_settings()
 bearer_scheme = HTTPBearer(auto_error=False)
 oidc_verifier = OIDCVerifier(settings)
+app.include_router(preview_router)
+app.include_router(preview_knowledge_router)
+app.include_router(preview_learning_router)
+app.include_router(preview_assessment_router)
+app.include_router(preview_operations_router)
+app.include_router(preview_admin_router)
 
 
 @app.middleware("http")
@@ -135,6 +142,7 @@ async def principal_from_request(
     if local_principal is None:
         raise HTTPException(status_code=401, detail="authentication required")
     request.state.tenant_id = local_principal.tenant_id
+    request.state.local_tenant_id = local_principal.tenant_id
     request.state.requires_tenant_session = False
     return local_principal
 
@@ -157,13 +165,19 @@ async def principal_context(
 
 async def tenant_db_session(
     request: Request,
-    _principal: Annotated[Principal, Depends(principal_context)],
+    principal: Annotated[Principal, Depends(principal_context)],
 ) -> AsyncIterator[AsyncSession]:
-    """Yield the transaction-local session established for an OIDC request."""
+    """Yield a transaction-local session for OIDC or explicitly local identity."""
     session = getattr(request.state, "tenant_session", None)
-    if not isinstance(session, AsyncSession):
-        raise HTTPException(status_code=500, detail="tenant session unavailable")
-    yield session
+    if isinstance(session, AsyncSession):
+        yield session
+        return
+    local_tenant_id = getattr(request.state, "local_tenant_id", None)
+    if isinstance(local_tenant_id, UUID) and local_tenant_id == principal.tenant_id:
+        async with tenant_session(principal.tenant_id) as local_session:
+            yield local_session
+        return
+    raise HTTPException(status_code=500, detail="tenant session unavailable")
 
 
 @app.get(f"{settings.api_prefix}/me", response_model=TenantResponse, tags=["auth"])
@@ -193,21 +207,26 @@ async def switch_tenant(
 
 @app.post(
     f"{settings.api_prefix}/me/export",
-    response_model=ExportJobResponse,
-    status_code=202,
+    response_model=ErrorResponse,
+    status_code=501,
     tags=["data-rights"],
 )
 async def export_data(
     principal: Annotated[Principal, Depends(principal_context)],
-) -> ExportJobResponse:
-    return ExportJobResponse(job_id=f"export:{principal.user_id}", status="queued")
+) -> ErrorResponse:
+    raise HTTPException(status_code=501, detail="data export is not available in preview mode")
 
 
-@app.delete(f"{settings.api_prefix}/me", status_code=202, tags=["data-rights"])
+@app.delete(
+    f"{settings.api_prefix}/me",
+    response_model=ErrorResponse,
+    status_code=501,
+    tags=["data-rights"],
+)
 async def delete_account(
     principal: Annotated[Principal, Depends(principal_context)],
-) -> dict[str, str]:
-    return {"status": "queued", "job_id": f"delete:{principal.user_id}"}
+) -> ErrorResponse:
+    raise HTTPException(status_code=501, detail="account deletion is not available in preview mode")
 
 
 @app.get(f"{settings.api_prefix}/admin/ping", tags=["admin"])

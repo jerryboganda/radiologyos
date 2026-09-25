@@ -52,8 +52,10 @@ DICOM viewer in v1.
 
 ## Milestone gates
 
-Milestones proceed in order. The next milestone starts only after the current
-milestone passes its exit test on staging and its definition of done.
+Milestone acceptance proceeds in order. The next milestone starts only after the
+current milestone passes its exit test on staging and its definition of done. Under
+ADR 0006, local/test-only implementation of a later slice may proceed in an explicitly
+non-release preview mode, but it cannot be claimed accepted or release-ready.
 
 | Milestone | Intended outcome | Exit-test pointer |
 | --- | --- | --- |
@@ -91,7 +93,9 @@ See [`runbooks/data-handling.md`](runbooks/data-handling.md),
 
 ## Repository decisions and open questions
 
-Accepted implementation rules live in `docs/decisions/`. Open questions are not
-implementation permission. In particular, curriculum weights, exam blueprints,
-pricing, retention changes, patient-data handling, and model/embedding provider
-selection require explicit human approval. See `CLAUDE.md` for the stop gates.
+Accepted implementation rules live in `docs/decisions/`. ADR 0006 permits only
+explicitly non-release local/test preview implementation; it does not change the
+milestone acceptance gates. Open questions are not implementation permission. In
+particular, curriculum weights, exam blueprints, pricing, retention changes,
+patient-data handling, and model/embedding provider selection require explicit human
+approval. See `CLAUDE.md` for the stop gates.

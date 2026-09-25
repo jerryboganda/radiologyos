@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import '../app.css';
+  import '../preview.css';
 
   let { children } = $props();
 
@@ -20,6 +21,7 @@
   <nav aria-label="Primary navigation">
     <a href="/">Workspace</a>
     <a href="/api/health">Health</a>
+    <a href="/preview">Preview</a>
   </nav>
 </header>
 

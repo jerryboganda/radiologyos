@@ -1,0 +1,99 @@
+name: M0 staging RLS acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'Exact candidate revision (40-character commit SHA)'
+        required: true
+        type: string
+      deployment_id:
+        description: 'Redacted staging deployment identifier'
+        required: true
+        type: string
+      security_approval_reference:
+        description: 'Security approval issue or review reference'
+        required: true
+        type: string
+      release_approval_reference:
+        description: 'Release approval issue or review reference'
+        required: true
+        type: string
+      trace_review_reference:
+        description: 'Redacted staging trace/metric review reference'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: m0-staging-rls
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    name: M0 staging runtime-role RLS
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 20
+    steps:
+      - name: Validate dispatch metadata
+        env:
+          CANDIDATE_REVISION: ${{ inputs.revision }}
+          DEPLOYED_REVISION: ${{ vars.RADBRAIN_STAGING_DEPLOYED_REVISION }}
+          DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+          SECURITY_APPROVAL: ${{ inputs.security_approval_reference }}
+          RELEASE_APPROVAL: ${{ inputs.release_approval_reference }}
+          TRACE_REVIEW: ${{ inputs.trace_review_reference }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != refs/heads/main ]]; then
+            echo "M0 staging RLS acceptance must be dispatched from main" >&2
+            exit 1
+          fi
+          test "${#CANDIDATE_REVISION}" -eq 40
+          [[ "$CANDIDATE_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          test "$CANDIDATE_REVISION" = "$GITHUB_SHA"
+          test "$DEPLOYED_REVISION" = "$CANDIDATE_REVISION"
+          test -n "$DEPLOYMENT_ID"
+          test -n "$SECURITY_APPROVAL"
+          test -n "$RELEASE_APPROVAL"
+          test -n "$TRACE_REVIEW"
+
+      - name: Require green CI for the exact candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_REVISION: ${{ inputs.revision }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow ci.yml \
+            --commit "$CANDIDATE_REVISION" --limit 1 --json conclusion --jq '.[0].conclusion')"
+          test "$status" = success
+
+      - name: Check out trusted main candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+
+      - name: Run staging runtime-role RLS proof
+        env:
+          RADBRAIN_RLS_REQUIRED: '1'
+          RADBRAIN_RLS_ADMIN_DATABASE_URL: ${{ secrets.RADBRAIN_STAGING_RLS_ADMIN_DATABASE_URL }}
+          RADBRAIN_RLS_RUNTIME_DATABASE_URL: ${{ secrets.RADBRAIN_STAGING_RLS_RUNTIME_DATABASE_URL }}
+        run: python -m pytest -q evals/checks/test_rls_live.py

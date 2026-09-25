@@ -34,7 +34,8 @@ jobs:
       - name: Mypy
         run: python -m mypy apps/api/app apps/worker/app
       - name: Pytest
-        run: python -m pytest -q apps/api/tests evals/checks/test_scaffolding.py
+        run:           python -m pytest -q apps/api/tests evals/checks/test_scaffolding.py evals/checks/test_preview_determinism.py
+
 
   web:
     name: Web checks

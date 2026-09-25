@@ -102,6 +102,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_APP_USER:-radbrain_app}:${POSTGRES_APP_PASSWORD:-radbrain_app}@postgres:5432/${POSTGRES_DB:-radbrain}
       APP_ENV: ${APP_ENV:-dev}
+      PREVIEW_ENABLED: ${PREVIEW_ENABLED:-true}
       OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:8080/realms/radbrain}
       OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/radbrain/protocol/openid-connect/certs}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-radbrain-web}
@@ -164,6 +165,7 @@ services:
     restart: unless-stopped
     environment:
       APP_ENV: ${APP_ENV:-dev}
+      PREVIEW_ENABLED: ${PREVIEW_ENABLED:-true}
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-local-development-secret-change-me-32chars}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}
       OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:8080/realms/radbrain}

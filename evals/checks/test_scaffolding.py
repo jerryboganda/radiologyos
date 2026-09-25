@@ -7,7 +7,7 @@ import pytest
 from apps.worker.app.job_id import IngestStep, JobId
 from evals.contracts import load_eval_fixtures
 from packages.curriculum.contracts import load_curriculum_pack
-from packages.models.routing import RouteName, load_model_routing_config
+from packages.models.routing import RouteName, load_model_routing_config, require_mock_routes
 from packages.prompts.contracts import load_prompt
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -17,6 +17,7 @@ DOCKERFILE = ROOT / "infra" / "python" / "Dockerfile"
 MIGRATIONS = (
     ROOT / "apps" / "api" / "migrations" / "versions" / "20260924_0001_m0_foundation.py",
     ROOT / "apps" / "api" / "migrations" / "versions" / "20260924_0002_m0_rls.py",
+    ROOT / "apps" / "api" / "migrations" / "versions" / "20260925_0003_preview_hardening.py",
 )
 MODEL_CONFIG = ROOT / "packages" / "models" / "models.yaml"
 CURRICULUM = ROOT / "packages" / "curriculum" / "fcps2_radiology.json"
@@ -26,11 +27,16 @@ PROMPT_ROOT = ROOT / "packages" / "prompts"
 
 E2E_BROWSER = ROOT / "apps" / "web" / "e2e" / "m0-staging.spec.ts"
 STAGING_WORKFLOW = ROOT / ".github" / "workflows" / "m0-staging-acceptance.yml"
+STAGING_RLS_WORKFLOW = ROOT / ".github" / "workflows" / "m0-staging-rls.yml"
 REMAINING_WORK = ROOT / "docs" / "remaining-work.md"
+PREVIEW_ADR = ROOT / "docs" / "decisions" / "0006-non-release-preview-mode.md"
+ENV_EXAMPLE = ROOT / ".env.example"
+PREVIEW_RUNBOOK = ROOT / "docs" / "runbooks" / "m1-preview.md"
 
 
 def test_compute_policy_and_staging_workflow_are_fail_closed() -> None:
     workflow = STAGING_WORKFLOW.read_text(encoding="utf-8")
+    rls_workflow = STAGING_RLS_WORKFLOW.read_text(encoding="utf-8")
     e2e = E2E_BROWSER.read_text(encoding="utf-8")
     agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     claude = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
@@ -38,16 +44,29 @@ def test_compute_policy_and_staging_workflow_are_fail_closed() -> None:
 
     assert "workflow_dispatch:" in workflow
     assert "environment: staging" in workflow
+    assert "workflow_dispatch:" in rls_workflow
+    assert "environment: staging" in rls_workflow
+    assert "RADBRAIN_STAGING_RLS_ADMIN_DATABASE_URL" in rls_workflow
+    assert "RADBRAIN_STAGING_RLS_RUNTIME_DATABASE_URL" in rls_workflow
+    assert "RADBRAIN_RLS_REQUIRED" in rls_workflow
+    assert "test \"$CANDIDATE_REVISION\" = \"$GITHUB_SHA\"" in rls_workflow
+    assert "Require green CI for the exact candidate" in rls_workflow
+    assert "ref: ${{ github.sha }}" in rls_workflow
+    assert "permissions:" in rls_workflow
+    assert "evals/checks/test_rls_live.py" in rls_workflow
+    assert "upload-artifact" not in rls_workflow
     assert "RADBRAIN_STAGING_TEST_PASSWORD" in workflow
     assert "RADBRAIN_STAGING_STUDENT_TOKEN" in workflow
     assert "RADBRAIN_STAGING_ADMIN_TOKEN" in workflow
+    assert "RADBRAIN_STAGING_EXPIRED_TOKEN" in workflow
     assert "RADBRAIN_STAGING_WRONG_AUDIENCE_TOKEN" in workflow
     assert "RADBRAIN_STAGING_DEPLOYED_REVISION" in workflow
     assert "npm ci --ignore-scripts" in workflow
     assert "npm run typecheck:staging" in workflow
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     assert "gh run watch" in makefile
-    assert "rls: ci" in makefile
+    assert "m0-staging-rls.yml" in makefile
+    assert "rls: ci" not in makefile
     assert "security-scan: ci" in makefile
     assert "playwright install --with-deps chromium" in workflow
     assert "upload-artifact" not in workflow
@@ -55,7 +74,11 @@ def test_compute_policy_and_staging_workflow_are_fail_closed() -> None:
     assert "trace: 'off'" in config
     assert "video: 'off'" in config
     assert "console.log" not in e2e
+    assert "callbackUrls" in e2e
+    assert "access_token" in e2e
     assert "GitHub Actions" in agents and "GitHub Actions" in claude
+    assert "Non-release preview exception" in agents
+    assert "Non-release preview exception" in claude
     package_json = (ROOT / "apps" / "web" / "package.json").read_text(encoding="utf-8")
     assert "typecheck:staging" in package_json
     assert "npm run test:staging" in workflow
@@ -74,7 +97,22 @@ def test_compute_policy_and_staging_workflow_are_fail_closed() -> None:
     for slice_name in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
         assert f"| {slice_name} |" in goal
     assert "M0 is not accepted" in goal
-    assert "M1–M7 feature implementation has started" in goal
+    assert "No M1–M7 feature has been accepted" in goal
+
+
+def test_preview_mode_is_explicitly_non_release() -> None:
+    adr = PREVIEW_ADR.read_text(encoding="utf-8")
+    env_example = ENV_EXAMPLE.read_text(encoding="utf-8")
+    runbook = PREVIEW_RUNBOOK.read_text(encoding="utf-8")
+    main = (ROOT / "apps" / "api" / "app" / "api" / "preview.py").read_text(encoding="utf-8")
+    production = PRODUCTION_COMPOSE.read_text(encoding="utf-8")
+
+    assert "non-release preview" in adr
+    assert "does not supersede" in adr
+    assert "PREVIEW_ENABLED=true" in env_example
+    assert "Non-release preview" in runbook
+    assert "preview: non-release" in main
+    assert 'PREVIEW_ENABLED: "false"' in production
 
 
 def test_compose_runs_real_m0_processes_with_separate_migrator_role() -> None:
@@ -136,6 +174,9 @@ def test_migration_defines_rls_and_role_separation() -> None:
     assert "rolbypassrls" in sql
     assert "REVOKE ALL ON FUNCTION app.resolve_memberships(text) FROM PUBLIC" in sql
     assert "GRANT EXECUTE ON FUNCTION app.resolve_memberships(text)" in sql
+    assert "RETURNS TABLE (user_id uuid, tenant_id uuid, role text)" in sql
+    assert "REVOKE UPDATE ON tenants, users, memberships" in sql
+    assert "GRANT UPDATE (title, page_count, status) ON sources" in sql
     assert "rights_status IN ('authored', 'licensed')" in sql
     assert "deleted_at IS NULL" in sql
     assert "jobs(tenant_id, id, entity_id, pipeline_version)" in sql
@@ -150,6 +191,7 @@ def test_model_routes_are_stable_and_mock_only() -> None:
     assert config.provider_gate.status == "blocked"
     assert config.provider_gate.external_egress_allowed is False
     assert config.allow_ungrounded_default is False
+    require_mock_routes(config)
     for route in config.routes.values():
         assert route.fallbacks == ()
         assert route.targets
@@ -158,6 +200,21 @@ def test_model_routes_are_stable_and_mock_only() -> None:
             assert target.model == "mock-only"
             assert target.api_key_env is None
             assert target.base_url is None
+
+
+def test_preview_model_gate_rejects_network_capable_targets() -> None:
+    config = load_model_routing_config(MODEL_CONFIG)
+    route = config.routes[RouteName.REASON]
+    target = route.targets[0].model_copy(
+        update={"backend": "http", "base_url": "https://example.invalid"}
+    )
+    unsafe_route = route.model_copy(update={"targets": (target,)})
+    unsafe_config = config.model_copy(
+        update={"routes": {**config.routes, RouteName.REASON: unsafe_route}}
+    )
+
+    with pytest.raises(ValueError, match="mock-only"):
+        require_mock_routes(unsafe_config)
 
 
 @pytest.mark.parametrize("route", list(RouteName))

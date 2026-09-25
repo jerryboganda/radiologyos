@@ -17,6 +17,10 @@ milestones defined by the implementation specification.
 | Model-provider approval gate | [`decisions/0002-model-provider-gate.md`](decisions/0002-model-provider-gate.md) |
 | OIDC API audience decision | [`decisions/0004-api-oidc-audience.md`](decisions/0004-api-oidc-audience.md) |
 | GitHub Actions compute policy | [`decisions/0005-github-actions-compute-policy.md`](decisions/0005-github-actions-compute-policy.md) |
+| Non-release preview boundary | [`decisions/0006-non-release-preview-mode.md`](decisions/0006-non-release-preview-mode.md) |
+| Protected M0 staging and RLS acceptance | [`runbooks/m0-staging-acceptance.md`](runbooks/m0-staging-acceptance.md) |
+| Local M1–M7 preview operation | [`runbooks/m1-preview.md`](runbooks/m1-preview.md) |
+| M6 preview operations boundaries | [`runbooks/m6-preview-operations.md`](runbooks/m6-preview-operations.md) |
 | Remaining-work goal and A–Z queue | [`remaining-work.md`](remaining-work.md) |
 
 ## Documentation rules
@@ -31,8 +35,9 @@ milestones defined by the implementation specification.
 
 ## Current status
 
-- The repository is an M0 foundation scaffold. Do not infer M0 completion from the
-  presence of this documentation. The authoritative exit test is in the M0 runbook,
-  and all four exit conditions must have fresh evidence on staging.
-- Compute-intensive checks are dispatched with `make ci` or the protected staging workflow;
-  local results are not staging evidence.
+- The repository is an M0 foundation scaffold with a local synthetic M1–M7 preview.
+  Do not infer M0 or any later acceptance from the preview or this documentation.
+  The authoritative exit tests are in the M0 runbooks and require fresh staging
+  evidence.
+- Compute-intensive checks are dispatched with `make ci` or the protected staging
+  workflow; local results are not staging evidence.

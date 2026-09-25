@@ -27,6 +27,13 @@
   `classify`, `vision`, and `local`. Concrete names live in model configuration,
   currently `packages/models/models.yaml`, never inline in application code.
 
+## Non-release preview exception
+
+ADR 0006 permits M1–M7 implementation in explicitly local/test-only preview mode
+using synthetic or mock/local data. It does not change the M0–M7 staging exit gates,
+human approvals, tenant/RLS requirements, provider decisions, or release status.
+Preview artifacts must be labelled non-release and cannot be used as staging evidence.
+
 ## Hard rules
 
 1. Every tenant-scoped table ships with a `tenant_id`, RLS policies, and a
@@ -76,9 +83,10 @@ runs are limited to lightweight syntax, unit, lint, type, and diff checks. A loc
 must never be reported as a substitute for a missing or failed Actions result.
 
 M0 staging acceptance runs only in the protected `staging` GitHub Environment through
-[`m0-staging-acceptance.yml`](.github/workflows/m0-staging-acceptance.yml). Required
-reviewer configuration and secrets are external prerequisites; never commit or print
-credentials, tokens, passwords, private paths, or tenant content.
+[`m0-staging-acceptance.yml`](.github/workflows/m0-staging-acceptance.yml) and
+[`m0-staging-rls.yml`](.github/workflows/m0-staging-rls.yml). Required reviewer
+configuration and secrets are external prerequisites; never commit or print credentials,
+tokens, passwords, private paths, or tenant content.
 
 ## Stop and ask before
 

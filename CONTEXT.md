@@ -2,6 +2,7 @@
 
 Last reviewed: **2026-09-25**
 Milestone: **M0 Foundation — CI/runtime verified; staging workflow ready; staging OIDC exit not yet accepted**
+Preview implementation: **M1–M7 may be built locally under ADR 0006; acceptance remains blocked**
 Canonical requirements: [`docs/SPEC.md`](docs/SPEC.md)
 
 ## Purpose
@@ -16,10 +17,11 @@ not a usable upload/search product yet.
 
 - `apps/api`: FastAPI application, settings, SQLAlchemy session plumbing,
   development-principal API routes, health endpoints, bounded redacted request logging,
-  and unit tests.
+  and a local synthetic non-release preview surface for M1–M7 seams.
 - `apps/worker`: Celery 5 worker package and stable job identity; durable ingestion is
   not yet established.
-- `apps/web`: web scaffold is maintained by the web/infrastructure workstream.
+- `apps/web`: web scaffold plus a server-proxied `/preview` workspace for synthetic
+  non-release flows; no provider tokens are sent to the browser.
 - `apps/api/migrations`: Alembic migration target for PostgreSQL, pgvector, and
   tenant RLS; verify the landed migration before calling M0 RLS complete.
 - `packages`: model-route, prompt, and eval configuration scaffolds. Model routes
@@ -43,7 +45,7 @@ tests and staging evidence, not directory presence, to determine maturity.
 | `make migrate` | Apply Alembic migrations to the configured database. |
 | `make check` | Run lightweight local lint, type, Python test, and web checks. |
 | `make test` | Run Python unit tests. |
-| `make rls` | Dispatch the live RLS proof through GitHub Actions. |
+| `make rls` | Dispatch the protected runtime-role RLS workflow through GitHub Actions. |
 | `make types` | Generate TypeScript API types from OpenAPI. |
 | `make security-scan` | Dispatch the security scan through GitHub Actions. |
 | `make ci` | Dispatch CI for the current revision and wait for its result. |
@@ -107,9 +109,10 @@ A–Z goal is tracked in [`docs/remaining-work.md`](docs/remaining-work.md).
   are unapproved. The model ADR is a gate, not a selection.
 - The protected M0 staging workflow is implemented but cannot be accepted until the
   `staging` GitHub Environment has required reviewers, variables, and protected secrets.
-- CI run `36141597302` on revision `1c1a5cd` is green, including full runtime
-  Compose startup, live migrations, and the non-privileged two-tenant RLS proof. Staging
-  OIDC/browser acceptance, staging trace review, and release/security approvals remain
-  outstanding.
+- CI run `36143277301` on revision `5ac9eff` is green, including full runtime Compose
+  startup, live migrations, and the non-privileged two-tenant RLS proof. The checkout
+  also contains protected OIDC and staging-RLS workflow definitions plus a local
+  synthetic preview; protected staging OIDC/browser acceptance, staging RLS, trace
+  review, and release/security approvals remain outstanding.
 - Curriculum validation/weights, Core Library sourcing, pricing, retention changes,
   and launch cohort details require human decisions.

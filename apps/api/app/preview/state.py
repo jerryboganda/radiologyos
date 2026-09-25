@@ -1,0 +1,396 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
+from threading import RLock
+from uuid import UUID, uuid4
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewSource:
+    id: UUID
+    tenant_id: UUID
+    owner_id: UUID
+    title: str
+    kind: str
+    content: str
+    status: str
+    page_count: int
+    figure_count: int
+    chunk_count: int
+    object_key: str
+    created_at: datetime
+    deleted_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewPage:
+    id: UUID
+    tenant_id: UUID
+    source_id: UUID
+    page_no: int
+    width: int
+    height: int
+    image_key: str
+    has_text_layer: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewBlock:
+    id: UUID
+    tenant_id: UUID
+    source_id: UUID
+    page_id: UUID
+    page_no: int
+    block_type: str
+    text: str
+    bbox: tuple[float, float, float, float]
+    heading_path: tuple[str, ...]
+    order: int
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewFigure:
+    id: UUID
+    tenant_id: UUID
+    source_id: UUID
+    block_id: UUID
+    page_no: int
+    image_key: str
+    caption: str
+    modality: str
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewChunk:
+    id: UUID
+    tenant_id: UUID
+    source_id: UUID
+    page_no: int
+    block_start: UUID
+    block_end: UUID
+    text: str
+    heading_path: tuple[str, ...]
+    chunk_hash: str
+
+
+@dataclass
+class PreviewStep:
+    name: str
+    status: str = "pending"
+    attempts: int = 0
+    error_code: str | None = None
+
+
+@dataclass
+class PreviewJob:
+    id: UUID
+    tenant_id: UUID
+    owner_id: UUID
+    source_id: UUID
+    status: str
+    idempotency_key: str
+    steps: dict[str, PreviewStep]
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewClaim:
+    id: UUID
+    tenant_id: UUID
+    source_id: UUID
+    text: str
+    citation: dict[str, object]
+    verification: str = "extracted"
+
+
+@dataclass
+class PreviewCard:
+    id: UUID
+    tenant_id: UUID
+    owner_id: UUID
+    prompt: str
+    answer: str
+    citation: dict[str, object]
+    due_at: datetime
+    stability: float = 1.0
+    difficulty: float = 5.0
+    reps: int = 0
+    lapses: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewQuestion:
+    id: UUID
+    tenant_id: UUID
+    curriculum_code: str
+    stem: str
+    options: tuple[str, ...]
+    key: int
+    explanation: str
+    citation: dict[str, object]
+
+
+@dataclass
+class PreviewAttempt:
+    id: UUID
+    tenant_id: UUID
+    owner_id: UUID
+    question_id: UUID
+    selected_option: int | None
+    correct: bool
+    created_at: datetime
+
+
+@dataclass
+class PreviewExam:
+    id: UUID
+    tenant_id: UUID
+    owner_id: UUID
+    question_ids: tuple[UUID, ...]
+    answers: dict[UUID, int] = field(default_factory=dict)
+    status: str = "created"
+    revision: int = 0
+    started_at: datetime | None = None
+    deadline_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewAudit:
+    tenant_id: UUID
+    actor_id: UUID
+    action: str
+    target_type: str
+    target_id: str
+    created_at: datetime
+
+
+@dataclass
+class TenantState:
+    sources: dict[UUID, PreviewSource] = field(default_factory=dict)
+    pages: dict[UUID, list[PreviewPage]] = field(default_factory=dict)
+    blocks: dict[UUID, list[PreviewBlock]] = field(default_factory=dict)
+    figures: dict[UUID, list[PreviewFigure]] = field(default_factory=dict)
+    chunks: dict[UUID, list[PreviewChunk]] = field(default_factory=dict)
+    jobs: dict[UUID, PreviewJob] = field(default_factory=dict)
+    claims: list[PreviewClaim] = field(default_factory=list)
+    concepts: list[dict[str, object]] = field(default_factory=list)
+    conflicts: list[dict[str, object]] = field(default_factory=list)
+    cards: dict[UUID, PreviewCard] = field(default_factory=dict)
+    questions: list[PreviewQuestion] = field(default_factory=list)
+    attempts: list[PreviewAttempt] = field(default_factory=list)
+    exams: dict[UUID, PreviewExam] = field(default_factory=dict)
+    plans: dict[tuple[UUID, UUID], dict[str, object]] = field(default_factory=dict)
+    threads: dict[tuple[UUID, UUID], list[dict[str, object]]] = field(default_factory=dict)
+    settings: dict[tuple[UUID, UUID], dict[str, object]] = field(default_factory=dict)
+    billing: dict[UUID, dict[str, object]] = field(default_factory=dict)
+    audit: list[PreviewAudit] = field(default_factory=list)
+    idempotency: dict[str, UUID] = field(default_factory=dict)
+
+
+class PreviewState:
+    def __init__(self) -> None:
+        self._tenants: dict[UUID, TenantState] = {}
+        self._lock = RLock()
+
+    def reset(self) -> None:
+        with self._lock:
+            self._tenants.clear()
+
+    def tenant(self, tenant_id: UUID) -> TenantState:
+        with self._lock:
+            return self._tenants.setdefault(tenant_id, TenantState())
+
+    def add_source(self, source: PreviewSource) -> None:
+        with self._lock:
+            self.tenant(source.tenant_id).sources[source.id] = source
+
+    def source(self, tenant_id: UUID, source_id: UUID) -> PreviewSource | None:
+        with self._lock:
+            return self.tenant(tenant_id).sources.get(source_id)
+
+    def sources(self, tenant_id: UUID) -> list[PreviewSource]:
+        with self._lock:
+            return [
+                item for item in self.tenant(tenant_id).sources.values() if item.deleted_at is None
+            ]
+
+    def soft_delete_source(self, tenant_id: UUID, source_id: UUID, deleted_at: datetime) -> bool:
+        with self._lock:
+            source = self.tenant(tenant_id).sources.get(source_id)
+            if source is None or source.deleted_at is not None:
+                return False
+            self.tenant(tenant_id).sources[source_id] = replace(
+                source, deleted_at=deleted_at, status="deleted"
+            )
+            return True
+
+    def set_content(
+        self,
+        tenant_id: UUID,
+        source_id: UUID,
+        pages: list[PreviewPage],
+        blocks: list[PreviewBlock],
+        figures: list[PreviewFigure],
+        chunks: list[PreviewChunk],
+    ) -> None:
+        with self._lock:
+            state = self.tenant(tenant_id)
+            state.pages[source_id] = pages
+            state.blocks[source_id] = blocks
+            state.figures[source_id] = figures
+            state.chunks[source_id] = chunks
+
+    def page(self, tenant_id: UUID, source_id: UUID, page_no: int) -> PreviewPage | None:
+        with self._lock:
+            return next(
+                (
+                    item
+                    for item in self.tenant(tenant_id).pages.get(source_id, [])
+                    if item.page_no == page_no
+                ),
+                None,
+            )
+
+    def page_blocks(self, tenant_id: UUID, source_id: UUID, page_no: int) -> list[PreviewBlock]:
+        with self._lock:
+            return [
+                item
+                for item in self.tenant(tenant_id).blocks.get(source_id, [])
+                if item.page_no == page_no
+            ]
+
+    def source_figures(self, tenant_id: UUID, source_id: UUID) -> list[PreviewFigure]:
+        with self._lock:
+            return list(self.tenant(tenant_id).figures.get(source_id, []))
+
+    def source_chunks(self, tenant_id: UUID, source_id: UUID) -> list[PreviewChunk]:
+        with self._lock:
+            return list(self.tenant(tenant_id).chunks.get(source_id, []))
+
+    def add_job(self, job: PreviewJob) -> None:
+        with self._lock:
+            self.tenant(job.tenant_id).jobs[job.id] = job
+
+    def job(self, tenant_id: UUID, job_id: UUID) -> PreviewJob | None:
+        with self._lock:
+            return self.tenant(tenant_id).jobs.get(job_id)
+
+    def jobs(self, tenant_id: UUID) -> list[PreviewJob]:
+        with self._lock:
+            return list(self.tenant(tenant_id).jobs.values())
+
+    def claims(self, tenant_id: UUID) -> list[PreviewClaim]:
+        with self._lock:
+            return list(self.tenant(tenant_id).claims)
+
+    def add_claim(self, claim: PreviewClaim) -> None:
+        with self._lock:
+            self.tenant(claim.tenant_id).claims.append(claim)
+
+    def concepts_for(self, tenant_id: UUID) -> list[dict[str, object]]:
+        with self._lock:
+            return list(self.tenant(tenant_id).concepts)
+
+    def conflicts_for(self, tenant_id: UUID) -> list[dict[str, object]]:
+        with self._lock:
+            return list(self.tenant(tenant_id).conflicts)
+
+    def add_concept(self, concept: dict[str, object]) -> None:
+        with self._lock:
+            self.tenant(UUID(str(concept["tenant_id"]))).concepts.append(concept)
+
+    def add_conflict(self, conflict: dict[str, object]) -> None:
+        with self._lock:
+            self.tenant(UUID(str(conflict["tenant_id"]))).conflicts.append(conflict)
+
+    def resolve_conflict(self, tenant_id: UUID, conflict_id: UUID, resolution: str) -> bool:
+        with self._lock:
+            for conflict in self.tenant(tenant_id).conflicts:
+                if UUID(str(conflict["id"])) == conflict_id:
+                    conflict["status"] = "resolved"
+                    conflict["resolution"] = resolution
+                    return True
+            return False
+
+    def questions(self, tenant_id: UUID) -> list[PreviewQuestion]:
+        with self._lock:
+            return list(self.tenant(tenant_id).questions)
+
+    def add_question(self, question: PreviewQuestion) -> None:
+        with self._lock:
+            self.tenant(question.tenant_id).questions.append(question)
+
+    def cards(self, tenant_id: UUID, owner_id: UUID) -> list[PreviewCard]:
+        with self._lock:
+            return [
+                card for card in self.tenant(tenant_id).cards.values() if card.owner_id == owner_id
+            ]
+
+    def add_card(self, card: PreviewCard) -> None:
+        with self._lock:
+            self.tenant(card.tenant_id).cards[card.id] = card
+
+    def card(self, tenant_id: UUID, card_id: UUID) -> PreviewCard | None:
+        with self._lock:
+            return self.tenant(tenant_id).cards.get(card_id)
+
+    def add_attempt(self, attempt: PreviewAttempt) -> None:
+        with self._lock:
+            self.tenant(attempt.tenant_id).attempts.append(attempt)
+
+    def attempts(self, tenant_id: UUID, owner_id: UUID) -> list[PreviewAttempt]:
+        with self._lock:
+            return [item for item in self.tenant(tenant_id).attempts if item.owner_id == owner_id]
+
+    def add_exam(self, exam: PreviewExam) -> None:
+        with self._lock:
+            self.tenant(exam.tenant_id).exams[exam.id] = exam
+
+    def exam(self, tenant_id: UUID, exam_id: UUID) -> PreviewExam | None:
+        with self._lock:
+            return self.tenant(tenant_id).exams.get(exam_id)
+
+    def plan(self, tenant_id: UUID, owner_id: UUID) -> dict[str, object] | None:
+        with self._lock:
+            return self.tenant(tenant_id).plans.get((tenant_id, owner_id))
+
+    def set_plan(self, tenant_id: UUID, owner_id: UUID, plan: dict[str, object]) -> None:
+        with self._lock:
+            self.tenant(tenant_id).plans[(tenant_id, owner_id)] = plan
+
+    def thread(self, tenant_id: UUID, owner_id: UUID) -> list[dict[str, object]]:
+        with self._lock:
+            return list(self.tenant(tenant_id).threads.get((tenant_id, owner_id), []))
+
+    def set_thread(
+        self,
+        tenant_id: UUID,
+        owner_id: UUID,
+        messages: list[dict[str, object]],
+    ) -> None:
+        with self._lock:
+            self.tenant(tenant_id).threads[(tenant_id, owner_id)] = messages
+
+    def add_audit(self, event: PreviewAudit) -> None:
+        with self._lock:
+            self.tenant(event.tenant_id).audit.append(event)
+
+    def audit(self, tenant_id: UUID) -> list[PreviewAudit]:
+        with self._lock:
+            return list(self.tenant(tenant_id).audit)
+
+    def idempotent_source(self, tenant_id: UUID, key: str) -> UUID | None:
+        with self._lock:
+            return self.tenant(tenant_id).idempotency.get(key)
+
+    def bind_idempotency(self, tenant_id: UUID, key: str, source_id: UUID) -> None:
+        with self._lock:
+            self.tenant(tenant_id).idempotency.setdefault(key, source_id)
+
+    def new_id(self) -> UUID:
+        return uuid4()
+
+    def now(self) -> datetime:
+        return datetime.now(UTC)

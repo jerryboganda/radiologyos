@@ -15,7 +15,7 @@ _ALLOWED_ROLES = frozenset({"student", "editor", "org_admin", "superadmin"})
 
 @dataclass(frozen=True, slots=True)
 class OIDCIdentity:
-    subject: UUID
+    subject: str
 
 
 class OIDCVerificationError(ValueError):
@@ -62,31 +62,27 @@ def identity_from_claims(claims: Mapping[str, Any]) -> OIDCIdentity:
     """Validate the token subject without trusting tenant or role claims."""
 
     subject = claims.get("sub")
-    if not isinstance(subject, str):
+    if not isinstance(subject, str) or not subject.strip() or len(subject) > 512:
         raise OIDCVerificationError("missing subject")
-    try:
-        return OIDCIdentity(subject=UUID(subject))
-    except ValueError as exc:
-        raise OIDCVerificationError("invalid subject") from exc
+    return OIDCIdentity(subject=subject.strip())
 
 
-async def resolve_current_membership(
-    session: AsyncSession, subject: UUID
-) -> Principal:
-    """Resolve exactly one current active membership from the authoritative database."""
+async def resolve_current_membership(session: AsyncSession, subject: str) -> Principal:
+    """Resolve one current active membership and its authoritative user id."""
 
     result = await session.execute(
-        text("SELECT tenant_id, role FROM app.resolve_memberships(:subject)"),
-        {"subject": str(subject)},
+        text("SELECT user_id, tenant_id, role FROM app.resolve_memberships(:subject)"),
+        {"subject": subject},
     )
     rows = result.all()
     if len(rows) != 1:
         raise OIDCVerificationError("exactly one active membership required")
-    tenant_value, role = rows[0]
+    user_value, tenant_value, role = rows[0]
     if not isinstance(role, str) or role not in _ALLOWED_ROLES:
         raise OIDCVerificationError("invalid current membership role")
     try:
+        user_id = UUID(str(user_value))
         tenant_id = UUID(str(tenant_value))
     except ValueError as exc:
-        raise OIDCVerificationError("invalid current membership tenant") from exc
-    return Principal(user_id=subject, tenant_id=tenant_id, role=role)
+        raise OIDCVerificationError("invalid current membership identity") from exc
+    return Principal(user_id=user_id, tenant_id=tenant_id, role=role)

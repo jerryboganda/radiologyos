@@ -1,6 +1,6 @@
 # Remaining-work goal: M0 acceptance through M7
 
-Status: **Active goal — M0 staging acceptance blocked on external environment setup**
+Status: **Active goal — M0 staging acceptance blocked; local M1–M7 preview available**
 Scope: all remaining product slices A–Z, in strict milestone order
 Owner: autonomous engineering execution, with human approval gates preserved
 Last reviewed: **2026-09-25**
@@ -14,7 +14,9 @@ claimed complete before the preceding milestone passes its staging exit test.
 
 ## Non-negotiable execution rules
 
-- Work M0 → M7 in order. M1–M7 implementation remains blocked until M0 acceptance.
+- Milestone acceptance remains M0 → M7. Under ADR 0006, local/test-only M1–M7 preview
+  implementation may proceed before acceptance when labelled non-release; no later
+  milestone may be claimed accepted before its predecessor passes staging.
 - All compute-intensive verification runs in GitHub Actions. Local work is limited to
   lightweight syntax, unit, lint, type, contract, and diff checks.
 - Never inspect, copy, summarize, hash, index, commit, or upload private study inputs.
@@ -29,14 +31,16 @@ claimed complete before the preceding milestone passes its staging exit test.
 
 ## Current checkpoint
 
-- Remote `main`: `7710e71`.
-- CI run `36141910371` is green for the prior code revision `1c1a5cd`.
-- The protected staging workflow is implemented at
-  `.github/workflows/m0-staging-acceptance.yml`.
+- Remote `main`: `5ac9eff` (`5ac9efff27dbc7aafd31cc3bb6de5748a6fc91b5`).
+- CI run `36143277301` is green for that revision.
+- The checkout contains the protected OIDC workflow and a new protected runtime-role
+  RLS workflow; neither has been dispatched on staging.
 - GitHub currently reports no environments, variables, or secrets for this repository.
 - M0 is not accepted. Staging OIDC/browser, staging RLS, trace review, and security/
   release approvals remain open.
-- No M1–M7 feature implementation has started.
+- No M1–M7 feature has been accepted; a local synthetic preview workspace and API
+  exercise M1–M7 seams under ADR 0006.
+- This preview implementation is not acceptance evidence and no staging workflow has run.
 
 ## A–Z execution queue
 
@@ -87,7 +91,8 @@ runbook, five-minute demo, redacted staging evidence, and security review are co
 
 ## Immediate pursuit
 
-The next active slice is A–D: provision and execute the protected M0 staging gate.
-No M1 implementation will begin until D is complete. While external staging setup is
-unavailable, safe work is limited to documentation, workflow validation, synthetic
-fixtures, contract checks, and preparing redacted evidence templates.
+The next acceptance slice is A–D: provision and execute the protected M0 staging
+gate. Under ADR 0006, local/test-only M1–M7 preview implementation may proceed in
+parallel, but it remains non-release and cannot satisfy any A–Z acceptance gate. The
+checkout includes Actions-only OIDC and RLS workflows, expanded runtime-role RLS
+coverage, callback URL observation, and redacted evidence guidance.

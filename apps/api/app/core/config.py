@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from uuid import UUID
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     pipeline_version: int = Field(default=1, ge=1)
     models_config_path: Path = Path("packages/models/models.yaml")
     allow_ungrounded_default: bool = False
+    preview_enabled: bool = False
     core_tenant_id: UUID = UUID("00000000-0000-0000-0000-000000000001")
 
     @field_validator("api_prefix")
@@ -42,6 +43,12 @@ class Settings(BaseSettings):
         if not prefix.startswith("/"):
             prefix = f"/{prefix}"
         return prefix.rstrip("/") or ""
+
+    @model_validator(mode="after")
+    def validate_preview_mode(self) -> Settings:
+        if self.preview_enabled and not self.is_local_development:
+            raise ValueError("preview mode is restricted to local and test environments")
+        return self
 
     @property
     def is_local_development(self) -> bool:

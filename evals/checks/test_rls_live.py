@@ -29,6 +29,10 @@ async def _assert_tenant_isolation() -> None:
     source_a = uuid4()
     source_b = uuid4()
     core_source = uuid4()
+    job_a, job_b, job_b_probe = uuid4(), uuid4(), uuid4()
+    step_a, step_b = uuid4(), uuid4()
+    user_b_extra = uuid4()
+    membership_b_extra, audit_target_a, audit_target_b = uuid4(), uuid4(), uuid4()
     admin = await asyncpg.connect(admin_dsn)
     runtime = await asyncpg.connect(runtime_dsn)
     try:
@@ -38,6 +42,17 @@ async def _assert_tenant_isolation() -> None:
         )
         assert role is not None
         assert not any(tuple(role))
+        assert not await runtime.fetchval(
+            "SELECT pg_has_role(current_user, 'radbrain_migrator', 'member')"
+        )
+        owners = await runtime.fetch(
+            "SELECT c.relname, pg_get_userbyid(c.relowner) AS owner "
+            "FROM pg_class AS c "
+            "WHERE c.relname = ANY($1::text[])",
+            ["tenants", "users", "memberships", "sources", "jobs", "job_steps", "audit_log"],
+        )
+        assert owners
+        assert all(row["owner"] != "radbrain_app" for row in owners)
 
         async with admin.transaction():
             await admin.execute(
@@ -87,54 +102,278 @@ async def _assert_tenant_isolation() -> None:
                 _CORE_TENANT_ID,
                 _source_hash("core"),
             )
-
-        assert await runtime.fetchval("SELECT count(*) FROM sources") == 0
-
-        async with runtime.transaction():
-            await runtime.execute(
-                "SELECT set_config('app.tenant_id', $1, true)", str(tenant_a)
+            await admin.execute(
+                "INSERT INTO users (id, tenant_id, oidc_subject, email) VALUES "
+                "($1, $2, 'synthetic-rls-b-extra', 'b-extra@example.invalid')",
+                user_b_extra,
+                tenant_b,
             )
-            visible = {row["id"] for row in await runtime.fetch("SELECT id FROM sources")}
-            assert visible == {source_a, core_source}
-            cross_tenant_updates = await runtime.fetchval(
-                "WITH updated AS ("
-                "UPDATE sources SET title = 'forbidden' WHERE id = $1 RETURNING 1"
-                ") SELECT count(*) FROM updated",
+            await admin.execute(
+                "INSERT INTO jobs (id, tenant_id, entity_id, kind, idempotency_key) VALUES "
+                "($1, $2, $3, 'ingest_source', $4), "
+                "($5, $6, $7, 'ingest_source', $8), "
+                "($9, $6, $7, 'ingest_source', $10)",
+                job_a,
+                tenant_a,
+                source_a,
+                f"rls-job-{job_a}",
+                job_b,
+                tenant_b,
+                source_b,
+                f"rls-job-{job_b}",
+                job_b_probe,
+                f"rls-job-{job_b_probe}",
+            )
+            await admin.execute(
+                "INSERT INTO job_steps "
+                "(id, tenant_id, job_id, entity_id, step, pipeline_version, status) VALUES "
+                "($1, $2, $3, $4, 'upload_dedupe_scan', 1, 'succeeded'), "
+                "($5, $6, $7, $8, 'upload_dedupe_scan', 1, 'succeeded')",
+                step_a,
+                tenant_a,
+                job_a,
+                source_a,
+                step_b,
+                tenant_b,
+                job_b,
                 source_b,
             )
-            assert cross_tenant_updates == 0
-            core_updates = await runtime.fetchval(
-                "WITH updated AS ("
-                "UPDATE sources SET title = 'forbidden' WHERE id = $1 RETURNING 1"
-                ") SELECT count(*) FROM updated",
-                core_source,
+            await admin.execute(
+                "INSERT INTO audit_log (tenant_id, action, target_type, target_id) VALUES "
+                "($1, 'rls.read', 'source', $2), ($3, 'rls.read', 'source', $4)",
+                tenant_a,
+                str(audit_target_a),
+                tenant_b,
+                str(audit_target_b),
             )
-            assert core_updates == 0
+
+        async def assert_denied(statement: str, *parameters: Any) -> None:
+            async with runtime.transaction():
+                await runtime.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_a))
+                with pytest.raises(asyncpg.PostgresError) as denied:
+                    await runtime.execute(statement, *parameters)
+                assert denied.value.sqlstate == "42501"
+
+        async def assert_zero(query: str, *parameters: Any) -> None:
+            async with runtime.transaction():
+                await runtime.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_a))
+                try:
+                    result = await runtime.fetchval(query, *parameters)
+                except asyncpg.PostgresError as denied:
+                    assert denied.sqlstate == "42501"
+                else:
+                    assert result == 0
+
+        for table in (
+            "tenants",
+            "users",
+            "memberships",
+            "sources",
+            "jobs",
+            "job_steps",
+            "audit_log",
+        ):
+            assert await runtime.fetchval(f"SELECT count(*) FROM {table}") == 0
+
+        async with runtime.transaction():
+            await runtime.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_a))
+            assert {row["id"] for row in await runtime.fetch("SELECT id FROM tenants")} == {
+                tenant_a
+            }
+            assert {row["id"] for row in await runtime.fetch("SELECT id FROM users")} == {user_a}
+            assert {
+                row["user_id"] for row in await runtime.fetch("SELECT user_id FROM memberships")
+            } == {user_a}
+            assert {row["id"] for row in await runtime.fetch("SELECT id FROM jobs")} == {job_a}
+            assert {row["id"] for row in await runtime.fetch("SELECT id FROM job_steps")} == {
+                step_a
+            }
+            assert {
+                row["target_id"] for row in await runtime.fetch("SELECT target_id FROM audit_log")
+            } == {str(audit_target_a)}
+            assert {row["id"] for row in await runtime.fetch("SELECT id FROM sources")} == {
+                source_a,
+                core_source,
+            }
+            assert (
+                await runtime.fetchval(
+                    "WITH updated AS (UPDATE sources SET title = 'forbidden' "
+                    "WHERE id = $1 RETURNING 1) SELECT count(*) FROM updated",
+                    source_b,
+                )
+                == 0
+            )
+            assert (
+                await runtime.fetchval(
+                    "WITH updated AS (UPDATE sources SET title = 'forbidden' "
+                    "WHERE id = $1 RETURNING 1) SELECT count(*) FROM updated",
+                    core_source,
+                )
+                == 0
+            )
             with pytest.raises(asyncpg.PostgresError) as denied:
                 await runtime.execute(
                     "INSERT INTO sources "
                     "(tenant_id, uploaded_by, kind, scope, sha256, storage_key, "
                     "title, status, rights_status) VALUES "
-                    "($1, $2, 'note', 'private', $3, $4, 'forbidden', 'ready', "
-                    "'unverified')",
+                    "($1, $2, 'note', 'private', $3, $4, 'forbidden', 'ready', 'unverified')",
                     tenant_b,
                     user_b,
                     _source_hash("forbidden"),
                     f"tenants/{tenant_b}/forbidden",
                 )
             assert denied.value.sqlstate == "42501"
-
-        assert await runtime.fetchval("SELECT count(*) FROM sources") == 0
+        for query, parameter in (
+            (
+                "WITH updated AS (UPDATE tenants SET name = 'forbidden' "
+                "WHERE id = $1 RETURNING 1) SELECT count(*) FROM updated",
+                tenant_b,
+            ),
+            (
+                "WITH updated AS (UPDATE users SET display_name = 'forbidden' "
+                "WHERE id = $1 RETURNING 1) SELECT count(*) FROM updated",
+                user_b,
+            ),
+            (
+                "WITH updated AS (UPDATE memberships SET active = NOT active "
+                "WHERE user_id = $1 RETURNING 1) SELECT count(*) FROM updated",
+                user_b,
+            ),
+            (
+                "WITH updated AS (UPDATE jobs SET status = 'failed' "
+                "WHERE id = $1 RETURNING 1) SELECT count(*) FROM updated",
+                job_b,
+            ),
+            (
+                "WITH updated AS (UPDATE job_steps SET status = 'failed' "
+                "WHERE id = $1 RETURNING 1) SELECT count(*) FROM updated",
+                step_b,
+            ),
+        ):
+            await assert_zero(query, parameter)
+        for query, parameter in (
+            (
+                "WITH deleted AS (DELETE FROM sources WHERE id = $1 RETURNING 1) "
+                "SELECT count(*) FROM deleted",
+                source_b,
+            ),
+            (
+                "WITH deleted AS (DELETE FROM users WHERE id = $1 RETURNING 1) "
+                "SELECT count(*) FROM deleted",
+                user_b,
+            ),
+            (
+                "WITH deleted AS (DELETE FROM jobs WHERE id = $1 RETURNING 1) "
+                "SELECT count(*) FROM deleted",
+                job_b,
+            ),
+            (
+                "WITH deleted AS (DELETE FROM job_steps WHERE id = $1 RETURNING 1) "
+                "SELECT count(*) FROM deleted",
+                step_b,
+            ),
+        ):
+            await assert_zero(query, parameter)
+        await assert_denied(
+            "INSERT INTO tenants (id, kind, name) VALUES ($1, 'personal', 'forbidden')",
+            uuid4(),
+        )
+        await assert_denied(
+            "INSERT INTO users (id, tenant_id, oidc_subject, email) "
+            "VALUES ($1, $2, 'synthetic-forbidden', 'forbidden@example.invalid')",
+            uuid4(),
+            tenant_b,
+        )
+        await assert_denied(
+            "INSERT INTO memberships (id, tenant_id, user_id, role) VALUES ($1, $2, $3, 'student')",
+            membership_b_extra,
+            tenant_b,
+            user_b_extra,
+        )
+        await assert_denied(
+            "INSERT INTO jobs (id, tenant_id, entity_id, kind, idempotency_key) "
+            "VALUES ($1, $2, $3, 'ingest_source', $4)",
+            uuid4(),
+            tenant_b,
+            source_b,
+            f"forbidden-{uuid4()}",
+        )
+        await assert_denied(
+            "INSERT INTO job_steps "
+            "(id, tenant_id, job_id, entity_id, step, pipeline_version) "
+            "VALUES ($1, $2, $3, $4, 'render_pages', 1)",
+            uuid4(),
+            tenant_b,
+            job_b_probe,
+            source_b,
+        )
+        await assert_denied(
+            "INSERT INTO audit_log (tenant_id, action, target_type, target_id) "
+            "VALUES ($1, 'rls.forbidden', 'source', $2)",
+            tenant_b,
+            str(uuid4()),
+        )
+        await assert_denied(
+            "UPDATE audit_log SET action = 'forbidden' WHERE target_id = $1",
+            str(audit_target_b),
+        )
+        for table in (
+            "tenants",
+            "users",
+            "memberships",
+            "sources",
+            "jobs",
+            "job_steps",
+            "audit_log",
+        ):
+            assert await runtime.fetchval(f"SELECT count(*) FROM {table}") == 0
 
         async with runtime.transaction():
-            await runtime.execute(
-                "SELECT set_config('app.tenant_id', $1, true)", str(tenant_b)
-            )
-            visible = {row["id"] for row in await runtime.fetch("SELECT id FROM sources")}
-            assert visible == {source_b, core_source}
+            await runtime.execute("SELECT set_config('app.tenant_id', 'not-a-uuid', true)")
+            assert await runtime.fetchval("SELECT count(*) FROM sources") == 0
+            assert await runtime.fetchval("SELECT count(*) FROM users") == 0
+
+        async with runtime.transaction():
+            await runtime.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_b))
+            assert {row["id"] for row in await runtime.fetch("SELECT id FROM tenants")} == {
+                tenant_b
+            }
+            assert {row["id"] for row in await runtime.fetch("SELECT id FROM users")} == {
+                user_b,
+                user_b_extra,
+            }
+            assert {
+                row["user_id"] for row in await runtime.fetch("SELECT user_id FROM memberships")
+            } == {user_b}
+            assert {row["id"] for row in await runtime.fetch("SELECT id FROM sources")} == {
+                source_b,
+                core_source,
+            }
+            assert {row["id"] for row in await runtime.fetch("SELECT id FROM jobs")} == {
+                job_b,
+                job_b_probe,
+            }
+            assert {row["id"] for row in await runtime.fetch("SELECT id FROM job_steps")} == {
+                step_b
+            }
+            assert {
+                row["target_id"] for row in await runtime.fetch("SELECT target_id FROM audit_log")
+            } == {str(audit_target_b)}
     finally:
         await runtime.close()
         async with admin.transaction():
+            await admin.execute(
+                "DELETE FROM audit_log WHERE tenant_id = ANY($1::uuid[])",
+                [tenant_a, tenant_b],
+            )
+            await admin.execute(
+                "DELETE FROM job_steps WHERE tenant_id = ANY($1::uuid[])",
+                [tenant_a, tenant_b],
+            )
+            await admin.execute(
+                "DELETE FROM jobs WHERE tenant_id = ANY($1::uuid[])",
+                [tenant_a, tenant_b],
+            )
             await admin.execute(
                 "DELETE FROM sources WHERE id = ANY($1::uuid[])",
                 [source_a, source_b, core_source],
@@ -144,7 +383,8 @@ async def _assert_tenant_isolation() -> None:
                 [tenant_a, tenant_b],
             )
             await admin.execute(
-                "DELETE FROM users WHERE id = ANY($1::uuid[])", [user_a, user_b]
+                "DELETE FROM users WHERE id = ANY($1::uuid[])",
+                [user_a, user_b, user_b_extra],
             )
             await admin.execute(
                 "DELETE FROM tenants WHERE id = ANY($1::uuid[])", [tenant_a, tenant_b]
@@ -158,5 +398,7 @@ def test_two_tenant_rls_against_runtime_role() -> None:
         "RADBRAIN_RLS_RUNTIME_DATABASE_URL",
     }
     if not required.issubset(os.environ):
+        if os.environ.get("RADBRAIN_RLS_REQUIRED") == "1":
+            pytest.fail("staging RLS proof requires disposable admin/runtime PostgreSQL URLs")
         pytest.skip("set disposable admin/runtime PostgreSQL URLs to run live RLS proof")
     asyncio.run(_assert_tenant_isolation())

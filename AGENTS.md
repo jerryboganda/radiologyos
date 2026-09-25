@@ -12,6 +12,14 @@
    under `docs/` or the named root guidance files; application code is not a docs
    worker's responsibility.
 
+## Non-release preview exception
+
+ADR 0006 permits M1–M7 implementation in an explicitly local/test-only preview mode
+using synthetic or mock/local data. This is an implementation-sequencing exception,
+not a staging or release acceptance exception: M0–M7 exit gates, human approvals,
+tenant isolation, provenance, privacy, and provider decisions remain unchanged. Preview
+artifacts must be labelled non-release and must never be presented as staging evidence.
+
 ## Product and safety boundaries
 
 - The application is a study aid, not a medical device.

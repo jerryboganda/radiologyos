@@ -15,35 +15,37 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 
 class _MembershipSession:
-    def __init__(self, rows: list[tuple[UUID, str]]) -> None:
+    def __init__(self, rows: list[tuple[UUID, UUID, str]]) -> None:
         self._rows = rows
 
     async def execute(self, statement, parameters):  # type: ignore[no-untyped-def]
-        assert parameters["subject"] == "10000000-0000-0000-0000-000000000001"
+        assert parameters["subject"] == "keycloak|preview-user"
         return SimpleNamespace(all=lambda: self._rows)
 
 
 @pytest.mark.asyncio
-async def test_current_database_membership_supplies_tenant_and_role() -> None:
-    subject = UUID("10000000-0000-0000-0000-000000000001")
+async def test_current_database_membership_supplies_authoritative_user_tenant_and_role() -> None:
+    subject = "keycloak|preview-user"
+    user_id = UUID("10000000-0000-0000-0000-000000000001")
     tenant_id = UUID("20000000-0000-0000-0000-000000000002")
     principal = await resolve_current_membership(
-        _MembershipSession([(tenant_id, "org_admin")]), subject
+        _MembershipSession([(user_id, tenant_id, "org_admin")]), subject
     )
-    assert principal.user_id == subject
+    assert principal.user_id == user_id
     assert principal.tenant_id == tenant_id
     assert principal.role == "org_admin"
 
 
 @pytest.mark.asyncio
 async def test_ambiguous_current_membership_is_rejected() -> None:
-    subject = UUID("10000000-0000-0000-0000-000000000001")
+    subject = "keycloak|preview-user"
+    user_id = UUID("10000000-0000-0000-0000-000000000001")
     with pytest.raises(OIDCVerificationError, match="exactly one"):
         await resolve_current_membership(
             _MembershipSession(
                 [
-                    (UUID("20000000-0000-0000-0000-000000000002"), "student"),
-                    (UUID("30000000-0000-0000-0000-000000000003"), "student"),
+                    (user_id, UUID("20000000-0000-0000-0000-000000000002"), "student"),
+                    (user_id, UUID("30000000-0000-0000-0000-000000000003"), "student"),
                 ]
             ),
             subject,
@@ -53,7 +55,7 @@ async def test_ambiguous_current_membership_is_rejected() -> None:
 def test_oidc_identity_ignores_tenant_and_role_claims() -> None:
     identity = identity_from_claims(
         {
-            "sub": "10000000-0000-0000-0000-000000000001",
+            "sub": "keycloak|preview-user",
             "memberships": [
                 {
                     "tenant_id": "20000000-0000-0000-0000-000000000002",
@@ -63,7 +65,7 @@ def test_oidc_identity_ignores_tenant_and_role_claims() -> None:
             ],
         }
     )
-    assert identity.subject == UUID("10000000-0000-0000-0000-000000000001")
+    assert identity.subject == "keycloak|preview-user"
 
 
 def test_oidc_verifier_requires_configured_api_audience(monkeypatch) -> None:
@@ -98,7 +100,7 @@ def test_oidc_verifier_requires_configured_api_audience(monkeypatch) -> None:
         )
     )
 
-    assert verifier.verify(token).subject == UUID("10000000-0000-0000-0000-000000000001")
+    assert verifier.verify(token).subject == "10000000-0000-0000-0000-000000000001"
 
     wrong_audience_token = jwt.encode(
         {
@@ -115,10 +117,10 @@ def test_oidc_verifier_requires_configured_api_audience(monkeypatch) -> None:
         verifier.verify(wrong_audience_token)
 
 
-def test_oidc_identity_rejects_invalid_subject() -> None:
-    try:
-        identity_from_claims({"sub": "not-a-uuid"})
-    except OIDCVerificationError as exc:
-        assert "invalid subject" in str(exc)
-    else:
-        raise AssertionError("invalid subject was accepted")
+def test_oidc_identity_rejects_empty_subject() -> None:
+    with pytest.raises(OIDCVerificationError, match="missing subject"):
+        identity_from_claims({"sub": "   "})
+
+
+def test_oidc_identity_accepts_non_uuid_subject() -> None:
+    assert identity_from_claims({"sub": "provider|subject"}).subject == "provider|subject"

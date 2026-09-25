@@ -67,6 +67,30 @@ async def test_oidc_principal_opens_and_closes_tenant_session(monkeypatch) -> No
 
 
 @pytest.mark.asyncio
+async def test_local_principal_opens_a_tenant_database_session(monkeypatch) -> None:
+    events: list[str] = []
+    tenant_id = UUID("20000000-0000-0000-0000-000000000002")
+
+    @asynccontextmanager
+    async def fake_tenant_session(opened_tenant_id: UUID):
+        events.append(f"open:{opened_tenant_id}")
+        try:
+            yield object()
+        finally:
+            events.append(f"close:{opened_tenant_id}")
+
+    monkeypatch.setattr(main, "tenant_session", fake_tenant_session)
+    principal = Principal(user_id=UUID("10000000-0000-0000-0000-000000000001"), tenant_id=tenant_id)
+    request = SimpleNamespace(state=SimpleNamespace(local_tenant_id=tenant_id))
+
+    context = main.tenant_db_session(request, principal)
+    assert await anext(context) is not None
+    with pytest.raises(StopAsyncIteration):
+        await anext(context)
+    assert events == [f"open:{tenant_id}", f"close:{tenant_id}"]
+
+
+@pytest.mark.asyncio
 async def test_tenant_db_session_fails_closed_without_oidc_scope() -> None:
     request = SimpleNamespace(state=SimpleNamespace())
     context = main.tenant_db_session(request, object())

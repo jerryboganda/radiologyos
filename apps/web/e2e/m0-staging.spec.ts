@@ -13,6 +13,7 @@ const apiAudience = process.env.RADBRAIN_STAGING_API_AUDIENCE;
 const unauthorizedTenantId = process.env.RADBRAIN_STAGING_UNAUTHORIZED_TENANT_ID;
 const studentToken = process.env.RADBRAIN_STAGING_STUDENT_TOKEN;
 const adminToken = process.env.RADBRAIN_STAGING_ADMIN_TOKEN;
+const expiredToken = process.env.RADBRAIN_STAGING_EXPIRED_TOKEN;
 const wrongAudienceToken = process.env.RADBRAIN_STAGING_WRONG_AUDIENCE_TOKEN;
 
 function required(name: string, value: string | undefined): string {
@@ -39,7 +40,9 @@ test.describe('M0 staging acceptance', () => {
     required('RADBRAIN_STAGING_UNAUTHORIZED_TENANT_ID', unauthorizedTenantId);
     required('RADBRAIN_STAGING_STUDENT_TOKEN', studentToken);
     required('RADBRAIN_STAGING_ADMIN_TOKEN', adminToken);
+    required('RADBRAIN_STAGING_EXPIRED_TOKEN', expiredToken);
     required('RADBRAIN_STAGING_WRONG_AUDIENCE_TOKEN', wrongAudienceToken);
+
   });
 
   test('OIDC membership, negative authorization, and logout', async ({ page, request }) => {
@@ -56,6 +59,12 @@ test.describe('M0 staging acceptance', () => {
     const user = required('RADBRAIN_STAGING_TEST_USERNAME', username);
     const pass = required('RADBRAIN_STAGING_TEST_PASSWORD', password);
 
+    const callbackUrls: URL[] = [];
+    page.on('request', (browserRequest) => {
+      const requestUrl = new URL(browserRequest.url());
+      if (requestUrl.pathname === '/auth/callback') callbackUrls.push(requestUrl);
+    });
+
     const apiHealth = await request.get(`${apiUrl}/health/live`);
     expect(apiHealth.status()).toBe(200);
     const apiReady = await request.get(`${apiUrl}/health/ready`);
@@ -66,8 +75,15 @@ test.describe('M0 staging acceptance', () => {
     await page.getByLabel(/password/i).fill(pass);
     await page.getByRole('button', { name: /sign in|log in/i }).click();
     await page.waitForURL(`${webUrl}/`, { timeout: 60_000 });
-    const callbackUrl = new URL(page.url());
-    if (['code', 'access_token', 'id_token'].some((key) => callbackUrl.searchParams.has(key))) {
+    expect(callbackUrls.length).toBeGreaterThan(0);
+    for (const callbackUrl of callbackUrls) {
+      expect(callbackUrl.searchParams.get('code')).toBeTruthy();
+      expect(callbackUrl.searchParams.has('access_token')).toBe(false);
+      expect(callbackUrl.searchParams.has('id_token')).toBe(false);
+      expect(callbackUrl.searchParams.has('client_secret')).toBe(false);
+    }
+    const finalUrl = new URL(page.url());
+    if (['code', 'access_token', 'id_token'].some((key) => finalUrl.searchParams.has(key))) {
       throw new Error('OIDC callback URL contained credential material');
     }
     const student = required('RADBRAIN_STAGING_STUDENT_TOKEN', studentToken);
@@ -112,6 +128,15 @@ test.describe('M0 staging acceptance', () => {
       headers: { authorization: 'Bearer not-a-valid-token' }
     });
     expect(invalid.status()).toBe(401);
+
+    const expired = required('RADBRAIN_STAGING_EXPIRED_TOKEN', expiredToken);
+    const expiredClaims = decodeJwt(expired);
+    expect(expiredClaims.sub).toBe(subject);
+    expect(Number(expiredClaims.exp)).toBeLessThan(Math.floor(Date.now() / 1000));
+    const expiredResponse = await request.get(`${apiUrl}/v1/me`, {
+      headers: { authorization: `Bearer ${expired}` }
+    });
+    expect(expiredResponse.status()).toBe(401);
 
     const wrongToken = required('RADBRAIN_STAGING_WRONG_AUDIENCE_TOKEN', wrongAudienceToken);
     const wrongClaims = decodeJwt(wrongToken);
