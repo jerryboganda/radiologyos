@@ -1,0 +1,86 @@
+name: Verify production RLS
+
+# Runtime-role two-tenant negative proof against the deployed production
+# database. platform-postgres is reachable only on the VPS loopback
+# (127.0.0.1:15432), so the job tunnels out from the runner rather than
+# exposing a database port on the public interface.
+#
+# This is verification, not a release gate. M0 acceptance remains owned by
+# .github/workflows/m0-staging-rls.yml on the protected `staging` environment.
+
+on:
+  workflow_run:
+    workflows: ["Deploy production (shared platform VPS)"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-production-rls
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+
+      - name: Configure SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Pin the host key
+        env:
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh-keygen -lf ~/.ssh/known_hosts
+
+      - name: Open the database tunnel
+        env:
+          VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes \
+            -N -L 15433:127.0.0.1:15432 "root@${VPS_SSH_HOST}" &
+          echo "$!" > /tmp/tunnel.pid
+          for _ in $(seq 1 30); do
+            if (echo > /dev/tcp/127.0.0.1/15433) 2>/dev/null; then
+              echo "tunnel up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "tunnel did not come up" >&2; exit 1
+
+      - name: Close the database tunnel
+        if: always()
+        run: |
+          if [ -f /tmp/tunnel.pid ]; then kill "$(cat /tmp/tunnel.pid)" 2>/dev/null || true; fi
+
+      - name: Run the two-tenant runtime-role proof
+        env:
+          RADBRAIN_RLS_REQUIRED: '1'
+          RADBRAIN_RLS_ADMIN_DATABASE_URL: ${{ secrets.RADBRAIN_PROD_RLS_ADMIN_DATABASE_URL }}
+          RADBRAIN_RLS_RUNTIME_DATABASE_URL: ${{ secrets.RADBRAIN_PROD_RLS_RUNTIME_DATABASE_URL }}
+        run: python -m pytest -q evals/checks/test_rls_live.py
