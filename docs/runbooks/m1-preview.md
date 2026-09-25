@@ -23,13 +23,13 @@ slice has its own runbook with its own verification gate:
 
 ## Boundary
 
-Preview mode exists so later-slice contracts can be exercised while protected staging
-is unavailable. It is enabled only when `APP_ENV` is `dev`, `development`, or `test`
+Preview mode exists so later-slice contracts can be exercised before release evidence
+exists. It is enabled only when `APP_ENV` is `dev`, `development`, or `test`
 and `PREVIEW_ENABLED=true`. Production, staging, and unknown environments reject the
 setting at startup. Preview state is process-local, synthetic, and not RLS evidence.
 
 Never use preview output as clinical guidance, exam validation, model-quality
-evidence, billing evidence, deletion evidence, staging acceptance, or release
+evidence, billing evidence, deletion evidence, M0 acceptance, or release
 approval. Do not paste private study material, patient data, DICOM, credentials, or
 provider keys into the preview.
 
@@ -71,8 +71,8 @@ python scripts/generate_openapi_types.py
 ```
 
 Run Compose, browser, database/RLS, integration, security, eval, and performance
-checks in GitHub Actions. Preview browser tests must not reuse protected M0 staging
-credentials or claim staging evidence.
+checks in GitHub Actions. Preview browser tests must not reuse production credentials
+or claim release evidence.
 
 ## Common failures
 
@@ -88,6 +88,5 @@ credentials or claim staging evidence.
 ## Removal before release
 
 Disable `PREVIEW_ENABLED`, remove `/preview` navigation and proxy resources, delete
-synthetic preview state, regenerate the contract, and run the protected staging gates
-in [`m0-staging-acceptance.md`](m0-staging-acceptance.md). Preview implementation
-does not close any A–Z acceptance row.
+synthetic preview state, regenerate the contract, and run the production verification
+chain defined by ADR 0008. Preview implementation does not close any A–Z acceptance row.

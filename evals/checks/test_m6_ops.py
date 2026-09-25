@@ -8,7 +8,7 @@ verified without a billing provider:
 
 Stripe webhooks, caps enforcement against a real provider, and the
 load/backup/restore evidence in slice V need a provider decision and the
-protected staging environment; they are recorded as open, not simulated.
+    production release evidence; they are recorded as open, not simulated.
 
 All content is synthetic.
 """

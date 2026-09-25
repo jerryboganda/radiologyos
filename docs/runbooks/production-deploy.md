@@ -4,10 +4,10 @@
 - Scope: deploying radbrain to `185.252.233.186` on the shared platform stack
 - Related: [ADR 0007](../decisions/0007-production-on-shared-platform.md),
   [ADR 0006](../decisions/0006-non-release-preview-mode.md),
-  [M0 staging acceptance](m0-staging-acceptance.md)
+  [ADR 0008](../decisions/0008-evidence-based-m0-acceptance.md)
 
-Production deployment is **not** M0 acceptance. Acceptance still runs on the
-protected `staging` environment and is unchanged.
+Production deployment is **not** M0 acceptance by itself. Acceptance requires the
+same-commit OIDC, RLS, backup, security, and compliance evidence described by ADR 0008.
 
 ## What runs where
 

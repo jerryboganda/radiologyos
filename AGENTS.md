@@ -16,9 +16,9 @@
 
 ADR 0006 permits M1–M7 implementation in an explicitly local/test-only preview mode
 using synthetic or mock/local data. This is an implementation-sequencing exception,
-not a staging or release acceptance exception: M0–M7 exit gates, human approvals,
-tenant isolation, provenance, privacy, and provider decisions remain unchanged. Preview
-artifacts must be labelled non-release and must never be presented as staging evidence.
+not a release acceptance exception: M0–M7 exit evidence, tenant isolation, provenance,
+privacy, and provider decisions remain required under ADR 0008. Preview artifacts must
+be labelled non-release and must never be presented as release evidence.
 
 ## Product and safety boundaries
 
@@ -75,9 +75,10 @@ production builds, security/dependency scans, evals, and performance/load checks
 runs are limited to lightweight syntax, unit, lint, type, and diff checks. A local pass
 must never be reported as a substitute for a missing or failed Actions result.
 
-The protected `staging` GitHub Environment is the only environment authorized to execute
-M0 staging acceptance. Its configuration, required reviewers, and secret names are
-operational prerequisites; secrets and credentials must never be committed or printed.
+M0 acceptance is evidence-based and automated through the production deployment,
+OIDC, RLS, backup, security, and compliance workflows defined by ADR 0008. Production
+credentials and secret names are operational prerequisites; secrets and credentials
+must never be committed or printed.
 The test-only `@playwright/test` dependency is pinned in the web lockfile for the manual
 GitHub Actions browser acceptance workflow; it is not shipped in the web runtime.
 
@@ -87,8 +88,8 @@ radbrain is deployed in production on the shared platform VPS (`185.252.233.186`
 See [ADR 0007](docs/decisions/0007-production-on-shared-platform.md) and the
 [deploy runbook](docs/runbooks/production-deploy.md).
 
-- Production deployment is not acceptance. M0-M7 exit gates, staging evidence, and
-  human approvals are unchanged by a successful deploy.
+- Production deployment is not acceptance by itself. M0-M7 exit evidence must pass
+  for the same commit SHA through the required verification workflows.
 - This project starts no backing service of its own. Postgres, Redis, and MinIO come
   from the shared `platform` project under `/opt/platform`, whose `PLATFORM-RULES.md`
   is mandatory: no project runs its own Postgres/Redis/MinIO, no port is published on

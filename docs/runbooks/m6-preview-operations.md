@@ -9,8 +9,8 @@ Related: [ADR 0006](../decisions/0006-non-release-preview-mode.md), [M1 preview 
 
 This document covers preview-mode operations only. It does not approve production
 storage, Stripe configuration, retention periods, backup encryption, restore authority,
-or release. Real M6 acceptance requires the protected staging environment and Actions
-evidence described in [`m0-staging-acceptance.md`](m0-staging-acceptance.md).
+or release. Real M6 acceptance requires the ADR 0008 evidence chain and milestone-specific
+Actions evidence described in the release checklist.
 
 ## Load smoke and the production load check
 

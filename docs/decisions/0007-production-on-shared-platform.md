@@ -11,10 +11,8 @@
 radbrain needed a deployment target. The only infrastructure available is the
 existing VPS at `185.252.233.186`, which runs a shared platform stack
 (`/opt/platform`: one Postgres, one MinIO, one Redis, one Soketi) plus roughly
-fifteen application stacks. `AGENTS.md` states that the protected `staging`
-GitHub Environment is the only environment authorised to execute M0 staging
-acceptance, and the platform rules forbid any project from running its own
-backing services.
+fifteen application stacks. The platform rules forbid any project from running its
+own backing services, and M0 acceptance is governed by ADR 0008.
 
 Two options were available: provision dedicated backing services for radbrain,
 or join the shared platform. The owner directed the shared platform, on the
@@ -74,12 +72,12 @@ publishes no host port.
 
 ## What this decision does not do
 
-- It does not satisfy M0 staging acceptance. That gate still requires the
-  protected `staging` environment, its reviewers, and human approval
-  references, and it is unchanged.
+- It does not satisfy M0 acceptance by itself. The same commit must pass the
+  automated production evidence chain defined by ADR 0008.
 - It does not enable the non-release preview surface on the public host.
-  `PREVIEW_ENABLED` is `false` in `app.env` per ADR 0006; the preview surface
-  is verified from inside the platform network, not exposed publicly.
+  `PREVIEW_ENABLED` is `false` in `app.env` per ADR 0006. ADR 0009 later
+  enabled it behind authentication, which is a change to ADR 0006 rather than to
+  this decision; the hosting topology here is unaffected.
 - It does not select an identity provider. The OIDC variables are empty, so
   the deployment runs without federated sign-in. Choosing an IdP is a human
   decision.

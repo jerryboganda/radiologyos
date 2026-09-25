@@ -25,65 +25,41 @@ EVAL_FIXTURE = ROOT / "evals" / "fixtures" / "synthetic_smoke_v1.json"
 PROMPT_ROOT = ROOT / "packages" / "prompts"
 
 
-E2E_BROWSER = ROOT / "apps" / "web" / "e2e" / "m0-staging.spec.ts"
-STAGING_WORKFLOW = ROOT / ".github" / "workflows" / "m0-staging-acceptance.yml"
-STAGING_RLS_WORKFLOW = ROOT / ".github" / "workflows" / "m0-staging-rls.yml"
+OIDC_WORKFLOW = ROOT / ".github" / "workflows" / "verify-production-oidc.yml"
+RLS_WORKFLOW = ROOT / ".github" / "workflows" / "verify-production-rls.yml"
 REMAINING_WORK = ROOT / "docs" / "remaining-work.md"
 PREVIEW_ADR = ROOT / "docs" / "decisions" / "0006-non-release-preview-mode.md"
 ENV_EXAMPLE = ROOT / ".env.example"
 PREVIEW_RUNBOOK = ROOT / "docs" / "runbooks" / "m1-preview.md"
 
 
-def test_compute_policy_and_staging_workflow_are_fail_closed() -> None:
-    workflow = STAGING_WORKFLOW.read_text(encoding="utf-8")
-    rls_workflow = STAGING_RLS_WORKFLOW.read_text(encoding="utf-8")
-    e2e = E2E_BROWSER.read_text(encoding="utf-8")
+def test_compute_policy_and_production_verification_are_fail_closed() -> None:
+    workflow = OIDC_WORKFLOW.read_text(encoding="utf-8")
+    rls_workflow = RLS_WORKFLOW.read_text(encoding="utf-8")
     agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     claude = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
-    config = (ROOT / "apps" / "web" / "playwright.config.ts").read_text(encoding="utf-8")
 
     assert "workflow_dispatch:" in workflow
-    assert "environment: staging" in workflow
+    assert "environment: production" in workflow
     assert "workflow_dispatch:" in rls_workflow
-    assert "environment: staging" in rls_workflow
-    assert "RADBRAIN_STAGING_RLS_ADMIN_DATABASE_URL" in rls_workflow
-    assert "RADBRAIN_STAGING_RLS_RUNTIME_DATABASE_URL" in rls_workflow
+    assert "environment: production" in rls_workflow
+    assert "RADBRAIN_RLS_ADMIN_DATABASE_URL" in rls_workflow
+    assert "RADBRAIN_RLS_RUNTIME_DATABASE_URL" in rls_workflow
     assert "RADBRAIN_RLS_REQUIRED" in rls_workflow
-    assert "test \"$CANDIDATE_REVISION\" = \"$GITHUB_SHA\"" in rls_workflow
-    assert "Require green CI for the exact candidate" in rls_workflow
-    assert "ref: ${{ github.sha }}" in rls_workflow
     assert "permissions:" in rls_workflow
     assert "evals/checks/test_rls_live.py" in rls_workflow
     assert "upload-artifact" not in rls_workflow
-    assert "RADBRAIN_STAGING_TEST_PASSWORD" in workflow
-    assert "RADBRAIN_STAGING_STUDENT_TOKEN" in workflow
-    assert "RADBRAIN_STAGING_ADMIN_TOKEN" in workflow
-    assert "RADBRAIN_STAGING_EXPIRED_TOKEN" in workflow
-    assert "RADBRAIN_STAGING_WRONG_AUDIENCE_TOKEN" in workflow
-    assert "RADBRAIN_STAGING_DEPLOYED_REVISION" in workflow
-    assert "npm ci --ignore-scripts" in workflow
-    assert "npm run typecheck:staging" in workflow
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     assert "gh run watch" in makefile
-    assert "m0-staging-rls.yml" in makefile
+    assert "verify-production-rls.yml" in makefile
     assert "rls: ci" not in makefile
     assert "security-scan: ci" in makefile
-    assert "playwright install --with-deps chromium" in workflow
     assert "upload-artifact" not in workflow
-    assert "screenshot: 'off'" in config
-    assert "trace: 'off'" in config
-    assert "video: 'off'" in config
-    assert "console.log" not in e2e
-    assert "callbackUrls" in e2e
-    assert "access_token" in e2e
+    assert "VPS_SSH_HOST" in workflow
+    assert "verify-oidc.py" in workflow
     assert "GitHub Actions" in agents and "GitHub Actions" in claude
     assert "Non-release preview exception" in agents
     assert "Non-release preview exception" in claude
-    package_json = (ROOT / "apps" / "web" / "package.json").read_text(encoding="utf-8")
-    assert "typecheck:staging" in package_json
-    assert "npm run test:staging" in workflow
-    assert "ref: ${{ github.sha }}" in workflow
-    assert "ref: ${{ inputs.revision }}" not in workflow
 
     goal = REMAINING_WORK.read_text(encoding="utf-8")
     headings = (

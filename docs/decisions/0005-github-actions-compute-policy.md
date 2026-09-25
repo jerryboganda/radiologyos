@@ -5,6 +5,9 @@ Date: 2026-09-25
 Decision owners: engineering, security, and release reviewers
 Scope: CI, integration, browser, database, build, scan, eval, and performance verification
 
+ADR 0008 supersedes this ADR's former M0 staging-environment and human-review gate.
+The repository-wide GitHub Actions compute policy remains active.
+
 ## Context
 
 The repository has multiple verification classes with different privacy and resource

@@ -399,6 +399,6 @@ def test_two_tenant_rls_against_runtime_role() -> None:
     }
     if not required.issubset(os.environ):
         if os.environ.get("RADBRAIN_RLS_REQUIRED") == "1":
-            pytest.fail("staging RLS proof requires disposable admin/runtime PostgreSQL URLs")
+            pytest.fail("RLS proof requires disposable admin/runtime PostgreSQL URLs")
         pytest.skip("set disposable admin/runtime PostgreSQL URLs to run live RLS proof")
     asyncio.run(_assert_tenant_isolation())

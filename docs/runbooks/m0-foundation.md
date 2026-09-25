@@ -1,7 +1,7 @@
 # M0 Foundation runbook and five-minute demo
 
-Status: **CI/runtime verified; staging workflow implemented; staging OIDC acceptance pending**
-Scope: local development scaffold and staging acceptance for M0 only
+Status: **CI/runtime verified; production verification workflow implemented; M0 evidence pending**
+Scope: local development scaffold and production evidence acceptance for M0 only
 Related: [`data handling`](data-handling.md), [RLS ADR](../decisions/0001-tenant-isolation-rls.md), [model gate](../decisions/0002-model-provider-gate.md)
 
 ## 1. Purpose and exit contract
@@ -10,8 +10,8 @@ M0 establishes the monorepo, Compose development stack, PostgreSQL with pgvector
 tenant RLS, OIDC login and membership, generated TypeScript API contracts, CI,
 observability skeleton, and health endpoints.
 
-M0 is complete only when all four specification conditions have fresh staging
-evidence:
+M0 is complete only when all four specification conditions have fresh evidence for
+the same production candidate commit:
 
 1. `make up` brings up the required stack.
 2. A real user logs in through OIDC and receives only an authorized tenant/role.
@@ -21,9 +21,9 @@ evidence:
 CI run `36143277301` for revision `5ac9eff` is green. It verifies Python, web,
 OpenAPI reproducibility, security scans, Compose validation, live migrations, the
 non-privileged two-tenant RLS proof, and the full runtime Compose startup/API-web-
-worker health path. This is strong CI/runtime evidence, but it is not staging OIDC or
-staging RLS evidence; keep the checklist unchecked until both protected workflows and
-the required reviews are recorded.
+worker health path. This is strong CI/runtime evidence, but it is not production
+OIDC/RLS acceptance evidence; keep the checklist unchecked until the production
+verification chain records all required results for one candidate.
 
 ## 2. Architecture and service map
 
@@ -180,17 +180,17 @@ membership lookup, refresh behavior, MFA, audit, or production rejection.
    capability is added.
 
 OIDC browser login and membership enforcement are implemented in the scaffold, but
-remain **unaccepted** until this flow is captured on staging. The API resolves the
+remain **unaccepted** until the production verification flow captures the result. The API resolves the
 verified subject against current active database memberships. A tenant-scoped
 session then sets transaction-local `app.tenant_id` before data access; the web shell
 must still pass a real API identity through the complete flow.
 
 ## 8. Tenant-isolation acceptance
 
-Run `make rls`; it dispatches the protected runtime-role proof documented in
-[`m0-staging-acceptance.md`](m0-staging-acceptance.md). Evidence must show the test
-connected as the non-privileged runtime role, not a PostgreSQL superuser or table
-owner. Follow [ADR 0001](../decisions/0001-tenant-isolation-rls.md): two tenants
+Run `make rls`; it dispatches the production runtime-role proof documented in the
+`verify-production-rls.yml` workflow. Evidence must show the test connected as the
+non-privileged runtime role, not a PostgreSQL superuser or table owner. Follow
+[ADR 0001](../decisions/0001-tenant-isolation-rls.md): two tenants
 attempt every applicable read/write path; context is absent on a reused connection;
 invalid context fails closed; the Core policy is narrow; privileged roles have no
 bypass.
@@ -284,8 +284,9 @@ approved disaster-recovery action; do not improvise it on a shared environment.
 
 ## 12. Five-minute demo from a clean tenant
 
-Use staging, synthetic users/data, and a redacted screen. A placeholder or route
-skeleton may be demonstrated as such, but the final M0 verdict is based on evidence.
+Use the deployed candidate, synthetic users/data, and a redacted screen. A placeholder
+or route skeleton may be demonstrated as such, but the final M0 verdict is based on
+evidence.
 
 | Time | Action | Expected evidence |
 | --- | --- | --- |
@@ -312,7 +313,7 @@ Demo rules:
 
 Attach or link only redacted, non-sensitive evidence:
 
-- revision/image digest and staging deployment ID;
+- revision/image digest and deployment ID;
 - date/operator role and Compose profile/config variant (secrets omitted);
 - health responses and service status;
 - migration head and runtime-role attribute check;
@@ -325,15 +326,13 @@ Attach or link only redacted, non-sensitive evidence:
 Do not attach environment files, database dumps, raw tokens, source pages, prompts,
 private paths/file listings, or screenshots containing secrets/private content.
 
-## 13.1 GitHub Actions-only compute and staging acceptance
+## 13.1 GitHub Actions-only compute and production acceptance evidence
 
-All compute-intensive verification is dispatched to GitHub Actions. The protected OIDC
-and runtime-role RLS procedures, exact variable/secret inventory, dispatch metadata,
-failure handling, and evidence rules are maintained in
-[`m0-staging-acceptance.md`](m0-staging-acceptance.md). Both workflows are manual, run
-from `main`, check out an exact 40-character revision, and target the protected
-`staging` GitHub Environment. Configure required reviewers before dispatch; a workflow
-success is not security or release approval.
+All compute-intensive verification is dispatched to GitHub Actions. Production OIDC
+and runtime-role RLS procedures run after deployment through
+`verify-production-oidc.yml` and `verify-production-rls.yml`. The checks use redacted
+evidence and protected production configuration; a workflow success must be paired
+with the other same-commit release checks.
 
 ## 13.2 Verified CI/runtime evidence
 - **Revision:** `5ac9eff` (`5ac9efff27dbc7aafd31cc3bb6de5748a6fc91b5`)
@@ -341,38 +340,39 @@ success is not security or release approval.
 - **Green jobs:** Python checks, Web checks, OpenAPI contract, Security scans, Compose validation, Full runtime Compose, and Migration/RLS validation.
 - **Live database proof:** migrations reached head and the current RLS proof passed through the non-privileged application role in CI.
 - **Runtime proof:** the real API, Celery worker, PostgreSQL, Redis, RustFS, Keycloak, and web services started in GitHub Actions; API/web health and worker ping passed.
-- **Not included:** protected staging OIDC browser login/logout, protected staging RLS execution, staging trace review, and release/security approvals.
+- **Not included:** production OIDC/RLS verification and the remaining same-commit
+   release evidence, which must be captured for the candidate under ADR 0008.
 
 ## 14. Current limitations and escalation
 
-The M0 runtime and CI evidence is recorded above. Confirm staging configuration and
-actual ports before the staging acceptance demo.
+The M0 runtime and CI evidence is recorded above. Confirm production configuration and
+actual ports before the acceptance demo.
 The web shell now exchanges the code, verifies the ID token, and calls the API with the
 access token so the session stores only API-authorized tenant/role values. A successful
-browser redirect alone is still not staging evidence; run the full flow and record
+browser redirect alone is not acceptance evidence; run the full flow and record
 redacted results.
 Escalate to:
 
 - **security owner** for RLS, auth, credential, cross-tenant, or sensitive-log issues;
 - **platform owner** for Compose/Postgres/Redis/RustFS/Keycloak availability;
 - **application owner** for API/web contract or migration incompatibilities;
-- **release owner** for failed staging exit evidence or rollback.
+- **release owner** for failed exit evidence or rollback.
 
 ## 15. M0 completion checklist
 
 - [x] `make up` equivalent full Compose startup and migration to head pass in CI
 - [x] liveness/readiness and web health are meaningful, not constant success shells
 - [ ] real OIDC login/callback/logout works with membership-derived tenant/role
-- [ ] unauthorized switch, invalid token, and role denial are proven on staging
+- [ ] unauthorized switch, invalid token, and role denial are proven in production verification
 - [x] CI two-tenant RLS/no-context suite passes as non-privileged runtime role
-- [ ] staging two-tenant RLS/no-context suite passes as non-privileged runtime role
+- [ ] production two-tenant RLS/no-context suite passes as non-privileged runtime role
 - [x] OpenAPI-to-TypeScript generation and repository checks pass
 - [x] CI is green on the candidate revision (`5ac9eff`, run `36143277301`)
 - [x] full runtime Compose startup, API/web health, and worker ping pass in CI
 - [x] observability skeleton emits bounded redacted request signals
-- [ ] staging trace/metric review is recorded
-- [ ] staging OIDC login/callback/logout works with membership-derived tenant/role
+- [ ] production trace/metric review is recorded
+- [ ] production OIDC login/callback/logout works with membership-derived tenant/role
 - [ ] no open critical/high security finding
 - [ ] runbook and clean-tenant five-minute demo are current and approved
-Record the evidence and obtain the designated engineering/security/release approvals.
-Until then, report **M0 in progress**, not complete.
+Record the evidence for the same candidate commit. Until then, report **M0 in progress**,
+not complete.

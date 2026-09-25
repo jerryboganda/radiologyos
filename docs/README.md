@@ -19,7 +19,7 @@ milestones defined by the implementation specification.
 | GitHub Actions compute policy | [`decisions/0005-github-actions-compute-policy.md`](decisions/0005-github-actions-compute-policy.md) |
 | Non-release preview boundary | [`decisions/0006-non-release-preview-mode.md`](decisions/0006-non-release-preview-mode.md) |
 | Production on the shared platform VPS | [`decisions/0007-production-on-shared-platform.md`](decisions/0007-production-on-shared-platform.md) |
-| Protected M0 staging and RLS acceptance | [`runbooks/m0-staging-acceptance.md`](runbooks/m0-staging-acceptance.md) |
+| M0 production evidence and RLS acceptance | [`runbooks/m0-foundation.md`](runbooks/m0-foundation.md) |
 | Production deploy, rollback, and known gaps | [`runbooks/production-deploy.md`](runbooks/production-deploy.md) |
 | Local M1–M7 preview operation | [`runbooks/m1-preview.md`](runbooks/m1-preview.md) |
 | Local M1–M7 preview operation | [`runbooks/m1-preview.md`](runbooks/m1-preview.md) |
@@ -47,10 +47,10 @@ milestones defined by the implementation specification.
 - radbrain is deployed in production on the shared platform VPS. It starts no
   backing service of its own: Postgres, Redis and MinIO come from the shared
   `platform` project. See [`runbooks/production-deploy.md`](runbooks/production-deploy.md).
-- Production deployment is **not** acceptance. M0–M7 exit gates, staging
-  evidence, and human approvals remain open and unchanged.
+- Production deployment is **not** acceptance by itself. M0–M7 exit evidence must
+  pass for the same commit through the required verification workflows.
 - The non-release preview surface is disabled on the public host
   (`PREVIEW_ENABLED=false`). Do not infer M0 or any later acceptance from the
   preview, from the deployment, or from this documentation.
-- Compute-intensive checks are dispatched with `make ci` or the protected
-  staging workflow; local results are not staging evidence.
+- Compute-intensive checks are dispatched with `make ci` and the production
+  verification workflows; local results are not release evidence.

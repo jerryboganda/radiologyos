@@ -9,7 +9,7 @@
 - Read the relevant file under `docs/runbooks/` and `docs/decisions/` before
   operational, security, data, or model changes.
 - Work M0 through M7 in order. Do not start the next milestone before the current
-  exit test passes on staging.
+  milestone passes its authoritative exit evidence under ADR 0008.
 - Record every non-trivial architectural or policy choice as a one-paragraph ADR
   in `docs/decisions/NNNN-title.md`.
 
@@ -30,9 +30,9 @@
 ## Non-release preview exception
 
 ADR 0006 permits M1–M7 implementation in explicitly local/test-only preview mode
-using synthetic or mock/local data. It does not change the M0–M7 staging exit gates,
-human approvals, tenant/RLS requirements, provider decisions, or release status.
-Preview artifacts must be labelled non-release and cannot be used as staging evidence.
+using synthetic or mock/local data. It does not change the M0–M7 exit evidence,
+tenant/RLS requirements, provider decisions, or release status defined by ADR 0008.
+Preview artifacts must be labelled non-release and cannot be used as release evidence.
 
 ## Hard rules
 
@@ -82,11 +82,10 @@ production builds, security/dependency scans, evals, and performance/load checks
 runs are limited to lightweight syntax, unit, lint, type, and diff checks. A local pass
 must never be reported as a substitute for a missing or failed Actions result.
 
-M0 staging acceptance runs only in the protected `staging` GitHub Environment through
-[`m0-staging-acceptance.yml`](.github/workflows/m0-staging-acceptance.yml) and
-[`m0-staging-rls.yml`](.github/workflows/m0-staging-rls.yml). Required reviewer
-configuration and secrets are external prerequisites; never commit or print credentials,
-tokens, passwords, private paths, or tenant content.
+M0 acceptance evidence runs through the production deployment chain and its
+`verify-production-oidc.yml` and `verify-production-rls.yml` checks. Required
+production configuration and secrets are external prerequisites; never commit or print
+credentials, tokens, passwords, private paths, or tenant content.
 
 ## Stop and ask before
 

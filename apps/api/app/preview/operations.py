@@ -37,7 +37,7 @@ def markdown_export(state: PreviewState, tenant_id: UUID, owner_id: UUID) -> str
 
 
 def capabilities() -> list[dict[str, str]]:
-    blocked_note = "Staging acceptance and approvals remain open."
+    blocked_note = "M0 release evidence remains open."
     preview_note = "Synthetic local contract implemented; not accepted."
     return (
         [{"slice": letter, "status": "blocked", "note": blocked_note} for letter in "ABCD"]

@@ -1,7 +1,7 @@
 # CONTEXT.md — radbrain current implementation context
 
-Last reviewed: **2026-09-25**
-Milestone: **M0 Foundation — CI/runtime verified; staging workflow ready; staging OIDC exit not yet accepted**
+Last reviewed: **2026-09-26**
+Milestone: **M0 Foundation — CI/runtime verified; production verification chain exists; M0 evidence not yet accepted**
 Preview implementation: **M1–M7 may be built locally under ADR 0006; acceptance remains blocked**
 Canonical requirements: [`docs/SPEC.md`](docs/SPEC.md)
 
@@ -34,7 +34,7 @@ not a usable upload/search product yet.
 - `docs`: product index, runbooks, and decision records.
 
 Directories named in the target architecture can exist before their behavior. Use
-tests and staging evidence, not directory presence, to determine maturity.
+executable verification evidence, not directory presence, to determine maturity.
 
 ## Commands currently defined
 
@@ -45,13 +45,13 @@ tests and staging evidence, not directory presence, to determine maturity.
 | `make migrate` | Apply Alembic migrations to the configured database. |
 | `make check` | Run lightweight local lint, type, Python test, and web checks. |
 | `make test` | Run Python unit tests. |
-| `make rls` | Dispatch the protected runtime-role RLS workflow through GitHub Actions. |
+| `make rls` | Dispatch the production runtime-role RLS verification through GitHub Actions. |
 | `make types` | Generate TypeScript API types from OpenAPI. |
 | `make security-scan` | Dispatch the security scan through GitHub Actions. |
 | `make ci` | Dispatch CI for the current revision and wait for its result. |
 
 `make check` is the broad local gate, but success does not substitute for a Compose
-integration test, OIDC browser login, a real two-tenant database test, or CI.
+integration test, production OIDC verification, a real two-tenant database proof, or CI.
 
 ## Current API behavior and boundaries
 
@@ -59,9 +59,10 @@ integration test, OIDC browser login, a real two-tenant database test, or CI.
 - Local routes accept `x-user-id`, `x-tenant-id`, and optional `x-role` headers only
   when `APP_ENV` is `dev`, `development`, or `test`. This is not OIDC and must never
   be enabled in staging, production, or unknown environments.
-- The web scaffold implements an OIDC authorization-code/PKCE session shell, but
-  full Keycloak browser login is an M0 exit condition only after the API resolves
-  the authenticated subject to a current, authorized tenant membership and role.
+- The web scaffold implements an OIDC authorization-code/PKCE session shell. Full
+  Keycloak browser login remains an M0 exit condition only after production
+  verification proves the API resolves the authenticated subject to a current,
+  authorized tenant membership and role.
 - Tenant context is a Python `ContextVar`; authenticated OIDC requests resolve the
   current active membership from the database before a tenant-scoped session is opened.
   `tenant_session()` sets transaction-local `app.tenant_id` immediately before tenant
@@ -84,7 +85,8 @@ Do not place keys in browser-visible configuration.
 
 ## M0 definition of done
 
-M0 is complete only when all of the following have evidence on staging:
+M0 is complete only when all of the following have evidence for the same production
+candidate commit, as defined by ADR 0008:
 
 - `make up` brings up the required stack and health checks pass.
 - A real user signs in through OIDC, receives the correct tenant/role membership,
@@ -107,12 +109,13 @@ A–Z goal is tracked in [`docs/remaining-work.md`](docs/remaining-work.md).
   local test.
 - The model provider, embedding provider, launch data region, and monthly spend cap
   are unapproved. The model ADR is a gate, not a selection.
-- The protected M0 staging workflow is implemented but cannot be accepted until the
-  `staging` GitHub Environment has required reviewers, variables, and protected secrets.
+- The production M0 verification chain is implemented but M0 cannot be accepted until
+  the same commit passes deployment, OIDC, RLS, backup, security, and compliance
+  evidence checks.
 - CI run `36143277301` on revision `5ac9eff` is green, including full runtime Compose
   startup, live migrations, and the non-privileged two-tenant RLS proof. The checkout
-  also contains protected OIDC and staging-RLS workflow definitions plus a local
-  synthetic preview; protected staging OIDC/browser acceptance, staging RLS, trace
-  review, and release/security approvals remain outstanding.
+  also contains production OIDC/RLS verification definitions plus a local synthetic
+  preview; current production verification evidence still needs to be captured for a
+  single release candidate.
 - Curriculum validation/weights, Core Library sourcing, pricing, retention changes,
   and launch cohort details require human decisions.

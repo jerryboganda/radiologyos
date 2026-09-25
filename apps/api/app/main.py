@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from typing import Annotated, Any, cast
 from uuid import UUID, uuid4
 
+from apps.api.app.api.billing import router as billing_router
 from apps.api.app.api.preview import router as preview_router
 from apps.api.app.api.preview_admin import router as preview_admin_router
 from apps.api.app.api.preview_assessment import router as preview_assessment_router
@@ -13,19 +13,20 @@ from apps.api.app.api.preview_operations import router as preview_operations_rou
 from apps.api.app.core.config import get_settings
 from apps.api.app.db.session import (
     get_system_session,
-    tenant_context,
-    tenant_session,
 )
 from apps.api.app.observability import logger
 from apps.api.app.schemas.common import ErrorResponse, HealthResponse, TenantResponse
+from apps.api.app.security.context import (
+    build_shared_dependencies,
+    build_tenant_db_session_dependency,
+    local_principal,
+)
 from apps.api.app.security.oidc import (
-    OIDCVerificationError,
     OIDCVerifier,
-    resolve_current_membership,
 )
 from apps.api.app.security.principal import Principal, require_roles
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.security import HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import RequestResponseEndpoint
@@ -41,6 +42,7 @@ settings = get_settings()
 bearer_scheme = HTTPBearer(auto_error=False)
 oidc_verifier = OIDCVerifier(settings)
 app.include_router(preview_router)
+app.include_router(billing_router)
 app.include_router(preview_knowledge_router)
 app.include_router(preview_learning_router)
 app.include_router(preview_assessment_router)
@@ -100,84 +102,18 @@ def _local_principal(
     x_tenant_id: str | None,
     x_role: str | None,
 ) -> Principal | None:
-    if not x_user_id or not x_tenant_id:
-        return None
-    try:
-        user_id = UUID(x_user_id)
-        tenant_id = UUID(x_tenant_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="invalid local identity") from exc
-    allowed_roles = {"student", "editor", "org_admin", "superadmin"}
-    role = x_role or "student"
-    if role not in allowed_roles:
-        raise HTTPException(status_code=400, detail="invalid local role")
-    return Principal(user_id=user_id, tenant_id=tenant_id, role=role)
+    """Retained as a thin alias so existing importers keep working."""
+    return local_principal(x_user_id, x_tenant_id, x_role)
 
 
-async def principal_from_request(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
-    request: Request,
-    session: Annotated[AsyncSession, Depends(get_system_session)],
-    x_user_id: str | None = Header(default=None),
-    x_tenant_id: str | None = Header(default=None),
-    x_role: str | None = Header(default=None),
-) -> Principal:
-    """Authenticate OIDC access and resolve current membership from the database."""
-    if credentials is not None:
-        if credentials.scheme.lower() != "bearer":
-            raise HTTPException(status_code=401, detail="bearer token required")
-        try:
-            identity = oidc_verifier.verify(credentials.credentials)
-            principal = await resolve_current_membership(session, identity.subject)
-        except OIDCVerificationError as exc:
-            raise HTTPException(status_code=401, detail="invalid access token") from exc
-        request.state.tenant_id = principal.tenant_id
-        request.state.requires_tenant_session = True
-        return principal
+# Principal resolution lives in apps.api.app.security.context so that every
+# router shares one implementation and the production/local identity rule cannot
+# drift between routes. These names remain here as the app's bound instances.
+principal_from_request, principal_context = build_shared_dependencies()
 
-    if not settings.is_local_development:
-        raise HTTPException(status_code=401, detail="OIDC token required")
-
-    local_principal = _local_principal(x_user_id, x_tenant_id, x_role)
-    if local_principal is None:
-        raise HTTPException(status_code=401, detail="authentication required")
-    request.state.tenant_id = local_principal.tenant_id
-    request.state.local_tenant_id = local_principal.tenant_id
-    request.state.requires_tenant_session = False
-    return local_principal
-
-
-async def principal_context(
-    request: Request,
-    principal: Annotated[Principal, Depends(principal_from_request)],
-) -> AsyncIterator[Principal]:
-    if getattr(request.state, "requires_tenant_session", False):
-        async with tenant_session(principal.tenant_id) as session:
-            request.state.tenant_session = session
-            try:
-                yield principal
-            finally:
-                del request.state.tenant_session
-    else:
-        with tenant_context(principal.tenant_id):
-            yield principal
-
-
-async def tenant_db_session(
-    request: Request,
-    principal: Annotated[Principal, Depends(principal_context)],
-) -> AsyncIterator[AsyncSession]:
-    """Yield a transaction-local session for OIDC or explicitly local identity."""
-    session = getattr(request.state, "tenant_session", None)
-    if isinstance(session, AsyncSession):
-        yield session
-        return
-    local_tenant_id = getattr(request.state, "local_tenant_id", None)
-    if isinstance(local_tenant_id, UUID) and local_tenant_id == principal.tenant_id:
-        async with tenant_session(principal.tenant_id) as local_session:
-            yield local_session
-        return
-    raise HTTPException(status_code=500, detail="tenant session unavailable")
+# Session handling is defined beside the principal dependencies, so a request can
+# never have a tenant session opened by one module and closed by another.
+tenant_db_session = build_tenant_db_session_dependency(principal_context)
 
 
 @app.get(f"{settings.api_prefix}/me", response_model=TenantResponse, tags=["auth"])

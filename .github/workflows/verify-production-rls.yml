@@ -5,8 +5,8 @@ name: Verify production RLS
 # (127.0.0.1:15432), so the job tunnels out from the runner rather than
 # exposing a database port on the public interface.
 #
-# This is verification, not a release gate. M0 acceptance remains owned by
-# .github/workflows/m0-staging-rls.yml on the protected `staging` environment.
+# This is the runtime-role M0 acceptance evidence described by ADR 0008. It must
+# pass for the same commit as deployment and the other release verification jobs.
 
 on:
   workflow_run:

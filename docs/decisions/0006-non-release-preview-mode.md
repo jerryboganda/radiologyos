@@ -10,7 +10,7 @@ Scope: implementation sequencing for M1–M7 preview work
 The protected M0 staging Environment is not provisioned. The product specification
 requires milestone staging evidence before a later milestone can be claimed complete.
 Waiting for external infrastructure would prevent useful local development, but
-silently treating CI, mocks, or local tests as staging acceptance would make the
+silently treating CI, mocks, or local tests as release acceptance would make the
 milestone status false and could expose unsafe assumptions.
 
 ## Decision
@@ -33,14 +33,26 @@ following conditions hold:
    applicable; no staging, production, clinical, billing, or provider claim is made.
 4. Migrations remain expand-only and every new tenant table receives RLS and a
    non-privileged negative test before it can be considered implementation-complete.
-5. The M0 staging gate remains required for release. A green local check, mock route,
-   placeholder, or preview UI cannot close M0 or unlock a release claim.
+5. The M0 acceptance gate remains required for release. A green local check, mock route,
+   placeholder, or preview UI cannot close M0 or unlock a release claim. ADR 0008 defines
+   that gate as automated evidence rather than human sign-off.
 6. Provider, pricing, curriculum, retention, legal, and clinical decisions remain
    deferred unless a separate explicit human decision and ADR exists.
 
 Preview mode is a development sequencing aid, not a waiver of privacy, security,
 provenance, or evidence requirements. It must be removed or disabled before a release
 candidate is created.
+
+### Amendment by ADR 0009
+
+The preview surface is enabled on the production host behind authentication, which
+narrows the original "local and test environments only" rule. The conditions above
+still hold in full: synthetic fixtures, server-derived tenant context, RLS, a
+non-privileged negative test per tenant table, and preview labelling everywhere.
+The amendment is only about *where* the surface runs, not about what it may claim.
+Access is a verified OIDC token whose membership is resolved from the database;
+header-based identity remains local-only, and the application refuses to start with
+preview enabled outside local development unless an identity provider is configured.
 
 ## Consequences
 
@@ -65,5 +77,5 @@ candidate is created.
 - Unit and contract tests run locally for deterministic preview behavior.
 - Heavy integration, browser, database, security, and performance checks run in GitHub
   Actions when the candidate is published.
-- Release verification requires the protected staging workflows and recorded approvals;
+- Release verification requires the automated evidence chain defined by ADR 0008;
   preview mode alone never satisfies it.

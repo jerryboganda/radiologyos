@@ -12,6 +12,7 @@ from apps.api.app.db.session import (
     set_tenant_context,
     tenant_context,
 )
+from apps.api.app.security import context as security_context
 from apps.api.app.security.principal import Principal
 from fastapi import HTTPException
 
@@ -49,7 +50,7 @@ async def test_oidc_principal_opens_and_closes_tenant_session(monkeypatch) -> No
         finally:
             events.append(f"close:{tenant_id}")
 
-    monkeypatch.setattr(main, "tenant_session", fake_tenant_session)
+    monkeypatch.setattr(security_context, "tenant_session", fake_tenant_session)
     tenant_id = UUID("20000000-0000-0000-0000-000000000002")
     principal = Principal(
         user_id=UUID("10000000-0000-0000-0000-000000000001"),
@@ -79,7 +80,7 @@ async def test_local_principal_opens_a_tenant_database_session(monkeypatch) -> N
         finally:
             events.append(f"close:{opened_tenant_id}")
 
-    monkeypatch.setattr(main, "tenant_session", fake_tenant_session)
+    monkeypatch.setattr(security_context, "tenant_session", fake_tenant_session)
     principal = Principal(user_id=UUID("10000000-0000-0000-0000-000000000001"), tenant_id=tenant_id)
     request = SimpleNamespace(state=SimpleNamespace(local_tenant_id=tenant_id))
 
