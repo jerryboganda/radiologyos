@@ -1,0 +1,128 @@
+# radbrain on the shared VPS platform (185.252.233.186).
+#
+# Backing services (Postgres, Redis, MinIO) come from the shared `platform`
+# compose project per /opt/platform/PLATFORM-RULES.md rule 1. This file starts
+# no database, cache, or object store of its own.
+#
+# Rules honoured:
+#   3. join external network `platform`; web ingress joins
+#      `nginx-proxy-manager_default`; NO port is published on 0.0.0.0.
+#   4. every service sets cpus + mem_limit.
+#   5. per-project credentials come from /opt/platform/projects/radiologyos.env
+#      and /opt/radiologyos/secrets.env, injected via app.env (mode 600).
+#
+# Deploy: docker compose --env-file app.env -f platform.yml up -d
+name: radiologyos
+
+x-restricted: &restricted
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  migrate:
+    <<: *restricted
+    image: ${RADBRAIN_PYTHON_IMAGE:?RADBRAIN_PYTHON_IMAGE is required}
+    restart: "no"
+    command: ["alembic", "-c", "alembic.ini", "upgrade", "head"]
+    environment:
+      DATABASE_MIGRATOR_URL: ${DATABASE_MIGRATOR_URL:?required}
+      APP_ENV: ${APP_ENV:-production}
+    networks: [default, platform]
+    cpus: "1.0"
+    mem_limit: 512m
+
+  api:
+    <<: *restricted
+    image: ${RADBRAIN_PYTHON_IMAGE:?RADBRAIN_PYTHON_IMAGE is required}
+    command: ["uvicorn", "apps.api.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?required}
+      APP_ENV: ${APP_ENV:-production}
+      # Non-release preview surface stays off on a production host (ADR 0006).
+      PREVIEW_ENABLED: ${PREVIEW_ENABLED:-false}
+      REDIS_URL: ${REDIS_URL:?required}
+      S3_ENDPOINT: ${S3_ENDPOINT:?required}
+      S3_BUCKET: ${S3_BUCKET:?required}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?required}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-radbrain-api}
+      CORE_TENANT_ID: ${CORE_TENANT_ID:-00000000-0000-0000-0000-000000000001}
+      MODELS_CONFIG_PATH: ${MODELS_CONFIG_PATH:-packages/models/models.yaml}
+      ALLOW_UNGROUNDED_DEFAULT: "false"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks: [default, platform]
+    cpus: "1.0"
+    mem_limit: 768m
+
+  worker:
+    <<: *restricted
+    image: ${RADBRAIN_PYTHON_IMAGE:?RADBRAIN_PYTHON_IMAGE is required}
+    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=1"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?required}
+      APP_ENV: ${APP_ENV:-production}
+      PREVIEW_ENABLED: ${PREVIEW_ENABLED:-false}
+      REDIS_URL: ${REDIS_URL:?required}
+      S3_ENDPOINT: ${S3_ENDPOINT:?required}
+      S3_BUCKET: ${S3_BUCKET:?required}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?required}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      CORE_TENANT_ID: ${CORE_TENANT_ID:-00000000-0000-0000-0000-000000000001}
+      MODELS_CONFIG_PATH: ${MODELS_CONFIG_PATH:-packages/models/models.yaml}
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A apps.worker.app.celery_app:celery_app inspect ping --timeout=5 | grep -q pong"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks: [default, platform]
+    cpus: "0.5"
+    mem_limit: 512m
+
+  web:
+    <<: *restricted
+    image: ${RADBRAIN_WEB_IMAGE:?RADBRAIN_WEB_IMAGE is required}
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      PREVIEW_ENABLED: ${PREVIEW_ENABLED:-false}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?required}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-https://radiologyos.polytronx.com}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      API_INTERNAL_URL: http://api:8000
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-https://radiologyos.polytronx.com}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_INTERNAL_ISSUER: ${OIDC_INTERNAL_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 25s
+    networks:
+      default:
+      platform:
+      # nginx-proxy-manager forwards the public domain to this alias.
+      ingress:
+        aliases: [radbrain-web]
+    cpus: "0.5"
+    mem_limit: 384m
+
+networks:
+  platform:
+    external: true
+  ingress:
+    external: true
+    name: nginx-proxy-manager_default

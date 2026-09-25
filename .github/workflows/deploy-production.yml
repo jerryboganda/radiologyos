@@ -1,0 +1,109 @@
+name: Deploy production (shared platform VPS)
+
+# Deploys radbrain to the shared platform host. Backing services (Postgres,
+# Redis, MinIO) are NOT deployed here - they come from the shared `platform`
+# compose project per /opt/platform/PLATFORM-RULES.md.
+#
+# Secrets are never passed from CI. The host reads its own root-only files:
+#   /opt/platform/projects/radiologyos.env   (platform-issued credentials)
+#   /opt/radiologyos/secrets.env             (radbrain migrator/app roles)
+#   /opt/radiologyos/app.env                 (compose interpolation, mode 600)
+# CI only needs SSH access, so it holds one secret: the deploy key.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag to deploy (default: the pushed commit SHA)
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image refs
+        id: refs
+        run: |
+          tag="${{ inputs.image_tag }}"
+          if [ -z "$tag" ]; then tag="${GITHUB_SHA}"; fi
+          ns="${IMAGE_NAMESPACE}"
+          {
+            echo "tag=$tag"
+            echo "python=ghcr.io/${ns}/radiologyos-python:${tag}"
+            echo "web=ghcr.io/${ns}/radiologyos-web:${tag}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Configure SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+          ssh-known-hosts: ${{ secrets.VPS_KNOWN_HOSTS }}
+
+      - name: Upload compose file
+        run: |
+          set -euo pipefail
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            infra/compose/platform.yml \
+            "root@${VPS_SSH_HOST}:/opt/radiologyos/platform.yml.new"
+
+      - name: Deploy
+        env:
+          VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
+          IMAGE_NAMESPACE: ${{ github.repository_owner }}
+          PYTHON_IMAGE: ${{ steps.refs.outputs.python }}
+          WEB_IMAGE: ${{ steps.refs.outputs.web }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@${VPS_SSH_HOST}" bash -s <<REMOTE
+          set -euo pipefail
+          cd /opt/radiologyos
+
+          # Promote the uploaded compose only after it parses.
+          docker compose --env-file app.env -f platform.yml.new config -q
+          mv platform.yml.new platform.yml
+          chmod 600 platform.yml
+
+          # Refresh image refs only; leave credentials alone.
+          sed -i "/^RADBRAIN_PYTHON_IMAGE=/d;/^RADBRAIN_WEB_IMAGE=/d" app.env
+          printf 'RADBRAIN_PYTHON_IMAGE=%s\nRADBRAIN_WEB_IMAGE=%s\n' \
+            "${PYTHON_IMAGE}" "${WEB_IMAGE}" >> app.env
+
+          echo "--- pull ---"
+          docker compose --env-file app.env -f platform.yml pull
+
+          echo "--- migrate (separate role, no superuser) ---"
+          docker compose --env-file app.env -f platform.yml run --rm migrate
+
+          echo "--- up ---"
+          docker compose --env-file app.env -f platform.yml up -d --remove-orphans
+
+          echo "--- ps ---"
+          docker compose --env-file app.env -f platform.yml ps
+          REMOTE
+
+      - name: Smoke check from inside the platform network
+        env:
+          VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@${VPS_SSH_HOST}" bash -s <<'REMOTE'
+          set -euo pipefail
+          echo "--- api health ---"
+          docker exec radiologyos-api-1 python -c \
+            "import urllib.request,json; r=urllib.request.urlopen('http://127.0.0.1:8000/health/live'); print(r.status, r.read().decode()[:200])"
+          echo "--- containers ---"
+          docker ps --filter name=radiologyos- --format '{{.Names}} | {{.Status}} | {{.Ports}}'
+          REMOTE
