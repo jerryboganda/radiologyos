@@ -81,6 +81,27 @@ operational prerequisites; secrets and credentials must never be committed or pr
 The test-only `@playwright/test` dependency is pinned in the web lockfile for the manual
 GitHub Actions browser acceptance workflow; it is not shipped in the web runtime.
 
+## Production deployment
+
+radbrain is deployed in production on the shared platform VPS (`185.252.233.186`).
+See [ADR 0007](docs/decisions/0007-production-on-shared-platform.md) and the
+[deploy runbook](docs/runbooks/production-deploy.md).
+
+- Production deployment is not acceptance. M0-M7 exit gates, staging evidence, and
+  human approvals are unchanged by a successful deploy.
+- This project starts no backing service of its own. Postgres, Redis, and MinIO come
+  from the shared `platform` project under `/opt/platform`, whose `PLATFORM-RULES.md`
+  is mandatory: no project runs its own Postgres/Redis/MinIO, no port is published on
+  `0.0.0.0`, and every service sets `cpus` and `mem_limit`.
+- Deployment is push-driven: `CI` -> `Build images` -> `Deploy production` ->
+  `Verify production RLS`. The deploy job gates on a successful build for `main` and
+  pins the exact commit SHA.
+- CI holds one credential for the host, a dedicated `gha-deploy-radiologyos` deploy
+  key. Database, Redis, and MinIO credentials never leave the host; compose reads
+  `/opt/radiologyos/app.env` (mode 600).
+- `PREVIEW_ENABLED` is false on the public host. The non-release preview surface must
+  not be exposed publicly.
+
 ## Change workflow
 
 1. State the plan and affected paths.
