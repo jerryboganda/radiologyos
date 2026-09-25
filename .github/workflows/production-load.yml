@@ -1,0 +1,87 @@
+name: Production load check
+
+# Modest read-path load check against the deployed stack on the shared platform
+# VPS. Runs k6 in a throwaway container attached to the platform network,
+# because no radbrain port is published on 0.0.0.0.
+#
+# The VU count is deliberately low. The owner asked that this host not be
+# strained, so this asserts a ceiling rather than chasing saturation. Raising
+# it is a decision, not a knob.
+
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      vus:
+        description: 'Virtual users (default 5, do not raise without a capacity decision)'
+        required: false
+        type: string
+      duration:
+        description: 'Duration (default 30s)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-load
+  cancel-in-progress: true
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Configure SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Pin the host key
+        env:
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Run k6 inside the platform network
+        env:
+          VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
+          VUS: ${{ inputs.vus || '5' }}
+          DURATION: ${{ inputs.duration || '30s' }}
+        run: |
+          set -euo pipefail
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            evals/load/production-load.js \
+            "root@${VPS_SSH_HOST}:/opt/radiologyos/production-load.js"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@${VPS_SSH_HOST}" \
+            "docker run --rm --network platform \
+              -e RADBRAIN_API_URL=http://radiologyos-api-1:8000 \
+              -e RADBRAIN_LOAD_VUS=${VUS} \
+              -e RADBRAIN_LOAD_DURATION=${DURATION} \
+              -v /opt/radiologyos/production-load.js:/script.js:ro \
+              -w /script \
+              --cpus 1 --memory 512m --pids-limit 256 \
+              grafana/k6:latest run /script.js"
+
+      - name: Report host headroom after the run
+        env:
+          VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@${VPS_SSH_HOST}" bash -s <<'REMOTE'
+          free -h | awk 'NR<=3'
+          cat /proc/loadavg
+          docker ps --filter name=radiologyos- --format '{{.Names}} | {{.Status}}'
+          REMOTE

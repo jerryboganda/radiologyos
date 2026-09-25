@@ -207,16 +207,19 @@ def review_card(
     if rating == 1:
         stability = max(card.stability * 0.5, 1.0)
         due = state.now() + timedelta(minutes=10)
-        card.lapses += 1
         difficulty = min(card.difficulty + 0.8, 10.0)
+        # Read the new value without mutating the card instance held in state.
+        lapses = card.lapses + 1
     elif rating == 2:
         stability = max(card.stability * 0.8, 1.0)
         due = state.now() + timedelta(days=1)
         difficulty = min(card.difficulty + 0.3, 10.0)
+        lapses = card.lapses
     else:
         stability = max(card.stability * (1.5 if rating == 3 else 2.0), 1.0)
         due = state.now() + timedelta(days=stability)
         difficulty = max(card.difficulty - (0.1 if rating == 3 else 0.5), 1.0)
+        lapses = card.lapses
     updated = PreviewCard(
         id=card.id,
         tenant_id=card.tenant_id,
@@ -228,7 +231,7 @@ def review_card(
         stability=stability,
         difficulty=difficulty,
         reps=card.reps + 1,
-        lapses=card.lapses,
+        lapses=lapses,
     )
     state.add_card(updated)
     state.add_audit(

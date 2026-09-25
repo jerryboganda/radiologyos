@@ -1,6 +1,7 @@
 # Remaining-work goal: M0 acceptance through M7
 
-Status: **Active goal — M0 staging acceptance blocked; local M1–M7 preview available**
+Status: **Active goal — M0 staging acceptance blocked; M1–M7 implementation,
+eval gates, and runbooks complete as non-release preview**
 Scope: all remaining product slices A–Z, in strict milestone order
 Owner: autonomous engineering execution, with human approval gates preserved
 Last reviewed: **2026-09-25**
@@ -31,16 +32,101 @@ claimed complete before the preceding milestone passes its staging exit test.
 
 ## Current checkpoint
 
-- Remote `main`: `5ac9eff` (`5ac9efff27dbc7aafd31cc3bb6de5748a6fc91b5`).
-- CI run `36143277301` is green for that revision.
-- The checkout contains the protected OIDC workflow and a new protected runtime-role
-  RLS workflow; neither has been dispatched on staging.
-- GitHub currently reports no environments, variables, or secrets for this repository.
-- M0 is not accepted. Staging OIDC/browser, staging RLS, trace review, and security/
-  release approvals remain open.
-- No M1–M7 feature has been accepted; a local synthetic preview workspace and API
-  exercise M1–M7 seams under ADR 0006.
-- This preview implementation is not acceptance evidence and no staging workflow has run.
+- Remote `main`: `432cdb5`. The push-driven chain CI → Build images → Deploy
+  production → Verify production RLS is green on that revision.
+- Production runs on the shared platform VPS under ADR 0007. Postgres, Redis, and
+  MinIO come from the shared `platform` project; radbrain starts no backing service
+  and publishes no host port. See [`runbooks/production-deploy.md`](runbooks/production-deploy.md).
+- The live database is at alembic head `20260925_0003`: 8 tables, 7 with RLS
+  enforced, runtime role `NOBYPASSRLS` and owning nothing.
+- The two-tenant runtime-role RLS proof passes against the deployed database.
+- `platform-backup` covers `radiologyos` from the first night; the restore drill is
+  verified end to end (RPO 0h, RTO 1s). See [`runbooks/backup-restore.md`](runbooks/backup-restore.md).
+- `check-compliance.sh` reports zero violations attributable to radbrain.
+- **No M1–M7 feature has been accepted.** M0 is not accepted: the protected
+  `staging` Environment, its reviewers, the OIDC browser pass, the trace review, and
+  the security and release approvals all remain open. The preview and the production
+  deploy are not acceptance evidence.
+
+## A–Z execution queue
+
+Each slice is complete only when its implementation, tests, eval gate where relevant,
+runbook, five-minute demo, redacted staging evidence, and security review are complete.
+
+Legend: **impl** = implementation and local checks done · **eval** = eval gate exists and
+passes · **runbook** = operational runbook exists · **blocked** = needs a human decision
+or the protected staging environment.
+
+| Slice | Milestone | Outcome | State |
+| --- | --- | --- | --- |
+| A | M0 | Provision protected `staging` Environment, reviewers, variables, and synthetic secrets | **blocked** — human reviewers and secrets |
+| B | M0 | Dispatch exact-revision staging workflow and capture redacted browser/API evidence | **blocked** — needs A |
+| C | M0 | Run protected staging RLS proof as the non-privileged application role | **blocked** — needs A (production equivalent passes) |
+| D | M0 | Complete redacted staging trace review, security approval, release approval, and M0 evidence record | **blocked** — needs B and C |
+| E | M1 | Ingestion schema, migrations, private object-key policy, resumable job state | impl · eval · runbook |
+| F | M1 | Parsing pipeline steps 1–7 for PDF/DOCX and supported formats | impl · eval · runbook (3 steps stay `skipped` by design) |
+| G | M1 | Library screen, reader, page/bounding-box/figure provenance | impl · eval · runbook (bbox is a zero rectangle) |
+| H | M1 | Cited `POST /search` with tenant-scoped chunks and figures | impl · eval · runbook |
+| I | M2 | Extraction workers, schemas, versioning, and mock/local route boundary | impl · eval · runbook |
+| J | M2 | Entity resolution and knowledge graph with tenant isolation | impl · eval · runbook (resolution not attempted) |
+| K | M2 | Claims, explicit conflicts, curriculum seed/mapping, concept pages | impl · eval · runbook (curriculum mapping absent) |
+| L | M2 | Editor queues for mappings/conflicts with authorization and audit | impl · eval · runbook |
+| M | M3 | Query planner, explicit retrieval stages, hybrid fusion, reranking config | impl · eval · runbook (no embedding, no reranker) |
+| N | M3 | Grounding judge, citations, figure cards, image-question upload | impl · eval · runbook (lexical judge, no image upload) |
+| O | M3 | Tutor thread memory, “not in your sources,” tenant-aware cache boundaries | impl · eval · runbook |
+| P | M4 | Exam-date onboarding, baseline test, planner, phases, Today runner | impl · eval · runbook (baseline `not_implemented`) |
+| Q | M4 | FSRS-style cards, mastery, weekly report, reminders, nightly replan | impl · eval · runbook (no report, reminders, or nightly job) |
+| R | M5 | SBA, SEQ, image-case, and viva generation with versioned prompts/evals | impl · eval · runbook (SBA only; no versioned prompt registry) |
+| S | M5 | Practice, Exam mode, autosave/resume, grader, review queue, statistics | impl · eval · runbook (no review queue UI) |
+| T | M6 | Stripe test-mode billing, portal, webhooks, caps, degradation, org/superadmin | **blocked** — provider decision. Preview reports `preview_only` and creates no customer, checkout, portal, or charge |
+| U | M6 | Export/delete across data, derived artifacts, caches, queues, and observability | impl · eval · runbook (purge verified; release routes stay 501) |
+| V | M6 | Load tests, security scans, backup/restore drill, RPO/RTO runbook | impl · eval · runbook (load + scans + drill all green) |
+| W | M7 | Certified local-model mode with lower approved thresholds | **blocked** — provider/privacy review. `certified: false`, no threshold values |
+| X | M7 | Markdown/Obsidian-compatible export and round-trip links | impl · eval · runbook (Markdown only, no import) |
+| Y | M7 | Mobile wrapper/institution SSO/Core authoring scale work as approved | **blocked** — each needs its own human decision |
+| Z | Release | Final cross-milestone security, privacy, legal, operational, and rollback audit | **blocked** — needs D and all milestone evidence |
+
+## Eval gates
+
+Each gate is a standalone pytest module run by CI, using synthetic data only.
+
+| Gate | Covers | Tests |
+| --- | --- | --- |
+| `evals/checks/test_m1_library.py` | E, F, G, H | 24 |
+| `evals/checks/test_m2_knowledge.py` | I, J, K, L | 30 |
+| `evals/checks/test_m3_tutor.py` | M, N, O | 19 |
+| `evals/checks/test_m4_planner.py` | P, Q | 40 |
+| `evals/checks/test_m5_assessment.py` | R, S | 28 |
+| `evals/checks/test_m6_ops.py` | T, U, V | 20 |
+| `evals/checks/test_m7_portability.py` | W, X | 13 |
+
+Plus `test_preview_determinism.py`, `test_scaffolding.py`, and
+`test_rls_live.py` (the last is opt-in and runs against a live database in
+`Verify production RLS`).
+
+## Definition of done for the overall goal
+
+- M0 through M7 each have a passing staging exit test and committed redacted evidence.
+- Every tenant-scoped table has RLS and a non-privileged two-tenant negative test.
+- Every agent route has a versioned schema, prompt, fixture, and eval result.
+- Every emitted claim/card/question/tutor sentence has a citation or fails closed.
+- Long jobs are idempotent, resumable, and expose visible step status.
+- Export/delete, backup/restore, cache isolation, object isolation, billing, and local
+  mode have explicit evidence where applicable.
+- No open critical/high security finding remains.
+- Runbooks, five-minute demos, rollback procedures, approvals, and ADRs are current.
+- The final release audit records known limitations without private content or secrets.
+
+## Immediate pursuit
+
+The remaining acceptance work is A–D, then the provider-gated slices T, W, and Y, then
+Z. None of it can be completed by the agent alone: A needs a protected `staging`
+Environment with human reviewers, D needs human security and release approval, and
+T, W, and Y need explicit provider, privacy, pricing, and curriculum decisions with
+ADRs. Those are recorded as open rather than simulated, and the implementation
+deliberately refuses instead of faking them — the release audit reports every one as
+blocked, and the capability matrix reports A–D and Z as `blocked` rather than
+`preview`.
 
 ## A–Z execution queue
 

@@ -217,13 +217,34 @@ class PreviewState:
             ]
 
     def soft_delete_source(self, tenant_id: UUID, source_id: UUID, deleted_at: datetime) -> bool:
+        """Delete a source and purge every artifact derived from it.
+
+        Slice U requires delete to cover derived artifacts, not just the source
+        row. Pages, blocks, figures, chunks, jobs, and extracted claims are all
+        removed, and the idempotency binding is released so the caller can
+        re-ingest under the same key instead of being handed a deleted source.
+        """
         with self._lock:
-            source = self.tenant(tenant_id).sources.get(source_id)
+            state = self.tenant(tenant_id)
+            source = state.sources.get(source_id)
             if source is None or source.deleted_at is not None:
                 return False
-            self.tenant(tenant_id).sources[source_id] = replace(
+            state.sources[source_id] = replace(
                 source, deleted_at=deleted_at, status="deleted"
             )
+            state.pages.pop(source_id, None)
+            state.blocks.pop(source_id, None)
+            state.figures.pop(source_id, None)
+            state.chunks.pop(source_id, None)
+            for job_id in [
+                job.id for job in state.jobs.values() if job.source_id == source_id
+            ]:
+                state.jobs.pop(job_id, None)
+            state.claims = [
+                claim for claim in state.claims if claim.source_id != source_id
+            ]
+            for key in [k for k, v in state.idempotency.items() if v == source_id]:
+                del state.idempotency[key]
             return True
 
     def set_content(

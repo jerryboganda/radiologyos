@@ -22,7 +22,14 @@ milestones defined by the implementation specification.
 | Protected M0 staging and RLS acceptance | [`runbooks/m0-staging-acceptance.md`](runbooks/m0-staging-acceptance.md) |
 | Production deploy, rollback, and known gaps | [`runbooks/production-deploy.md`](runbooks/production-deploy.md) |
 | Local M1–M7 preview operation | [`runbooks/m1-preview.md`](runbooks/m1-preview.md) |
+| Local M1–M7 preview operation | [`runbooks/m1-preview.md`](runbooks/m1-preview.md) |
+| M2 knowledge and editor authority | [`runbooks/m2-preview.md`](runbooks/m2-preview.md) |
+| M3 retrieval, grounding, tutor threads | [`runbooks/m3-preview.md`](runbooks/m3-preview.md) |
+| M4 planner, Today, scheduling | [`runbooks/m4-preview.md`](runbooks/m4-preview.md) |
+| M5 items, exam mode, autosave | [`runbooks/m5-preview.md`](runbooks/m5-preview.md) |
 | M6 preview operations boundaries | [`runbooks/m6-preview-operations.md`](runbooks/m6-preview-operations.md) |
+| M7 local mode and portable export | [`runbooks/m7-preview.md`](runbooks/m7-preview.md) |
+| Backup, restore drill, RPO/RTO | [`runbooks/backup-restore.md`](runbooks/backup-restore.md) |
 | Remaining-work goal and A–Z queue | [`remaining-work.md`](remaining-work.md) |
 
 ## Documentation rules

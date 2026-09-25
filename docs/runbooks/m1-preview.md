@@ -1,8 +1,25 @@
-# M1–M7 non-release preview runbook
+# M1 preview runbook — ingestion, provenance, and search
 
 Status: **Local preview implemented; staging and release acceptance pending**
-Scope: synthetic preview routes and workspace UI; not a product or clinical claim
-Related: [ADR 0006](../decisions/0006-non-release-preview-mode.md), [`remaining-work.md`](../remaining-work.md), [data handling](data-handling.md)
+Scope: synthetic preview boundary, M1 seams, and the workspace UI; not a product or
+clinical claim
+Gate: `evals/checks/test_m1_library.py`
+Related: [ADR 0006](../decisions/0006-non-release-preview-mode.md), [`remaining-work.md`](../remaining-work.md), [data handling](data-handling.md), [M2](m2-preview.md), [M3](m3-preview.md), [M4](m4-preview.md), [M5](m5-preview.md), [M6](m6-preview-operations.md), [M7](m7-preview.md)
+
+## Per-milestone runbooks
+
+This document covers the shared preview boundary and the M1 slice. Each later
+slice has its own runbook with its own verification gate:
+
+| Milestone | Runbook | Eval gate |
+| --- | --- | --- |
+| M1 | this document | `test_m1_library.py` |
+| M2 | [m2-preview.md](m2-preview.md) | `test_m2_knowledge.py` |
+| M3 | [m3-preview.md](m3-preview.md) | `test_m3_tutor.py` |
+| M4 | [m4-preview.md](m4-preview.md) | `test_m4_planner.py` |
+| M5 | [m5-preview.md](m5-preview.md) | `test_m5_assessment.py` |
+| M6 | [m6-preview-operations.md](m6-preview-operations.md) | `test_m6_ops.py` |
+| M7 | [m7-preview.md](m7-preview.md) | `test_m7_portability.py` |
 
 ## Boundary
 
