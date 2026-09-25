@@ -74,22 +74,14 @@ jobs:
           VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
         run: |
           set -euo pipefail
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            infra/ops/check-preview-gated.py "root@${VPS_SSH_HOST}:/opt/radiologyos/check-preview-gated.py"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@${VPS_SSH_HOST}" bash -s <<'REMOTE'
           set -euo pipefail
           KCIMG=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep radiologyos-python | head -1)
-          # No token: preview must be refused rather than served.
-          code=$(docker run --rm --network platform --entrypoint python "$KCIMG" - <<'PY'
-          import urllib.error, urllib.request
-          req = urllib.request.Request("http://radbrain-api:8000/v1/preview/sources")
-          try:
-              print(urllib.request.urlopen(req, timeout=15).status)
-          except urllib.error.HTTPError as exc:
-              print(exc.code)
-          PY
-          )
-          echo "unauthenticated preview request -> HTTP $code"
-          case "$code" in
-            401|403) echo "PASS preview is behind authentication" ;;
-            *) echo "FAIL preview served without authentication"; exit 1 ;;
-          esac
+          test -n "$KCIMG"
+          docker run --rm --network platform \
+            -v /opt/radiologyos/check-preview-gated.py:/run/check.py:ro \
+            --cpus 1 --memory 256m --pids-limit 128 \
+            --entrypoint python "$KCIMG" /run/check.py http://radbrain-api:8000
           REMOTE
