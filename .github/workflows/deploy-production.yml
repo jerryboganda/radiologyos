@@ -27,6 +27,12 @@ concurrency:
 
 permissions:
   contents: read
+  # Short-lived token lets the host pull the private GHCR images for the
+  # duration of the job; it is logged out and shredded by the deploy trap.
+  packages: read
+
+env:
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}
 
 jobs:
   deploy:
@@ -78,14 +84,30 @@ jobs:
       - name: Deploy
         env:
           VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
-          IMAGE_NAMESPACE: ${{ github.repository_owner }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PYTHON_IMAGE: ${{ steps.refs.outputs.python }}
           WEB_IMAGE: ${{ steps.refs.outputs.web }}
         run: |
           set -euo pipefail
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@${VPS_SSH_HOST}" bash -s <<REMOTE
+          SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@${VPS_SSH_HOST}"
+
+          # Hand the host a short-lived registry token over stdin, never argv.
+          # It is logged out and deleted by the trap in the remote script.
+          printf '%s' "$GH_TOKEN" \
+            | $SSH 'umask 077; cat > /root/.ghtok; echo token-staged'
+
+          $SSH "env GH_ACTOR=${GH_ACTOR} PYTHON_IMAGE=${PYTHON_IMAGE} WEB_IMAGE=${WEB_IMAGE} bash -s" <<'REMOTE'
           set -euo pipefail
           cd /opt/radiologyos
+          cleanup() {
+            docker logout ghcr.io >/dev/null 2>&1 || true
+            shred -u /root/.ghtok 2>/dev/null || rm -f /root/.ghtok
+          }
+          trap cleanup EXIT
+
+          # GHCR packages are private; authenticate for the pull only.
+          docker login ghcr.io -u "$GH_ACTOR" --password-stdin < /root/.ghtok >/dev/null
 
           # Promote the uploaded compose only after it parses.
           docker compose --env-file app.env -f platform.yml.new config -q
@@ -95,7 +117,7 @@ jobs:
           # Refresh image refs only; leave credentials alone.
           sed -i "/^RADBRAIN_PYTHON_IMAGE=/d;/^RADBRAIN_WEB_IMAGE=/d" app.env
           printf 'RADBRAIN_PYTHON_IMAGE=%s\nRADBRAIN_WEB_IMAGE=%s\n' \
-            "${PYTHON_IMAGE}" "${WEB_IMAGE}" >> app.env
+            "$PYTHON_IMAGE" "$WEB_IMAGE" >> app.env
 
           echo "--- pull ---"
           docker compose --env-file app.env -f platform.yml pull
