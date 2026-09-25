@@ -136,7 +136,10 @@ jobs:
           docker compose --env-file app.env -f platform.yml pull
 
           echo "--- migrate (separate role, no superuser) ---"
-          docker compose --env-file app.env -f platform.yml run --rm migrate
+          # -T plus </dev/null: `compose run` attaches stdin by default and this
+          # script itself arrived on stdin, so it would otherwise swallow every
+          # command after this line.
+          docker compose --env-file app.env -f platform.yml run --rm -T migrate < /dev/null
 
           echo "--- up ---"
           docker compose --env-file app.env -f platform.yml up -d --remove-orphans
