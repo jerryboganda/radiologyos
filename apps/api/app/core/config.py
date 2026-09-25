@@ -46,8 +46,20 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_preview_mode(self) -> Settings:
-        if self.preview_enabled and not self.is_local_development:
-            raise ValueError("preview mode is restricted to local and test environments")
+        if not self.preview_enabled or self.is_local_development:
+            return self
+        # ADR 0009: the non-release preview surface ships to production, but
+        # only behind authentication. principal_from_request already refuses
+        # header-based identity outside local development, so the only way in is
+        # a verified OIDC bearer token whose membership is resolved from the
+        # database. Requiring an explicit JWKS URL means preview cannot be
+        # switched on for a host that has no identity provider wired up, where it
+        # would be unreachable rather than merely unauthenticated.
+        if not self.oidc_jwks_url:
+            raise ValueError(
+                "preview outside local development requires a configured "
+                "OIDC_JWKS_URL so it is only reachable behind authentication"
+            )
         return self
 
     @property

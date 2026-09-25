@@ -114,7 +114,9 @@ services:
     networks:
       default:
       platform:
-      # nginx-proxy-manager forwards the public domain to this alias.
+        # Stable internal name, alongside the web alias, so health probes and
+        # verification jobs address the service rather than a container id.
+        aliases: [radbrain-api]
       ingress:
         aliases: [radbrain-web]
     cpus: "0.5"
