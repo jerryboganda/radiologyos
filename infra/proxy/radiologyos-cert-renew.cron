@@ -1,0 +1,6 @@
+# Renew the radiologyos.polytronx.com certificate (issued by webroot outside the
+# NPM database, so NPM's own renewal job does not cover it). Managed by the
+# radiologyos repo: infra/proxy/radiologyos-cert-renew.cron.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 3 * * * root docker exec nginx-proxy-manager-app-1 certbot renew --cert-name radiologyos.polytronx.com --config-dir /etc/letsencrypt --work-dir /tmp/le-work --logs-dir /tmp/le-logs --quiet --deploy-hook "nginx -s reload" >> /var/log/radiologyos-cert-renew.log 2>&1

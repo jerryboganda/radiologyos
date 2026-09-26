@@ -168,6 +168,7 @@ services:
       PREVIEW_ENABLED: ${PREVIEW_ENABLED:-true}
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-local-development-secret-change-me-32chars}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}
+      ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}
       OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:8080/realms/radbrain}
       OIDC_INTERNAL_ISSUER: ${OIDC_INTERNAL_ISSUER:-http://keycloak:8080/realms/radbrain}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-radbrain-web}

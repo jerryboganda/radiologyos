@@ -109,11 +109,24 @@ forward fix.
   `infra/ops/` (`build-keycloak-env.sh`, `keycloak-bootstrap.sh`,
   `provision-tenant.sh`, `wire-oidc.sh`). Its issuer is internal only
   (`http://keycloak:8080`) until the public hostname is routed.
-- **The public hostname is not yet routed.** `radiologyos.polytronx.com`
-  resolves through Cloudflare but has no proxy host, so it returns HTTP 525
-  (Cloudflare cannot complete an origin TLS handshake). The web container is
-  reachable on the `radbrain-web` alias from inside the proxy network, so only
-  the proxy host and its certificate remain.
+- **Public hostname.** `radiologyos.polytronx.com` is served by the
+  nginx-proxy-manager container through a hand-managed file,
+  `infra/proxy/radiologyos-manual.conf`, copied to
+  `/opt/docker/nginx-proxy-manager/data/nginx/proxy_host/radiologyos-manual.conf`
+  (it is not in the NPM database, so NPM's UI does not show or overwrite it).
+  `/auth/realms/*` and `/auth/resources/*` go to Keycloak; `/auth/realms/master`
+  and the admin console are never routed; everything else goes to `radbrain-web`.
+  After editing, run `docker exec nginx-proxy-manager-app-1 nginx -t` before
+  `nginx -s reload`. The Let's Encrypt certificate was issued by webroot and is
+  renewed by `/etc/cron.d/radiologyos-cert-renew`
+  (`infra/proxy/radiologyos-cert-renew.cron`), because NPM only renews
+  certificates in its own database.
+- **Issuer.** Keycloak pins `KC_HOSTNAME=https://radiologyos.polytronx.com/auth`
+  with a dynamic backchannel, so `iss` is
+  `https://radiologyos.polytronx.com/auth/realms/radbrain` while JWKS and the
+  token exchange stay on `http://keycloak:8080/realms/radbrain`. `app.env` must
+  set `OIDC_ISSUER` to the public issuer and `OIDC_JWKS_URL` /
+  `OIDC_INTERNAL_ISSUER` to the internal one (`infra/ops/wire-oidc.sh`).
 - **Preview stays off in production.** `PREVIEW_ENABLED=false`, per ADR 0006.
 - **Object storage is not mirrored off-host.** Platform backups cover
   databases nightly; MinIO buckets are not part of that job, and the platform

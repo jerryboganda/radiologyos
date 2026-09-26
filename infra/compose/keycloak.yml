@@ -5,9 +5,9 @@ name: radbrain-keycloak
 # platform Postgres, obtained through bin/provision-project.sh.
 #
 # Ingress is a path prefix on the main hostname (https://radiologyos.polytronx.com/auth)
-# so only one nginx-proxy-manager host and one certificate are needed. Until that
-# proxy host exists, KC_HOSTNAME_STRICT=false lets the realm still be reachable
-# on the internal address, which is what the API uses to fetch JWKS.
+# so only one nginx-proxy-manager host and one certificate are needed. The proxy
+# (infra/proxy/radiologyos-manual.conf) maps /auth/realms and /auth/resources to
+# this container and never routes the admin console or the master realm.
 #
 # Rule 4: every service sets cpus and mem_limit.
 
@@ -28,12 +28,10 @@ services:
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?required}
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?required}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?required}
-      # No fixed hostname: KC_HOSTNAME_STRICT=false makes Keycloak derive the
-      # issuer from the request Host header, which is what a path-prefix proxy
-      # (https://radiologyos.polytronx.com/auth) needs. Once the proxy host
-      # exists, set KC_HOSTNAME_STRICT=true with KC_HOSTNAME to pin the issuer
-      # and update OIDC_ISSUER to match.
-      KC_HOSTNAME_STRICT: "false"
+      # The issuer is pinned to the public URL. Backchannel requests from the
+      # platform network (token exchange, JWKS) keep using the internal address.
+      KC_HOSTNAME: ${KC_HOSTNAME:-https://radiologyos.polytronx.com/auth}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"

@@ -103,6 +103,8 @@ services:
       PREVIEW_ENABLED: ${PREVIEW_ENABLED:-false}
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?required}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-https://radiologyos.polytronx.com}
+      # adapter-node derives url.origin (CSRF check, cookie Secure flag) from ORIGIN.
+      ORIGIN: ${PUBLIC_ORIGIN:-https://radiologyos.polytronx.com}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       API_INTERNAL_URL: http://api:8000
       API_PUBLIC_URL: ${API_PUBLIC_URL:-https://radiologyos.polytronx.com}

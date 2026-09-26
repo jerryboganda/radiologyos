@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
 import { createRemoteJWKSet, jwtVerify, SignJWT } from 'jose';
 import { createAuthorizationUrl, createPkcePair } from './oidc-url';
 
@@ -53,7 +54,7 @@ export async function beginLogin(url: URL, cookies: import('@sveltejs/kit').Cook
   cookies.set(STATE_COOKIE, state, options);
   cookies.set(VERIFIER_COOKIE, pair.verifier, options);
   cookies.set(NONCE_COOKIE, nonce, options);
-  const origin = env.PUBLIC_ORIGIN ?? url.origin;
+  const origin = publicEnv.PUBLIC_ORIGIN ?? url.origin;
   return createAuthorizationUrl({
     authorizationEndpoint: `${oidc.issuer}/protocol/openid-connect/auth`,
     clientId: oidc.clientId,
@@ -81,7 +82,7 @@ export async function completeLogin(
     throw new Error('The OIDC login response could not be verified');
   }
 
-  const origin = env.PUBLIC_ORIGIN ?? url.origin;
+  const origin = publicEnv.PUBLIC_ORIGIN ?? url.origin;
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
     code,

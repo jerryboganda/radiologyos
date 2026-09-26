@@ -27,19 +27,19 @@ PY
   fi
 }
 
-echo "=== issuer under the current topology (no public proxy host yet) ==="
-ISSUER="http://keycloak:8080/realms/radbrain"
+echo "=== public issuer; JWKS and token exchange stay on the internal address ==="
+INTERNAL_ISSUER="http://keycloak:8080/realms/radbrain"
 PUBLIC_ISSUER="https://radiologyos.polytronx.com/auth/realms/radbrain"
 
-set_env OIDC_ISSUER "$ISSUER"
-set_env OIDC_JWKS_URL "$ISSUER/protocol/openid-connect/certs"
+set_env OIDC_ISSUER "$PUBLIC_ISSUER"
+set_env OIDC_JWKS_URL "$INTERNAL_ISSUER/protocol/openid-connect/certs"
 set_env OIDC_CLIENT_ID "radbrain-web"
 set_env OIDC_AUDIENCE "radbrain-api"
 set_env OIDC_CLIENT_SECRET "$KEYCLOAK_WEB_CLIENT_SECRET"
-set_env OIDC_INTERNAL_ISSUER "$ISSUER"
+set_env OIDC_INTERNAL_ISSUER "$INTERNAL_ISSUER"
 
-echo "  OIDC_ISSUER=$ISSUER"
-echo "  OIDC_JWKS_URL=$ISSUER/protocol/openid-connect/certs"
+echo "  OIDC_ISSUER=$PUBLIC_ISSUER"
+echo "  OIDC_JWKS_URL=$INTERNAL_ISSUER/protocol/openid-connect/certs"
 echo "  OIDC_CLIENT_ID=radbrain-web"
 echo "  OIDC_AUDIENCE=radbrain-api"
 echo "  OIDC_CLIENT_SECRET=<set, not displayed>"
@@ -71,9 +71,3 @@ docker compose --env-file app.env -f platform.yml up -d 2>&1 | tail -6
 echo
 echo "=== containers ==="
 docker compose --env-file app.env -f platform.yml ps -a --format '{{.Name}} | {{.Status}}'
-
-echo
-echo "NOTE: the public issuer to use once the nginx proxy host exists:"
-echo "  $PUBLIC_ISSUER"
-echo "  then set KC_HOSTNAME_STRICT=true with KC_HOSTNAME=https://radiologyos.polytronx.com/auth"
-echo "  and OIDC_ISSUER to the public issuer above."

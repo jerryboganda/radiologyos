@@ -67,6 +67,9 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--issuer", required=True)
+    # Keycloak pins the public issuer (KC_HOSTNAME) while this probe connects
+    # over the internal address, so the expected iss can differ from --issuer.
+    parser.add_argument("--expected-issuer", default=None)
     parser.add_argument("--api", required=True)
     parser.add_argument("--client-id", required=True)
     parser.add_argument("--client-secret-file", required=True)
@@ -83,6 +86,7 @@ def main() -> int:
     password = boot["KEYCLOAK_BOOTSTRAP_PASSWORD"]
 
     issuer = args.issuer.rstrip("/")
+    expected_issuer = (args.expected_issuer or args.issuer).rstrip("/")
     failures: list[str] = []
 
     def ok(label: str, condition: bool, detail: str = "") -> None:
@@ -105,7 +109,7 @@ def main() -> int:
         ok(f"discovery has {field}", bool(discovery.get(field)))
     ok(
         "issuer in discovery matches",
-        discovery.get("issuer", "").rstrip("/") == issuer,
+        discovery.get("issuer", "").rstrip("/") == expected_issuer,
         discovery.get("issuer", ""),
     )
     ok(
@@ -230,7 +234,10 @@ def main() -> int:
     claims = _decode_claims(access_token)
     print()
     print("=== 4. access token structure (claims are not printed) ===")
-    ok("issuer claim matches the realm", claims.get("iss", "").rstrip("/") == issuer)
+    ok(
+        "issuer claim matches the realm",
+        claims.get("iss", "").rstrip("/") == expected_issuer,
+    )
     audience = claims.get("aud")
     audiences = audience if isinstance(audience, list) else [audience]
     ok(
