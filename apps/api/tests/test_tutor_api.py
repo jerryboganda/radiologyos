@@ -3,128 +3,31 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
 from apps.api.app.api import tutor as tutor_api
 from apps.api.app.core.config import get_settings
-from apps.api.app.library import search
 from apps.api.app.main import app
-from apps.api.app.security.principal import Principal
 from apps.api.app.tutor import repo
+from apps.api.tests.tutor_fakes import (
+    CHUNK,
+    FIGURE,
+    FIGURE_HIT,
+    NOW,
+    PRINCIPAL,
+    tutor_env,
+)
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from packages.models.claude_code import ModelCall, ModelCallError, ModelResult, UsageLimitError
-from packages.tutor.models import GroundedAnswer
-
-PRINCIPAL = Principal(user_id=uuid4(), tenant_id=uuid4())
-NOW = datetime(2026, 9, 26, tzinfo=UTC)
-CHUNK = uuid4()
-
-
-class FakeSession:
-    def __init__(self) -> None:
-        self.events: list[str] = []
-
-    async def rollback(self) -> None:
-        self.events.append("rollback")
-
-    async def commit(self) -> None:
-        self.events.append("commit")
-
-
-class FakeTransport:
-    def __init__(self, output: dict[str, Any] | Exception) -> None:
-        self.output = output
-        self.calls: list[ModelCall] = []
-        self.session: FakeSession | None = None
-
-    def run(self, call: ModelCall) -> ModelResult:
-        assert self.session is not None and self.session.events[-1] == "rollback"
-        self.calls.append(call)
-        if isinstance(self.output, Exception):
-            raise self.output
-        return ModelResult(output=self.output, duration_ms=1, cost_usd=0.0)
-
-
-class FakeRepo:
-    def __init__(self) -> None:
-        self.threads: dict[UUID, dict[str, Any]] = {}
-        self.messages: dict[UUID, list[dict[str, Any]]] = {}
-        self.owners: dict[UUID, UUID] = {}
-
-    async def get_thread(self, _s: Any, user_id: UUID, thread_id: UUID) -> Any:
-        return self.threads.get(thread_id) if self.owners.get(thread_id) == user_id else None
-
-    async def create_thread(self, _s: Any, tenant_id: UUID, user_id: UUID, title: str) -> UUID:
-        thread_id = uuid4()
-        self.owners[thread_id] = user_id
-        self.threads[thread_id] = {"id": thread_id, "title": title, "created_at": NOW,
-                                   "updated_at": NOW}
-        return thread_id
-
-    async def add_exchange(self, _s: Any, _t: UUID, thread_id: UUID, question: str,
-                           answer: GroundedAnswer) -> UUID:
-        message_id = uuid4()
-        self.messages.setdefault(thread_id, []).extend([
-            {"id": uuid4(), "role": "user", "content": question, "citations": [],
-             "grounding": None, "agent_version": "", "created_at": NOW},
-            {"id": message_id, "role": "assistant", "content": answer.text,
-             "citations": [s.model_dump(mode="json") for s in answer.segments],
-             "grounding": answer.grounding, "agent_version": answer.agent_version,
-             "created_at": NOW},
-        ])
-        return message_id
-
-    async def recent_history(self, _s: Any, thread_id: UUID) -> list[Any]:
-        return []
-
-    async def thread_messages(self, _s: Any, thread_id: UUID) -> list[dict[str, Any]]:
-        return self.messages.get(thread_id, [])
-
-    async def list_threads(self, _s: Any, user_id: UUID) -> list[dict[str, Any]]:
-        return [{**t, "message_count": len(self.messages.get(t["id"], []))}
-                for t in self.threads.values()]
-
-
-HIT = {"id": CHUNK, "source_id": uuid4(), "source_title": "Synthetic deck", "page_from": 4,
-       "page_to": 4, "heading": "Chest", "text": "Crazy paving.", "block_refs": []}
+from packages.models.claude_code import ModelCallError, UsageLimitError
 
 
 @pytest.fixture()
 def env(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any]]:
-    session, fake_repo = FakeSession(), FakeRepo()
-    state: dict[str, Any] = {"session": session, "repo": fake_repo, "hits": [HIT],
-                             "transport": FakeTransport({"coverage": "full", "segments": [
-                                 {"text": "PAP shows crazy paving.", "sources": ["S1"]}]})}
-
-    async def fake_search(_s: Any, user_id: UUID, query: str, _v: Any, limit: int) -> Any:
-        state["search"] = (user_id, query, limit)
-        return state["hits"]
-
-    async def fake_set_tenant(_s: Any, tenant_id: UUID) -> None:
-        session.events.append(f"tenant:{tenant_id}")
-
-    monkeypatch.setattr(search, "hybrid_search", fake_search)
-    monkeypatch.setattr(tutor_api, "query_vector", lambda _q: None)
-    monkeypatch.setattr(tutor_api, "set_database_tenant", fake_set_tenant)
-    for name in ("get_thread", "create_thread", "add_exchange", "recent_history",
-                 "thread_messages", "list_threads"):
-        monkeypatch.setattr(repo, name, getattr(fake_repo, name))
-
-    def transport() -> Any:
-        state["transport"].session = session
-        return state["transport"]
-
-    app.dependency_overrides[tutor_api.principal_context] = lambda: PRINCIPAL
-    app.dependency_overrides[tutor_api.tenant_db_session] = lambda: session
-    app.dependency_overrides[tutor_api.get_transport] = transport
-    try:
+    with tutor_env(monkeypatch) as state:
         yield state
-    finally:
-        app.dependency_overrides.clear()
 
 
 client = TestClient(app)
@@ -188,12 +91,72 @@ def test_request_validation(env: dict[str, Any]) -> None:
 def test_missing_cli_is_503(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = get_settings()
     monkeypatch.setattr(settings, "claude_code_bin", "radbrain-no-such-binary")
+    assert tutor_api.model_transport() is None
     with pytest.raises(HTTPException) as caught:
-        tutor_api.get_transport()
+        tutor_api.get_transport(tutor_api.model_transport())
     assert caught.value.status_code == 503 and "Claude Code CLI" in str(caught.value.detail)
+
+
+def test_missing_cli_is_503_over_http(env: dict[str, Any]) -> None:
+    env["transport"] = None
+    response = client.post("/v1/tutor/ask", json={"question": "What is crazy paving?"})
+    assert response.status_code == 503 and "Claude Code CLI" in response.json()["detail"]
 
 
 def test_lexical_query_ors_unique_terms() -> None:
     assert tutor_api.lexical_query("CT vs. MRI: CT?") == "ct or vs or mri"
     assert repo.thread_title("  a\n b ") == "a b"
     assert len(repo.thread_title("x" * 500)) == repo.TITLE_CHARS
+
+
+def test_answer_carries_judge_stats_and_persists_them(env: dict[str, Any]) -> None:
+    body = client.post("/v1/tutor/ask", json={"question": "What is crazy paving?"}).json()
+    assert body["judge"]["status"] == "ok" and body["judge"]["supported"] == 1
+    assert body["segments"][0]["support"] == "supported"
+    assert "grounding_judge/v1" in body["agent_version"]
+    stored = env["repo"].messages[UUID(body["thread_id"])][1]["citations"]
+    assert isinstance(stored, list)  # migration 0005: CHECK jsonb_typeof = 'array'
+    assert stored[0]["support"] == "supported"
+    assert stored[-1] == {"kind": "judge_stats", "judge": body["judge"], "dropped_segments": 0}
+    assert repo.stored_answer(stored) == (stored[:-1], body["judge"])
+    detail = client.get(f"/v1/tutor/threads/{body['thread_id']}").json()
+    assert detail["messages"][1]["judge"]["status"] == "ok"
+
+
+def test_judge_switched_off_by_setting_labels_not_verified(
+    env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "tutor_grounding_judge", False)
+    body = client.post("/v1/tutor/ask", json={"question": "What is crazy paving?"}).json()
+    assert body["judge"]["status"] == "skipped"
+    assert body["segments"][0]["support"] == "not_verified"
+    assert len(env["transport"].calls) == 1  # no judge call
+
+
+def test_figures_are_retrieved_and_cited_by_id_and_page(env: dict[str, Any]) -> None:
+    env["figures"] = [FIGURE_HIT, {**FIGURE_HIT, "id": uuid4(), "description": ""}]
+    env["transport"].output = {"coverage": "full", "segments": [
+        {"text": "The CT shows crazy paving.", "sources": ["F1"]}]}
+    body = client.post("/v1/tutor/ask", json={"question": "Crazy paving on CT?"}).json()
+    assert body["figures_considered"] == 1  # the undescribed figure is not offered
+    citation = body["segments"][0]["citations"][0]
+    assert citation["kind"] == "figure" and citation["figure_id"] == str(FIGURE)
+    assert (citation["page_from"], citation["label"]) == (5, "F1")
+    assert env["figure_search"] == (PRINCIPAL.user_id, "crazy or paving or on or ct", 12)
+    prompt = env["transport"].calls[0].user_prompt
+    assert '<figure id="F1"' in prompt and "Axial HRCT with crazy paving." in prompt
+
+
+def test_legacy_stored_segments_list_still_reads(env: dict[str, Any]) -> None:
+    thread = uuid4()
+    env["repo"].owners[thread] = PRINCIPAL.user_id
+    env["repo"].threads[thread] = {"id": thread, "title": "Old", "created_at": NOW,
+                                   "updated_at": NOW}
+    env["repo"].messages[thread] = [{
+        "id": uuid4(), "role": "assistant", "content": "Old answer.", "grounding": "sources",
+        "agent_version": "tutor_answer/v1", "created_at": NOW,
+        "citations": [{"text": "Old answer.", "origin": "sources", "citations": [
+            {"kind": "source", "label": "S1", "chunk_id": str(CHUNK)}]}]}]
+    message = client.get(f"/v1/tutor/threads/{thread}").json()["messages"][0]
+    assert message["segments"][0]["text"] == "Old answer." and message["judge"] is None
+    assert repo.stored_answer(None) == ([], None)

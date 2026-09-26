@@ -33,7 +33,8 @@ HTTP 413). Split the file or upload from the local network.
   `/exams/{id}` (exam screen / results), `/knowledge`, `/knowledge/{concept}`,
   `/progress`, `/settings`.
 - Server-only proxies: `POST /library/upload`, `GET /media/pages/{id}/{n}`,
-  `GET /media/figures/{id}`, `POST|DELETE /settings/push` (`POST ?test` sends a test
+  `GET /media/figures/{id}`, `POST /tutor/stream` (SSE progress, see
+  [tutor runbook](tutor.md)), `POST|DELETE /settings/push` (`POST ?test` sends a test
   push), `GET|PUT|POST /exams/{id}/session` (exam reload, autosave, submit).
 
 ## API contracts

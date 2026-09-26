@@ -9,8 +9,10 @@ from packages.tutor.grounding import (
     NOT_FOUND,
     NOT_FOUND_AFTER_WEB,
     Excerpt,
+    FigureExcerpt,
     combine,
     excerpts_from_hits,
+    figures_from_hits,
     ground_sources,
     ground_web,
     grounding_of,
@@ -190,3 +192,46 @@ def test_agent_outputs_reject_extra_fields_and_bad_coverage() -> None:
 def test_excerpt_citation_ids_are_uuids() -> None:
     excerpt = _excerpts(1)[0]
     assert isinstance(excerpt.citation().chunk_id, UUID)
+
+
+def _figures(n: int = 2) -> list[FigureExcerpt]:
+    return figures_from_hits([
+        {"id": uuid4(), "source_id": uuid4(), "source_title": "Atlas", "page_no": 10 + i,
+         "caption": f"Fig {i}", "modality": "CT", "anatomy": "chest",
+         "description": f"Figure {i} description."}
+        for i in range(1, n + 1)
+    ])
+
+
+def test_figures_are_labelled_in_rank_order_skipping_undescribed_and_capped() -> None:
+    hits = [{"id": uuid4(), "source_id": uuid4(), "source_title": "A", "page_no": i,
+             "caption": "", "modality": "", "anatomy": "",
+             "description": "" if i == 1 else f"d{i}"} for i in range(1, 8)]
+    figures = figures_from_hits(hits)
+    assert [f.label for f in figures] == ["F1", "F2", "F3", "F4"]
+    assert [f.page_no for f in figures] == [2, 3, 4, 5]
+
+
+def test_figure_labels_resolve_to_figure_id_and_page() -> None:
+    excerpts, figures = _excerpts(1), _figures()
+    kept, dropped = ground_sources(
+        _src(("The CT shows it.", ["F2", "S1"]), ("Figure only.", ["f1"])), excerpts, figures)
+    assert dropped == 0
+    first = kept[0].citations[0]
+    assert (first.kind, first.figure_id, first.page_from, first.page_to) == (
+        "figure", figures[1].figure_id, 12, 12)
+    assert first.chunk_id is None and first.source_id == figures[1].source_id
+    assert kept[0].citations[1].chunk_id == excerpts[0].chunk_id
+    assert kept[1].citations[0].figure_id == figures[0].figure_id
+
+
+def test_unknown_figure_labels_are_dropped_and_ids_never_come_from_the_model() -> None:
+    kept, dropped = ground_sources(
+        _src(("Hallucinated figure.", ["F9"]), ("Id smuggled.", [str(uuid4())])),
+        _excerpts(1), _figures(1))
+    assert kept == [] and dropped == 2
+
+
+def test_figures_are_ignored_when_not_supplied() -> None:
+    kept, dropped = ground_sources(_src(("Needs a figure.", ["F1"])), _excerpts(1))
+    assert kept == [] and dropped == 1

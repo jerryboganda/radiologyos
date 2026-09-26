@@ -1,0 +1,64 @@
+{
+  "additionalProperties": false,
+  "description": "Output of ``tutor_web`` v2: the answer plus a summary of every page read.",
+  "properties": {
+    "segments": {
+      "description": "The answer in reading order; [] if nothing reliable found.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "description": "One or two sentences of the answer, supported by the cited pages.",
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "urls": {
+            "description": "https URLs of the authoritative pages actually read. Never empty.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "type": "array"
+          }
+        },
+        "required": [
+          "text",
+          "urls"
+        ],
+        "type": "object"
+      },
+      "maxItems": 40,
+      "type": "array"
+    },
+    "pages": {
+      "description": "One entry per cited page, summarising what it states.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "description": "https URL of a page actually read (WebFetch).",
+            "type": "string"
+          },
+          "summary": {
+            "description": "What the page states that is relevant to the question, in plain prose.",
+            "maxLength": 1500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "summary"
+        ],
+        "type": "object"
+      },
+      "maxItems": 10,
+      "type": "array"
+    }
+  },
+  "required": [
+    "segments",
+    "pages"
+  ],
+  "type": "object"
+}

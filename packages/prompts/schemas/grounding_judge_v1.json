@@ -1,0 +1,44 @@
+{
+  "additionalProperties": false,
+  "description": "Output of ``grounding_judge``: one verdict per numbered segment.",
+  "properties": {
+    "verdicts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "segment": {
+            "description": "The n of the <segment n=...> being judged.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "verdict": {
+            "description": "supported: every factual assertion is stated or directly implied by the cited evidence; partial: some are, at least one is not; unsupported: the main assertion is not supported or is contradicted.",
+            "enum": [
+              "supported",
+              "partial",
+              "unsupported"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "description": "Under 25 words: what is (not) supported.",
+            "maxLength": 300,
+            "type": "string"
+          }
+        },
+        "required": [
+          "segment",
+          "verdict",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "maxItems": 80,
+      "type": "array"
+    }
+  },
+  "required": [
+    "verdicts"
+  ],
+  "type": "object"
+}

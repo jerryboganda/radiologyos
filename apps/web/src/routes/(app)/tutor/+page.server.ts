@@ -3,6 +3,7 @@ import { loadProblem } from '$lib/api-state';
 import { isUuid } from '$lib/citations';
 import { failureMessage } from '$lib/server/client';
 import { ask, getThread, listThreads } from '$lib/server/tutor';
+import { validateAsk } from '$lib/tutor-stream';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
@@ -24,12 +25,9 @@ export const actions: Actions = {
   ask: async (event) => {
     const form = await event.request.formData();
     const question = String(form.get('question') ?? '').trim();
-    const rawThread = String(form.get('thread_id') ?? '');
-    const allowWeb = form.get('allow_web') === 'on';
-    if (question.length < 3) return fail(400, { error: 'Ask a full question.', question });
-    if (question.length > 2000) return fail(400, { error: 'Keep questions under 2,000 characters.', question });
-    const threadId = isUuid(rawThread) ? rawThread : null;
-    const result = await ask(event, { question, thread_id: threadId, allow_web: allowWeb });
+    const input = validateAsk(question, String(form.get('thread_id') ?? ''), form.get('allow_web'));
+    if (!input.ok) return fail(400, { error: input.error, question });
+    const result = await ask(event, input.body);
     if (result.state !== 'ok') {
       const status = result.state === 'error' ? result.status : 503;
       return fail(status, { error: failureMessage(result), question });

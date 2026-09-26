@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     max_upload_bytes: int = Field(default=300 * 1024 * 1024, ge=1)
     # ADR 0010: models run through Claude Code headless; embeddings via Voyage.
     claude_code_bin: str = "claude"
+    # ADR 0013 v2: the semantic grounding judge runs on every tutor answer.
+    # Switching it off is an explicit deployment decision; answers are then
+    # labelled "not verified" rather than presented as judged.
+    tutor_grounding_judge: bool = True
     # Shared with the web server only; signs backend-for-frontend assertions.
     web_api_secret: str = ""
     library_enabled: bool = True
