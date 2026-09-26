@@ -47,18 +47,52 @@ The token is only ever read by the worker process; it is never logged, stored in
 the database, or sent to the browser. Subscription use covers the owner's own
 tenant only (ADR 0010).
 
-### Page reading and quality gates (ADR 0027, ADR 0033)
+### Models, quality gates and approvals (ADR 0035, ADR 0036, ADR 0037)
 
-- PDF pages with a good single-column text layer, no table, and no picture keep
-  their native text and make no model call. The worker logs
-  `text_first ... native_pages=N vision_pages=M` for each PDF.
-- `page_parse` reads pages with Claude Sonnet 5 at high effort. A page that fails
-  the quality gates (under 80% of the page's own words, an empty reading, or
-  out-of-range boxes) is redone by Opus 5.5 at medium. The worker logs
-  `quality gate agent=... reason=... action=fallback`. The targets are in
-  `agents:` in `packages/models/models.yaml`.
-- `--reprocess` also retries pages that failed earlier.
-- Mistral is not used (ADR 0033). Its key was removed from `app.env`.
+- **Free first.** PDF, PPTX and DOCX pages with a good text layer keep their native
+  text and make no model call. PPTX and DOCX are checked through the LibreOffice PDF.
+  The worker logs `text_first ... native_pages=N vision_pages=M`.
+- **The owner's final flow for all bulk work** (pages, figures, knowledge):
+  1. GPT-6 Luna at max reasoning.
+  2. GPT-6 Sol at high when Luna fails or a quality gate finds its answer ambiguous.
+  3. Claude Opus 5.5 high **only for items the owner approves**.
+
+  The targets are in `agents:` in `packages/models/models.yaml`.
+- **Quality gates:**
+  - Pages: under 80% of the page's own words, an empty reading, or bad boxes.
+  - Figures: an empty reading, or a "source" diagnosis whose quote is not on the page. A
+    low-confidence reading only gets Sol's second opinion.
+  - Knowledge chunks: too many claims without supporting evidence. A doubted source
+    statement or context-free claims only get Sol's second opinion.
+  - The worker logs `quality gate agent=... reason=... action=fallback|kept_last`.
+- **Collect & ask.** Items neither GPT model answers well are saved in
+  `model_escalations`, and the owner gets one alert. Pages and figures keep the best GPT
+  reading meanwhile; knowledge chunks are held.
+
+## Pause, resume, relaunch, approve (ADR 0037)
+
+Every unit (a page, a figure page, a knowledge chunk) is saved as soon as it is done,
+so the run can stop at any time and continue exactly where it stopped:
+
+```bash
+. /opt/radiologyos/keycloak/subject.env
+cli() { docker exec radiologyos-worker-1 python -m apps.worker.app.ops.pipeline_cli           --subject "$KEYCLOAK_BOOTSTRAP_SUBJECT" "$@"; }
+cli status      # pause state, pages/jobs/knowledge progress, items awaiting approval
+cli pause       # stops model work between units on every worker
+cli resume
+cli relaunch    # re-queue every unfinished job and lost knowledge pass (safe any time)
+cli approve     # the owner's OK: saved items are redone on Claude Opus 5.5 high
+cli dismiss     # close saved items without using Claude
+cli clear-quota # lift a ChatGPT quota pause early (the window has reset)
+```
+
+The same controls are on Settings for admins.
+- When the ChatGPT quota runs out, every worker pauses until the reset time ChatGPT
+  gave (or 30 minutes), and the owner gets one push notification. The work resumes by
+  itself. A quota never falls through to Claude.
+- `relaunch --redo-unchecked-figures` re-reads pages whose figures were described
+  before ADR 0036.
+- `relaunch --redo-old-knowledge` replaces claims written by an older extraction prompt.
 
 ## Bulk import from the VPS
 

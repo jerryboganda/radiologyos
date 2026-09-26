@@ -15,6 +15,7 @@ from packages.models.gateway import load_agent
 ADMIN = "RADBRAIN_RLS_ADMIN_DATABASE_URL"
 RUNTIME = "RADBRAIN_RLS_RUNTIME_DATABASE_URL"
 KNOWLEDGE_TABLES = (
+    "model_escalations", "ops_alerts",
     "concept_notes", "concept_merges", "knowledge_conflicts", "concept_edges", "claims",
     "curriculum_mappings", "topic_frequencies", "topic_weights", "knowledge_runs", "concepts",
 )

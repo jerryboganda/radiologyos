@@ -41,7 +41,7 @@ CHUNK_B = (
 
 def _claim(concept: str, text: str, span: str) -> dict[str, Any]:
     return {"concept": concept, "type": "epidemiology", "text": text, "evidence_span": span,
-            "importance": 4, "modality": ""}
+            "importance": 4, "modality": "", "source_doubt": ""}
 
 
 def _extract(prompt: str) -> dict[str, Any]:
