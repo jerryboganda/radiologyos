@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "cards": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "chunk_id": {
+            "description": "Id of the supplied chunk that supports this card.",
+            "format": "uuid",
+            "type": "string"
+          },
+          "curriculum_code": {
+            "maxLength": 64,
+            "pattern": "^[A-Z0-9][A-Z0-9._-]*$",
+            "type": "string"
+          },
+          "topic": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "front": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "back": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "evidence": {
+            "description": "A verbatim span of the cited chunk that supports the back.",
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "chunk_id",
+          "curriculum_code",
+          "topic",
+          "front",
+          "back",
+          "evidence"
+        ],
+        "type": "object"
+      },
+      "maxItems": 20,
+      "type": "array"
+    }
+  },
+  "required": [
+    "cards"
+  ],
+  "type": "object"
+}
