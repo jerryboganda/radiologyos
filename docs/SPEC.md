@@ -31,8 +31,8 @@ DICOM viewer in v1.
 4. Figures are first-class, retain page provenance, and support original-resolution
    zoom.
 5. Source conflicts become explicit `KNOWLEDGE_CONFLICT` decisions.
-6. Models are reached through named routes with tenant budgets and local fallback;
-   no provider is selected by this documentation.
+6. Models are reached through named routes with metered budgets and a fallback
+   target per agent; providers are selected only by ADR (0010, 0019, 0028, 0033).
 7. Long operations are resumable, idempotent, and expose step status.
 8. Uploaded personal copies are never redistributed; Core Library content is
    company-authored or licensed.
@@ -44,9 +44,9 @@ DICOM viewer in v1.
 - `apps/web`: SvelteKit 2, TypeScript, Tailwind, PWA; OpenAPI-generated types.
 - Data: PostgreSQL 16 with pgvector, tsvector, and RLS; private S3-compatible
   object storage; Redis for queues, caches, and rate limits.
-- Models: LiteLLM route names `reason`, `extract`, `classify`, `vision`, and
-  `local`; route configuration belongs in `packages/models/models.yaml` in this
-  scaffold. Provider selection remains gated by ADR 0002.
+- Models: route names `reason`, `extract`, `classify`, and `vision` through the
+  in-house gateway (`packages/models/gateway.py`); concrete models live only in
+  `packages/models/models.yaml`. Local-model mode was removed by ADR 0009.
 - Parsing and model workers are later-milestone components; directories may exist
   before the behavior is implemented.
 
