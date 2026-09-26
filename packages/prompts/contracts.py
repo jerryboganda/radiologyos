@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from packages.models.routing import RouteName
+from packages.prompts.templating import placeholders
 
 
 class PromptSafety(BaseModel):
@@ -47,6 +48,17 @@ class PromptFile(BaseModel):
     effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
     output_model: str | None = Field(default=None, pattern=r"^[a-z_.]+:[A-Za-z]+$")
     tools: tuple[Literal["Read", "WebSearch", "WebFetch"], ...] = ()
+    # The user turn, rendered by packages.prompts.templating (ADR 0032). Its
+    # placeholders must be declared in input_variables.
+    user_template: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def template_uses_declared_inputs(self) -> PromptFile:
+        if self.user_template is not None:
+            undeclared = placeholders(self.user_template) - set(self.input_variables)
+            if undeclared:
+                raise ValueError(f"user_template uses undeclared inputs: {sorted(undeclared)}")
+        return self
 
 
 def load_prompt(path: Path) -> PromptFile:

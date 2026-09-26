@@ -33,6 +33,10 @@ input_variables:
   - chunks
   - curriculum_codes
   - max_cards
+  - payload
+user_template: |-
+  Write recall cards from these chunks.
+  {{payload}}
 output_schema: schemas/card_generate_v1.json
 fixture: evals/fixtures/study_v1.json
 safety:

@@ -3,7 +3,7 @@ import { fail } from '@sveltejs/kit';
 import { dataOr, loadProblem } from '$lib/api-state';
 import { parseDeleteForm } from '$lib/data-rights';
 import { parseReminderForm } from '$lib/push';
-import { loadUsageCard } from '$lib/server/admin';
+import { loadModelUsageCard, loadUsageCard } from '$lib/server/admin';
 import { failureMessage } from '$lib/server/client';
 import { deleteAccount, listExports, requestExport } from '$lib/server/data-rights';
 import { getSettings, getVapidKey, saveSettings } from '$lib/server/notifications';
@@ -13,12 +13,13 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
   event.depends('app:exports');
-  const [profile, settings, vapid, exports, usageCard] = await Promise.all([
+  const [profile, settings, vapid, exports, usageCard, modelUsageCard] = await Promise.all([
     getProfile(event),
     getSettings(event),
     getVapidKey(event),
     listExports(event),
-    loadUsageCard(event)
+    loadUsageCard(event),
+    loadModelUsageCard(event)
   ]);
   return {
     profile: dataOr(profile, null),
@@ -29,6 +30,7 @@ export const load: PageServerLoad = async (event) => {
     exports: dataOr(exports, []),
     exportsProblem: loadProblem(exports),
     usageCard,
+    modelUsageCard,
     previewEnabled: env.PREVIEW_ENABLED === 'true'
   };
 };

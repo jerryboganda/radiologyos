@@ -30,6 +30,7 @@ from apps.api.app.security.oidc import (
 from apps.api.app.security.principal import Principal
 from fastapi import Depends, Header, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from packages.observability import trace
 from sqlalchemy.ext.asyncio import AsyncSession
 
 ALLOWED_LOCAL_ROLES = frozenset({"student", "editor", "org_admin", "superadmin"})
@@ -66,6 +67,14 @@ def local_principal(
     return Principal(user_id=user_id, tenant_id=tenant_id, role=role)
 
 
+def _bind(request: Request, principal: Principal, requires_tenant_session: bool) -> None:
+    """Record the acting identity for audit rows, logs, and the model ledger (ids only)."""
+    request.state.tenant_id = principal.tenant_id
+    request.state.user_id = principal.user_id
+    request.state.requires_tenant_session = requires_tenant_session
+    trace.set_identity(principal.tenant_id, principal.user_id)
+
+
 def build_principal_from_request(
     settings: Settings,
     oidc_verifier: OIDCVerifier,
@@ -97,8 +106,7 @@ def build_principal_from_request(
                 principal = await resolve_current_membership(session, identity.subject)
             except OIDCVerificationError as exc:
                 raise HTTPException(status_code=401, detail="invalid access token") from exc
-            request.state.tenant_id = principal.tenant_id
-            request.state.requires_tenant_session = True
+            _bind(request, principal, requires_tenant_session=True)
             return principal
 
         if x_radbrain_assertion:
@@ -109,8 +117,7 @@ def build_principal_from_request(
                 principal = await resolve_current_membership(session, internal.subject)
             except (AssertionError_, OIDCVerificationError) as exc:
                 raise HTTPException(status_code=401, detail="invalid web assertion") from exc
-            request.state.tenant_id = principal.tenant_id
-            request.state.requires_tenant_session = True
+            _bind(request, principal, requires_tenant_session=True)
             return principal
 
         if not settings.is_local_development:
@@ -119,9 +126,8 @@ def build_principal_from_request(
         header_principal = local_principal(x_user_id, x_tenant_id, x_role)
         if header_principal is None:
             raise HTTPException(status_code=401, detail="authentication required")
-        request.state.tenant_id = header_principal.tenant_id
         request.state.local_tenant_id = header_principal.tenant_id
-        request.state.requires_tenant_session = False
+        _bind(request, header_principal, requires_tenant_session=False)
         return header_principal
 
     return principal_from_request

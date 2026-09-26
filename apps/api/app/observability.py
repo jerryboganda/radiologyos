@@ -1,4 +1,4 @@
-"""Minimal structured observability for the M0 API boundary."""
+"""Structured, allowlisted JSON logs for the API boundary (ADR 0032)."""
 
 from __future__ import annotations
 
@@ -11,8 +11,13 @@ from typing import Any
 class RedactingJsonFormatter(logging.Formatter):
     """Emit only allowlisted operational fields as one JSON object."""
 
-    _events = frozenset({"request_completed"})
-    _fields = ("request_id", "method", "path", "status_code")
+    _events = frozenset({
+        "request_completed", "rate_limited", "rate_limit_unavailable", "audit_write_failed",
+        "tutor_model_failed", "tutor_stream_failed", "idp_revocation_failed",
+    })
+    # Ids, route templates, numbers, and error class names only (hard rule 4).
+    _fields = ("request_id", "method", "path", "status_code", "duration_ms", "tenant_id",
+               "bucket", "error_type")
 
     def format(self, record: logging.LogRecord) -> str:
         event = record.getMessage() if record.getMessage() in self._events else "unknown_event"

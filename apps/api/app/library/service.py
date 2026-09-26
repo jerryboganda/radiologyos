@@ -13,6 +13,8 @@ from collections.abc import Sequence
 from typing import Any, BinaryIO
 from uuid import UUID, uuid4
 
+# Re-exported: routers import the audit helper from here (ADR 0032).
+from apps.api.app.ops.audit import audit as audit
 from apps.api.app.security.principal import Principal
 from packages.library import storage
 from packages.library.formats import DetectedFormat, UnsupportedUpload, clean_title, detect_format
@@ -106,22 +108,6 @@ async def _insert_rows(
     )
     await audit(session, principal, "source.uploaded", "source", str(source_id),
                 {"sha256": sha256, "bytes": size, "kind": detected.kind.value})
-
-
-async def audit(
-    session: AsyncSession, principal: Principal, action: str, target_type: str,
-    target_id: str, metadata: dict[str, Any] | None = None,
-) -> None:
-    import json
-
-    await session.execute(
-        text(
-            "INSERT INTO audit_log (tenant_id, actor_user_id, action, target_type, target_id, "
-            "metadata) VALUES (:t, :u, :a, :tt, :tid, CAST(:m AS jsonb))"
-        ),
-        {"t": principal.tenant_id, "u": principal.user_id, "a": action, "tt": target_type,
-         "tid": target_id, "m": json.dumps(metadata or {})},
-    )
 
 
 async def list_sources(session: AsyncSession, principal: Principal) -> list[dict[str, Any]]:

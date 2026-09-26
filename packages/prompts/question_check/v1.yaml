@@ -36,6 +36,14 @@ system_prompt: |
 input_variables:
   - item
   - excerpts
+user_template: |-
+  Check this draft exam item against the supplied excerpts.
+
+  <item>
+  {{item}}
+  </item>
+
+  {{excerpts}}
 output_schema: schemas/question_check_v1.json
 fixture: evals/fixtures/assessment_v1.json
 safety:

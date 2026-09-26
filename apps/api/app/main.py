@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, cast
-from uuid import UUID, uuid4
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Annotated
+from uuid import UUID
 
+from apps.api.app.api.admin_model_usage import router as admin_model_usage_router
 from apps.api.app.api.admin_usage import router as admin_usage_router
 from apps.api.app.api.assessment import router as assessment_router
 from apps.api.app.api.billing import router as billing_router
@@ -13,6 +16,7 @@ from apps.api.app.api.exams import router as exams_router
 from apps.api.app.api.knowledge import router as knowledge_router
 from apps.api.app.api.library import router as library_router
 from apps.api.app.api.notifications import router as notifications_router
+from apps.api.app.api.ops import router as ops_router
 from apps.api.app.api.preview import router as preview_router
 from apps.api.app.api.preview_admin import router as preview_admin_router
 from apps.api.app.api.preview_assessment import router as preview_assessment_router
@@ -26,10 +30,7 @@ from apps.api.app.api.tutor import router as tutor_router
 from apps.api.app.api.tutor_images import router as tutor_images_router
 from apps.api.app.api.viva import router as viva_router
 from apps.api.app.core.config import get_settings
-from apps.api.app.db.session import (
-    get_system_session,
-)
-from apps.api.app.observability import logger
+from apps.api.app.ops.middleware import request_context
 from apps.api.app.schemas.common import ErrorResponse, HealthResponse, TenantResponse
 from apps.api.app.security.context import (
     build_shared_dependencies,
@@ -40,14 +41,20 @@ from apps.api.app.security.oidc import (
     OIDCVerifier,
 )
 from apps.api.app.security.principal import Principal, require_roles
-from fastapi import Depends, FastAPI, HTTPException, Request
+from apps.worker.app.ops.llm_ledger import install as install_ledger
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import HTTPBearer
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.middleware.base import RequestResponseEndpoint
-from starlette.responses import Response
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Record model calls to the ``llm_calls`` ledger from this process (ADR 0032)."""
+    install_ledger(get_settings().database_url)
+    yield
+
 
 app = FastAPI(
+    lifespan=lifespan,
     title="radbrain API",
     version="0.1.0",
     description="Provenance-first, tenant-isolated radiology study platform.",
@@ -56,8 +63,10 @@ app = FastAPI(
 settings = get_settings()
 bearer_scheme = HTTPBearer(auto_error=False)
 oidc_verifier = OIDCVerifier(settings)
+app.include_router(ops_router)
 app.include_router(library_router)
 app.include_router(admin_usage_router)
+app.include_router(admin_model_usage_router)
 app.include_router(notifications_router)
 app.include_router(tutor_router)
 app.include_router(tutor_images_router)
@@ -80,51 +89,12 @@ app.include_router(blueprints_router)
 app.include_router(curriculum_router)
 
 
-@app.middleware("http")
-async def request_context(request: Request, call_next: RequestResponseEndpoint) -> Response:
-    supplied_request_id = request.headers.get("x-request-id")
-    try:
-        request_id = str(UUID(supplied_request_id)) if supplied_request_id else str(uuid4())
-    except ValueError:
-        request_id = str(uuid4())
-    request.state.request_id = request_id
-    response = await call_next(request)
-    response.headers["x-request-id"] = request_id
-    route = request.scope.get("route")
-    path = getattr(route, "path", "unmatched")
-    logger.info(
-        "request_completed",
-        extra={
-            "request_id": request_id,
-            "method": request.method,
-            "path": path,
-            "status_code": response.status_code,
-        },
-    )
-    return response
+app.middleware("http")(request_context)
 
 
 @app.get("/health/live", response_model=HealthResponse, tags=["health"])
 async def liveness() -> HealthResponse:
     return HealthResponse(status="ok", service="api", environment=settings.app_env)
-
-
-@app.get("/health/ready", response_model=HealthResponse, tags=["health"])
-async def readiness(
-    session: Annotated[AsyncSession, Depends(get_system_session)],
-) -> HealthResponse:
-    try:
-        import redis.asyncio as redis
-
-        await session.execute(text("SELECT 1"))
-        redis_client = cast(Any, redis).from_url(settings.redis_url, socket_connect_timeout=1)
-        try:
-            await redis_client.ping()
-        finally:
-            await redis_client.aclose()
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail="dependency unavailable") from exc
-    return HealthResponse(status="ready", service="api", environment=settings.app_env)
 
 
 def _local_principal(

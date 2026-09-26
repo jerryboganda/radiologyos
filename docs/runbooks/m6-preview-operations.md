@@ -42,6 +42,23 @@ Compose validation, live migrations, and the runtime-role RLS proof. Preview
 additions must not weaken those gates. Trivy, Semgrep, full dependency review,
 and staging browser/security evidence remain required before release.
 
+Operational controls (ADR 0032), with local checks only until deployed:
+
+- **Rate limits.** Per-user and per-tenant Redis token buckets cover tutor
+  ask/stream, question and card generation, uploads, viva, and export. A
+  refused request gets `429` with `Retry-After`. When Redis is unavailable the
+  limits fail open, logged once as `rate_limit_unavailable`.
+- **Audit.** An `audit_log` row is written for every successful mutating
+  request. `apps/api/tests/test_audit_coverage.py` fails when a new mutating
+  route is neither covered nor explicitly exempt.
+- **Metrics and readiness.** `/metrics` and `/health/ready` are internal-only
+  diagnostics; see the production-deploy runbook.
+- **Admin MFA.** A Keycloak conditional-OTP flow for `mfa_required` is applied
+  by `infra/ops/keycloak-mfa.sh`, only with the owner's OK.
+
+None of these is release evidence until the deployed host passes the same
+checks in Actions.
+
 Unauthenticated behaviour was probed directly on the deployed host: `/v1/me/export`,
 `/v1/me`, and `/v1/admin/ping` all return `401 OIDC token required`, and local
 preview headers do not bypass that in production. Preview routes return

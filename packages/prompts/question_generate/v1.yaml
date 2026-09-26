@@ -54,6 +54,15 @@ input_variables:
   - exam_target
   - count
   - topic
+  - type_label
+  - topic_focus
+  - excerpt_ids
+user_template: |-
+  Write {{count}} {{type_label}} (type "{{item_type}}") for {{exam_target}}.
+  {{topic_focus}}Supplied excerpt ids: {{excerpt_ids}}.
+  Use only facts stated in the excerpts below; cite excerpt ids exactly.
+
+  {{excerpts}}
 output_schema: schemas/question_generate_v1.json
 fixture: evals/fixtures/assessment_v1.json
 safety:

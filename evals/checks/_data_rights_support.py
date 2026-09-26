@@ -13,7 +13,7 @@ ADMIN = "RADBRAIN_RLS_ADMIN_DATABASE_URL"
 RUNTIME = "RADBRAIN_RLS_RUNTIME_DATABASE_URL"
 # Children first, so the admin cleanup never trips a foreign key.
 ALL_TABLES = (
-    "embedding_cache", "data_jobs", "curriculum_reviews", "exam_blueprints",
+    "llm_calls", "embedding_cache", "data_jobs", "curriculum_reviews", "exam_blueprints",
     "viva_turns", "viva_sessions",
     "study_session_steps", "study_sessions", "weakness_events", "grading_jobs",
     "item_stats", "baseline_tests", "weekly_reports",
@@ -212,6 +212,10 @@ async def seed_content(runtime: Any, tenant: UUID, user: UUID, source: UUID) -> 
         await runtime.execute(
             "INSERT INTO exam_blueprints (tenant_id, blueprint_id, updated_by) "
             "VALUES ($1,'frcr_2a',$2)", tenant, user)
+        await runtime.execute(
+            "INSERT INTO llm_calls (tenant_id, user_id, agent, route, backend, model, effort, "
+            "status, duration_ms) VALUES ($1,$2,'tutor_answer/v3','reason','claude_code',"
+            "'synthetic-model','high','ok',1200)", tenant, user)
 
 
 async def counts(admin: Any, tenant: UUID) -> dict[str, int]:

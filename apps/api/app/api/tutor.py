@@ -26,6 +26,7 @@ from apps.api.app.api.library import get_store
 from apps.api.app.core.config import get_settings
 from apps.api.app.db.session import set_database_tenant
 from apps.api.app.observability import logger
+from apps.api.app.ops.ratelimit import rate_limit
 from apps.api.app.security.context import (
     build_shared_dependencies,
     build_tenant_db_session_dependency,
@@ -83,6 +84,8 @@ def tutor_store() -> ObjectStore:
 
 OptionalTransportDep = Annotated[Transport | None, Depends(model_transport)]
 StoreDep = Annotated[ObjectStore, Depends(tutor_store)]
+TUTOR_LIMIT = Depends(rate_limit("tutor", principal_context))
+UPLOAD_LIMIT = Depends(rate_limit("upload", principal_context))
 
 
 def get_transport(transport: OptionalTransportDep) -> Transport:
@@ -111,7 +114,7 @@ async def _loaded(
     return loaded
 
 
-@router.post("/ask", response_model=AskResponse)
+@router.post("/ask", response_model=AskResponse, dependencies=[TUTOR_LIMIT])
 async def ask(
     body: AskRequest, principal: PrincipalDep, session: SessionDep, transport: TransportDep,
     store: StoreDep,
@@ -196,6 +199,7 @@ async def _ask_events(
 @router.post(
     "/ask/stream",
     response_class=StreamingResponse,
+    dependencies=[TUTOR_LIMIT],
     responses={200: {
         "description": "Server-Sent Events: status* and draft*, then answer + done, "
                        "or one error.",

@@ -2,7 +2,8 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { isKind, loadProblem, type LoadProblem } from '$lib/api-state';
 import { isAdminRole, isEmbeddingUsage, selectBanner } from '$lib/admin-usage';
-import type { AdminBanner, EmbeddingUsage } from '$lib/types/admin';
+import { isModelUsage } from '$lib/model-usage';
+import type { AdminBanner, EmbeddingUsage, ModelUsage } from '$lib/types/admin';
 import { getJson, sendJson, type CallOptions } from './client';
 
 /** The shell check must never hold a page back for long. */
@@ -28,6 +29,23 @@ export async function loadUsageCard(event: RequestEvent): Promise<UsageCard | nu
   if (result.state !== 'ok') return { usage: null, problem: loadProblem(result) ?? { offline: true, message: '' } };
   if (!isEmbeddingUsage(result.data)) {
     return { usage: null, problem: { offline: false, message: 'The usage report had an unexpected format.' } };
+  }
+  return { usage: result.data, problem: null };
+}
+
+export const getModelUsage = (event: RequestEvent, options?: CallOptions) =>
+  getJson<ModelUsage>(event, '/v1/admin/model-usage', options);
+
+export type ModelUsageCard = { usage: ModelUsage; problem: null } | { usage: null; problem: LoadProblem };
+
+/** Settings card for the model-call ledger (ADR 0032); null hides it (not an admin, or 403). */
+export async function loadModelUsageCard(event: RequestEvent): Promise<ModelUsageCard | null> {
+  if (!isAdminRole(event.locals.user?.tenantRole)) return null;
+  const result = await getModelUsage(event);
+  if (isKind(result, 'forbidden')) return null;
+  if (result.state !== 'ok') return { usage: null, problem: loadProblem(result) ?? { offline: true, message: '' } };
+  if (!isModelUsage(result.data)) {
+    return { usage: null, problem: { offline: false, message: 'The model usage report had an unexpected format.' } };
   }
   return { usage: result.data, problem: null };
 }

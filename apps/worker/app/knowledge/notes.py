@@ -19,6 +19,7 @@ from packages.knowledge.evidence import FilteredExtraction, filter_extraction, l
 from packages.knowledge.models import KnowledgeExtraction, TopicClassification
 from packages.knowledge.text import normalize_name, word_count
 from packages.library.quality import extraction_problem
+from packages.models.gateway import user_prompt
 
 log = logging.getLogger("radbrain.knowledge")
 EXTRACT = "knowledge_extract/v1"
@@ -27,18 +28,16 @@ MIN_WORDS = 30  # spec: chunks under ~40 tokens are skipped
 
 
 def _extract_prompt(source: dict[str, Any], chunk: dict[str, Any]) -> str:
-    return (
-        f"Source title: {source['title']}\nHeading path: {chunk['heading'] or '(none)'}\n"
-        f"Pages: {chunk['page_from']}-{chunk['page_to']}\n\nChunk text:\n{chunk['text']}"
-    )
+    return user_prompt("knowledge_extract", source_title=str(source["title"]),
+                       heading_path=str(chunk["heading"] or "(none)"),
+                       page_from=str(chunk["page_from"]), page_to=str(chunk["page_to"]),
+                       chunk_text=str(chunk["text"]))
 
 
 def _classify_prompt(chunk: dict[str, Any], concepts: list[str]) -> str:
-    return (
-        f"Allowed curriculum codes:\n{prompt_listing()}\n\n"
-        f"Heading path: {chunk['heading'] or '(none)'}\n"
-        f"Extracted concepts: {', '.join(concepts) or '(none)'}\n\nChunk text:\n{chunk['text']}"
-    )
+    return user_prompt("topic_classify", curriculum_codes=prompt_listing(),
+                       heading_path=str(chunk["heading"] or "(none)"),
+                       concepts=", ".join(concepts) or "(none)", chunk_text=str(chunk["text"]))
 
 
 def _evidence_problem(extraction: Any, chunk_text: str) -> str | None:

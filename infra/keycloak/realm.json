@@ -18,6 +18,12 @@
   "quickLoginCheckMilliSeconds": 1000,
   "maxDeltaTimeSeconds": 43200,
   "failureFactor": 10,
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "otpPolicyLookAheadWindow": 1,
+  "otpPolicyCodeReusable": false,
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
@@ -40,15 +46,35 @@
       },
       {
         "name": "org_admin",
-        "description": "Tenant administrator."
+        "description": "Tenant administrator.",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "mfa_required"
+          ]
+        }
       },
       {
         "name": "superadmin",
-        "description": "Platform administrator."
+        "description": "Platform administrator.",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "mfa_required"
+          ]
+        }
+      },
+      {
+        "name": "mfa_required",
+        "description": "Marker role: its holders must pass an authenticator (TOTP) code at sign-in (ADR 0032). Included in org_admin and superadmin."
       }
     ]
   },
-  "defaultRoles": ["offline_access", "uma_authorization", "student"],
+  "defaultRoles": [
+    "offline_access",
+    "uma_authorization",
+    "student"
+  ],
   "clients": [
     {
       "clientId": "radbrain-web",
@@ -83,8 +109,20 @@
         "backchannel.logout.session.required": "true"
       },
       "fullScopeAllowed": false,
-      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "basic", "email"],
-      "optionalClientScopes": ["address", "offline_access", "phone", "microprofile-jwt"],
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "offline_access",
+        "phone",
+        "microprofile-jwt"
+      ],
       "protocolMappers": [
         {
           "name": "radbrain-api-audience",
@@ -100,7 +138,36 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "radbrain-ops",
+      "name": "radbrain operations",
+      "description": "Service account used only to revoke a user's sessions when their account is erased (ADR 0032). Confidential; the secret is set by infra/ops/keycloak-mfa.sh and never committed.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "",
+      "bearerOnly": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": false,
+      "attributes": {
+        "oauth2.device.authorization.grant.enabled": "false"
+      }
     }
   ],
-  "users": []
+  "users": [
+    {
+      "username": "service-account-radbrain-ops",
+      "enabled": true,
+      "serviceAccountClientId": "radbrain-ops",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users"
+        ]
+      }
+    }
+  ]
 }

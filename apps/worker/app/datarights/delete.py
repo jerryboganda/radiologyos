@@ -10,7 +10,9 @@ job resumes by simply running again:
    prefix first, then the shared per-source purge (pages, blocks, figures,
    chunks and embeddings, claims, mappings, jobs, orphaned concepts);
 3. ``exports``     - export ZIPs and their rows;
-4. ``identity``    - ``app.erase_user_identity``: users, memberships, and the
+4. ``idp_sessions`` - best-effort Keycloak logout of every session of the user's
+   login subject (ADR 0032; ``not_configured`` without the ops client);
+5. ``identity``    - ``app.erase_user_identity``: users, memberships, and the
    user's audit trail, leaving one content-free audit record.
 
 Sources under legal hold are skipped and reported by count and id; the user
@@ -24,7 +26,7 @@ from typing import Any
 from uuid import UUID
 
 from apps.api.app.library.service import purge_source_rows
-from apps.worker.app.datarights import jobs, registry
+from apps.worker.app.datarights import idp, jobs, registry
 from apps.worker.app.ingest.db import tenant_tx
 from packages.library import storage
 from sqlalchemy import text
@@ -43,6 +45,7 @@ async def run_delete(deps: jobs.DataDeps, tenant_id: UUID, job_id: UUID) -> str:
     deps.store.delete_prefix(storage.tutor_image_prefix(tenant_id, user_id))  # ADR 0025
     held = await _delete_sources(deps, tenant_id, job_id, user_id)
     exports = await _delete_exports(deps, tenant_id, job_id, user_id)
+    idp_sessions = await _revoke_idp_sessions(deps, tenant_id, job_id, user_id)
     async with tenant_tx(deps.engine, tenant_id) as session:
         await jobs.set_step(session, job_id, "identity")
         identity: Any = (
@@ -50,9 +53,26 @@ async def run_delete(deps: jobs.DataDeps, tenant_id: UUID, job_id: UUID) -> str:
         ).scalar_one()
         await jobs.finish(session, job_id, {
             "study_rows": rows, "held_sources": len(held), "exports_removed": exports,
-            "identity": str(identity),
+            "idp_sessions": idp_sessions, "identity": str(identity),
         })
     return "succeeded"
+
+
+async def _revoke_idp_sessions(
+    deps: jobs.DataDeps, tenant_id: UUID, job_id: UUID, user_id: UUID
+) -> str:
+    """Best-effort Keycloak logout before the login subject is erased (ADR 0032)."""
+    from apps.api.app.core.config import get_settings
+
+    async with tenant_tx(deps.engine, tenant_id) as session:
+        await jobs.set_step(session, job_id, "idp_sessions")
+        subject = (await session.execute(
+            text("SELECT oidc_subject FROM users WHERE id = :u"), {"u": user_id})
+        ).scalar_one_or_none()
+    s = get_settings()
+    return await idp.revoke_sessions(
+        str(subject) if subject else None, s.keycloak_admin_url, s.keycloak_realm,
+        s.keycloak_admin_client_id, s.keycloak_admin_client_secret)
 
 
 async def _delete_study_rows(

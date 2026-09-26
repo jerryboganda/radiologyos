@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from apps.api.app.api.tutor import PrincipalDep, SessionDep, StoreDep
+from apps.api.app.api.tutor import UPLOAD_LIMIT, PrincipalDep, SessionDep, StoreDep
 from apps.api.app.observability import logger
 from apps.api.app.tutor import images
 from apps.api.app.tutor.contracts import ImageUploadResponse
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/v1/tutor", tags=["tutor"])
 
 
 @router.post("/images", response_model=ImageUploadResponse,
-             status_code=status.HTTP_201_CREATED)
+             status_code=status.HTTP_201_CREATED, dependencies=[UPLOAD_LIMIT])
 async def upload_image(
     principal: PrincipalDep, session: SessionDep, store: StoreDep,
     file: Annotated[UploadFile, File()],

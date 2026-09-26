@@ -40,6 +40,17 @@ input_variables:
   - page_image
   - curriculum_node_ids
   - source_title
+  - page_no
+  - image_note
+user_template: |-
+  Valid curriculum node ids:
+  {{curriculum_node_ids}}
+
+  Source title: {{source_title}}
+  Page: {{page_no}}
+  {{image_note}}
+  Page text:
+  {{page_text}}
 output_schema: schemas/paper_topics_v3.json
 fixture: evals/fixtures/knowledge_v2.json
 safety:

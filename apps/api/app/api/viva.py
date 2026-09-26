@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from apps.api.app.api.assessment import PrincipalDep, SessionDep
+from apps.api.app.api.assessment import PrincipalDep, SessionDep, principal_context
 from apps.api.app.api.library import query_vector
 from apps.api.app.assessment import viva_service, viva_store
 from apps.api.app.assessment.viva_contracts import (
@@ -29,11 +29,13 @@ from apps.api.app.assessment.viva_contracts import (
 from apps.api.app.assessment.viva_flow import enqueue_step
 from apps.api.app.assessment.viva_service import VivaRefused
 from apps.api.app.core.time import now_utc
+from apps.api.app.ops.ratelimit import rate_limit
 from apps.api.app.security.principal import Principal
-from fastapi import APIRouter, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/v1/viva", tags=["viva"])
+VIVA_LIMIT = Depends(rate_limit("viva", principal_context))
 TurnNo = Annotated[int, Path(ge=1, le=40)]
 
 
@@ -49,7 +51,8 @@ async def _view(db: AsyncSession, principal: Principal, sid: UUID) -> SessionVie
     return session_view(row, turns, now_utc())
 
 
-@router.post("/sessions", response_model=SessionView, status_code=status.HTTP_201_CREATED)
+@router.post("/sessions", response_model=SessionView, status_code=status.HTTP_201_CREATED,
+             dependencies=[VIVA_LIMIT])
 async def create_session(
     body: VivaCreate, principal: PrincipalDep, session: SessionDep
 ) -> SessionView:
@@ -91,7 +94,8 @@ async def get_session(session_id: UUID, principal: PrincipalDep,
     return view
 
 
-@router.post("/sessions/{session_id}/turns/{turn_no}/answer", response_model=SessionView)
+@router.post("/sessions/{session_id}/turns/{turn_no}/answer", response_model=SessionView,
+             dependencies=[VIVA_LIMIT])
 async def answer_turn(
     session_id: UUID, turn_no: TurnNo, body: VivaAnswer, principal: PrincipalDep,
     session: SessionDep,
