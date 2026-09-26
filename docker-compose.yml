@@ -170,6 +170,10 @@ services:
   # Local voyage-4-nano embeddings (ADR 0019). No published port; the API
   # reaches it by alias and does not depend on it.
   embedder:
+    # Opt-in locally (`docker compose --profile embedder up`): the image carries torch
+    # and the ~700 MB model, which the CI runtime job must not download. Without it,
+    # search falls back to keyword-only. Production always runs it (platform.yml).
+    profiles: [embedder]
     build:
       context: ./infra/embedder
       dockerfile: Dockerfile

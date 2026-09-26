@@ -31,3 +31,11 @@ cap, nothing is sent, the step is marked `skipped` / `embedding_budget_exhausted
 
 **New dependencies.** torch (CPU), sentence-transformers and transformers, in the
 embedder image only.
+
+**Pins.**
+- `voyageai/voyage-4-nano` is pinned to HF revision `67fabc9bef010dabc5f6024aa1b1b6b93410426f` and
+  baked into the image, which runs offline.
+- `transformers` must stay at or below 5.8.1: the model's remote code uses `create_causal_mask`
+  arguments that were removed in 5.9.
+- Locally the embedder is behind the `embedder` compose profile, so CI's runtime job does not
+  download torch and the model. Production always runs it.
