@@ -17,8 +17,9 @@ import urllib.request
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://radbrain-api:8000"
 
-# Any of 401/403 proves the route is gated. 404 would mean the surface is absent,
-# which is stricter still but is not the state this deployment is in.
+# Any of 401/403 proves the route is gated. 404 means the surface is absent,
+# which is stricter still and is production's state since 2026-09-26
+# (PREVIEW_ENABLED=false).
 GATING = {401, 403}
 ABSENT = {404}
 
@@ -45,11 +46,13 @@ ALLOWED = GATING | ABSENT
 
 def probe(method: str, path: str, headers: dict[str, str]) -> int:
     data = b"{}" if method == "POST" else None
+    if not BASE.startswith(("http://", "https://")):
+        raise ValueError("only http(s) bases are probed")
     request = urllib.request.Request(
         f"{BASE}{path}", data=data, method=method, headers=headers
     )
     try:
-        with urllib.request.urlopen(request, timeout=15) as resp:
+        with urllib.request.urlopen(request, timeout=15) as resp:  # nosec B310 - http(s) only
             return resp.status
     except urllib.error.HTTPError as exc:
         return exc.code

@@ -24,7 +24,13 @@ covered from the first night it exists. Do not add a project-local backup.
 
 ## Verified evidence
 
-The restore drill was run on 2026-09-25 against the live platform:
+Current evidence is recorded per release in `docs/evidence/` (the M0 record is
+`docs/evidence/m0.md`), from a drill run on the deployed head. A drill result is only
+evidence for the head it printed.
+
+**Historical (2026-09-25, schema `20260925_0003`; superseded).** This run predates
+migrations 0004–0014 and the asserting drill. It printed values but asserted nothing,
+so it is not evidence for the current schema.
 
 | Measure | Value |
 | --- | --- |
@@ -38,16 +44,32 @@ The restore drill was run on 2026-09-25 against the live platform:
 
 ## Running the drill
 
-The drill restores into a **scratch** database, verifies, then drops it. The
-live database is never written to.
+The drill restores the newest nightly `radiologyos.dump` into a **scratch** database,
+asserts, prints RPO and RTO, then drops the scratch database. It only reads the live
+database. It exits non-zero unless all of these hold (ADR 0022):
+
+- the dump set's `MANIFEST.sha256` verifies;
+- the restored alembic head **and** the live head equal the expected head;
+- every `public` table with a `tenant_id` column (plus `tenants`) has ENABLE + FORCE
+  RLS, and the restored copy has as many such tables as the live database;
+- the `vector` and `pg_trgm` extensions and the `app` schema exist;
+- if `keycloak.dump` is in the same set, it restores into a second scratch database
+  and contains the `radbrain` realm.
 
 ```bash
 /opt/radiologyos/backup-restore-drill.sh          # verify and clean up
-/opt/radiologyos/backup-restore-drill.sh --keep   # leave the scratch copy
+/opt/radiologyos/backup-restore-drill.sh --keep   # leave the scratch copies
+EXPECTED_HEAD=20260926_0014 /opt/radiologyos/backup-restore-drill.sh
 ```
 
-The script exits non-zero if no dump is found, so it is safe to wire into a
-monitoring check.
+The expected head comes from `EXPECTED_HEAD` if it is set. Otherwise it comes from
+`MIGRATIONS_DIR` (a checkout's `apps/api/migrations/versions`). Failing both, it comes
+from the migrations built into the running `radiologyos-api-1` image, which is the
+deployed revision. A deploy that added a migration after the newest dump fails the
+drill until a fresh dump exists. Take one first with
+`docker exec platform-backup sh /backup.sh`. Copy the script from
+`infra/ops/backup-restore-drill.sh` before running it. Paste the drill summary into the
+evidence record without editing it.
 
 ## Restoring for real
 
@@ -111,6 +133,7 @@ Drive, the same `gdrive:` rclone remote as the OET backup, under
 | Off-host log shows `ERROR` | Drive auth expired or dump missing | `rclone about gdrive:`; re-run the script by hand |
 | Checksum mismatch | truncated or corrupted dump | treat as a restore failure; do not retry against it |
 | Restored database is missing RLS | wrong dump, or restored to the wrong database | re-run the drill to compare |
+| Drill fails `restored alembic head = expected` | a migration was deployed after the newest dump | take a fresh dump, then re-run |
 
 ## Escalation
 

@@ -128,7 +128,7 @@ Each phase ends with its gate. The usual loop applies: tests first, local checks
 
 ### Phase 1 — Accept M0 (days 1–3)
 
-- **G28:** ADR 0021 amending ADR 0008 with the derived migration check and branch-protection
+- **G28:** ADR 0022 amending ADR 0008 with the derived migration check and branch-protection
   enforcement.
 - **G29:** the production RLS proof covers every table that has a `tenant_id`, driven by the
   catalog so new tables are included automatically. Split the 333-line function (G26).

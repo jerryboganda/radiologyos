@@ -1,6 +1,6 @@
 # M0 Foundation runbook and five-minute demo
 
-Status: **CI/runtime verified; production verification workflow implemented; M0 evidence pending**
+Status: **CI/runtime verified; production verification extended (ADR 0022); M0 evidence record pending in [`docs/evidence/m0.md`](../evidence/m0.md)**
 Scope: local development scaffold and production evidence acceptance for M0 only
 Related: [`data handling`](data-handling.md), [RLS ADR](../decisions/0001-tenant-isolation-rls.md), [model gate](../decisions/0002-model-provider-gate.md)
 
@@ -23,7 +23,9 @@ OpenAPI reproducibility, security scans, Compose validation, live migrations, th
 non-privileged two-tenant RLS proof, and the full runtime Compose startup/API-web-
 worker health path. This is strong CI/runtime evidence, but it is not production
 OIDC/RLS acceptance evidence; keep the checklist unchecked until the production
-verification chain records all required results for one candidate.
+verification chain records all required results for one candidate. There is no
+staging environment: acceptance runs on the deployed production revision (ADR 0008,
+amended by ADR 0022), and the result is written to `docs/evidence/m0.md`.
 
 ## 2. Architecture and service map
 
@@ -57,7 +59,7 @@ test.
 - Docker Desktop/Engine with Compose v2 and enough resources for the stack.
 - `make` if using the repository convenience targets; individual commands can be run
   directly when documenting a failure.
-- Synthetic M0 fixtures and disposable local/staging tenants only.
+- Synthetic M0 fixtures and disposable local or CI tenants only.
 
 Never prepare M0 by copying the ignored private study directories into fixtures.
 Do not put real credentials or provider keys in `.env`.
@@ -77,11 +79,11 @@ Review every value even when the local default is convenient:
   the local realm/client and the API resource-server audience. The checked-in disposable
   local realm maps the API audience into access tokens; align the environment with that
   realm for local use, or rotate the local client and realm consistently. Never reuse a
-  local value in staging.
+  local value in production.
 - `S3_*` settings describe the private RustFS bucket in development.
 - `MODELS_CONFIG_PATH` points to checked-in mock route configuration.
 - `ALLOW_UNGROUNDED_DEFAULT` remains `false` while provider approval is open.
-- `COOKIE_SECURE=false` is local HTTP only. Staging/production requires HTTPS and
+- `COOKIE_SECURE=false` is local HTTP only. Production requires HTTPS and
   secure cookies.
 
 The template may contain disposable local credentials. They are not production
@@ -112,7 +114,7 @@ The default startup sequence is:
 
 Verify the sequence with `docker compose ps` and the health endpoints below. A
 running container list or a successful process start is supporting evidence; M0 still
-requires the live OIDC and two-tenant acceptance tests on staging.
+requires the live OIDC and two-tenant acceptance tests on production.
 
 Once a real migration configuration and database exist, apply migrations as the
 migrator role:
@@ -137,7 +139,7 @@ Invoke-RestMethod http://localhost:3000/api/health
 Open `http://localhost:3000`, `http://localhost:8000/docs`, and
 `http://localhost:8080` manually and record the result. Port conflicts, a reverse
 proxy, or a configuration change can alter URLs; the checked-in Compose mapping and
-staging ingress are authoritative.
+the production proxy configuration are authoritative.
 
 Regenerate web contract types with `make types`. Review the generated diff. An empty
 command is not evidence that generation succeeded.
@@ -175,9 +177,15 @@ membership lookup, refresh behavior, MFA, audit, or production rejection.
 5. Exercise a student-denied and org-admin-allowed route. Capture server status
    and audit evidence; UI visibility alone does not count.
 6. Repeat with expired, invalid, or audience-mismatched tokens. Access is denied.
-7. Log out through `/auth/logout`; the browser session is cleared. This scaffold does
-   not persist an OIDC refresh token; verify provider-side logout separately if that
-   capability is added.
+7. Log out through `/auth/logout`; the browser session is cleared. Provider-side
+   logout is proven by `infra/ops/verify-oidc.py`: a backchannel logout, after which
+   the refresh token is refused.
+
+Steps 4–7 are automated in production by `Verify production identity`
+(`infra/ops/verify-oidc.py`). Tenant switch to a random tenant must return 403.
+Spoofed development headers and forged web assertions must return 401 on admin routes.
+Admin routes must follow the membership role. With `--student-file`, a synthetic
+student must get 403 on `/v1/admin/embedding-usage`.
 
 OIDC browser login and membership enforcement are implemented in the scaffold, but
 remain **unaccepted** until the production verification flow captures the result. The API resolves the
@@ -188,7 +196,11 @@ must still pass a real API identity through the complete flow.
 ## 8. Tenant-isolation acceptance
 
 Run `make rls`; it dispatches the production runtime-role proof documented in the
-`verify-production-rls.yml` workflow. Evidence must show the test connected as the
+`verify-production-rls.yml` workflow. The proof reads the table list from
+`pg_catalog`, so it covers every `tenant_id` table. Each must have ENABLE + FORCE RLS,
+return no rows without a valid context, and refuse foreign-tenant inserts. The
+catalog must also match the data-rights registry (ADR 0022). Evidence must show the
+test connected as the
 non-privileged runtime role, not a PostgreSQL superuser or table owner. Follow
 [ADR 0001](../decisions/0001-tenant-isolation-rls.md): two tenants
 attempt every applicable read/write path; context is absent on a reused connection;
@@ -311,6 +323,9 @@ Demo rules:
 
 ## 13. M0 evidence record
 
+The record lives in [`docs/evidence/m0.md`](../evidence/m0.md). The orchestrator writes
+it after the deploy. Start from `python scripts/evidence_record.py <sha>`, then add
+the drill summary from `infra/ops/backup-restore-drill.sh` and the compliance result.
 Attach or link only redacted, non-sensitive evidence:
 
 - revision/image digest and deployment ID;

@@ -101,8 +101,9 @@ See [ADR 0007](docs/decisions/0007-production-on-shared-platform.md) and the
 - CI holds one credential for the host, a dedicated `gha-deploy-radiologyos` deploy
   key. Database, Redis, and MinIO credentials never leave the host; compose reads
   `/opt/radiologyos/app.env` (mode 600).
-- `PREVIEW_ENABLED` is true in production behind OIDC authentication (ADR 0009);
-  billing routes stay off unless `BILLING_ENABLED=true` (ADR 0011).
+- `PREVIEW_ENABLED` is false in production since 2026-09-26 (ADR 0011 supersedes
+  the ADR 0009 preview-behind-auth decision); billing routes stay off unless
+  `BILLING_ENABLED=true` (ADR 0011).
 
 ## Change workflow
 

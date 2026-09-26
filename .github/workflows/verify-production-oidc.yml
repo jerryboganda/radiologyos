@@ -2,7 +2,8 @@ name: Verify production identity
 
 # Runs the full OIDC authorization-code flow against the deployed stack after
 # every deploy, then proves the API accepts a genuine token and refuses forged
-# or missing ones. The script is the same one an operator can run by hand.
+# or missing ones, role denial, unauthorized tenant switch and logout (ADR 0022).
+# The script is the same one an operator can run by hand.
 #
 # Credentials never leave the host: the probe runs inside the platform network
 # and reads the root-only keycloak directory mounted read-only.
@@ -60,6 +61,11 @@ jobs:
           set -euo pipefail
           KCIMG=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep radiologyos-python | head -1)
           test -n "$KCIMG"
+          # Optional synthetic student credential for the role-denial probe.
+          STUDENT_ARG=()
+          if [ -f /opt/radiologyos/keycloak/student.env ]; then
+            STUDENT_ARG=(--student-file /run/kc/student.env)
+          fi
           docker run --rm --network platform \
             -v /opt/radiologyos/verify-oidc.py:/run/verify.py:ro \
             -v /opt/radiologyos/keycloak:/run/kc:ro \
@@ -70,7 +76,8 @@ jobs:
             --api http://radbrain-api:8000 \
             --client-id radbrain-web \
             --client-secret-file /run/kc/keycloak.env \
-            --bootstrap-file /run/kc/bootstrap.env
+            --bootstrap-file /run/kc/bootstrap.env \
+            ${STUDENT_ARG[@]+"${STUDENT_ARG[@]}"}
           REMOTE
 
       - name: Confirm the preview surface is authentication-gated

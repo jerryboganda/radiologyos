@@ -4,7 +4,8 @@ Last reviewed: **2026-09-26**
 Delivery mode: **personal-first (ADR 0011)** — a real study platform for the owner's
 own tenant on the production VPS. Milestone acceptance evidence (ADR 0008) is tracked
 separately in [`docs/remaining-work.md`](docs/remaining-work.md).
-Canonical requirements: [`docs/SPEC.md`](docs/SPEC.md) plus ADRs 0001–0017.
+Canonical requirements: [`docs/SPEC.md`](docs/SPEC.md) plus ADRs 0001–0022.
+Tracking: [`docs/completion-plan.md`](docs/completion-plan.md) (gap list and phases).
 
 ## Purpose
 
@@ -22,20 +23,22 @@ page, and block, or to an allow-listed web URL.
 | Identity | Keycloak (public issuer under `/auth`), `apps/api/app/security/` | OIDC for the browser; the web server calls the API with 60 s signed assertions (ADR 0012) |
 | Library | `apps/api/app/library/`, `apps/worker/app/ingest/`, `packages/library/` | upload → render → chunk → embed → ready → Opus page parse + figure cases; resumable jobs |
 | Search | `apps/api/app/library/search.py` | tsvector + pgvector, RRF k=60, cited hits and figures |
-| Tutor | `packages/tutor/`, `apps/api/app/api/tutor.py` | sources first, allow-listed web research second; code-verified citations (ADR 0013) |
+| Tutor | `packages/tutor/`, `apps/api/app/api/tutor.py` | sources first, allow-listed web research second; code-verified citations plus the semantic grounding judge (ADR 0013) |
 | Assessment | `packages/assessment/`, `apps/api/app/assessment/` | SBA/SEQ/TOACS/viva generation, checker gate, exams (ADR 0015) |
 | Study | `packages/study/`, `apps/api/app/study/`, `apps/worker/app/study_jobs.py` | FSRS cards, approved-weight planner, baseline test, weekly reports, nightly replan (ADR 0014) |
 | Reminders | `packages/notifications/`, `apps/worker/app/reminders.py` | Web Push via VAPID, per-user time and timezone |
 | Models | `packages/models/` | Claude Code headless transport, agent gateway, Voyage embeddings (ADR 0010) |
 
 The M1–M7 in-memory **preview** under `/v1/preview/*` still exists for its eval
-gates but is superseded by the durable routes above.
+gates but is superseded by the durable routes above. It is **off in production**
+(`PREVIEW_ENABLED=false`) since 2026-09-26; removing it is tracked as G18.
 
 ## Tenant tables
 
 Every tenant-scoped table has `tenant_id`, ENABLE + FORCE RLS, and a two-tenant
 negative proof run as `radbrain_app` in CI (`evals/checks/*_live.py`). Migrations
-0001–0010 are expand-only.
+0001–0014 are expand-only. `evals/checks/test_rls_live.py` also runs against production
+and covers every `tenant_id` table from the catalog (ADR 0022).
 
 ## Runtime
 
@@ -69,7 +72,7 @@ Actions (ADR 0005).
   `app.env`; without them sources are searchable by keyword only
   ([`docs/runbooks/library.md`](docs/runbooks/library.md)).
 - Subscription-based model access covers the owner's own use only (ADR 0010).
-- Tutor answers are synchronous (no streaming yet); a semantic grounding judge is a
-  follow-up (ADR 0013).
+- The tutor SSE stream carries stage status only; answer tokens are not streamed yet
+  (G8).
 - Uploads over 100 MB must use the server-side bulk importer (Cloudflare limit).
 - Billing is parked behind `BILLING_ENABLED` (ADR 0011).

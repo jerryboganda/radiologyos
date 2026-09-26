@@ -1,6 +1,6 @@
 # radbrain specification index
 
-Status: **M0 foundation scaffold; M0 exit not yet accepted**
+Status: **deployed to production for the owner's tenant (ADR 0011); no milestone accepted yet — M0 evidence record pending.** Tracking: [`completion-plan.md`](completion-plan.md)
 Baseline: [`FCPS Radiology Brain OS — Coding-Agent Implementation Spec.md`](../FCPS%20Radiology%20Brain%20OS%20%E2%80%94%20Coding-Agent%20Implementation%20Spec.md)
 
 ## Authority and precedence
@@ -53,7 +53,10 @@ DICOM viewer in v1.
 ## Milestone gates
 
 Milestone acceptance proceeds in order. The next milestone starts only after the
-current milestone passes its exit test on staging and its definition of done. Under
+current milestone passes its exit evidence and its definition of done. Exit evidence is
+automated and gathered on the deployed **production** revision for one commit SHA (ADR
+0008, amended by ADR 0022 with derived schema checks). There is no separate staging
+environment. Under
 ADR 0006, local/test-only implementation of a later slice may proceed in an explicitly
 non-release preview mode, but it cannot be claimed accepted or release-ready.
 
@@ -65,8 +68,8 @@ non-release preview mode, but it cannot be claimed accepted or release-ready.
 | M3 | Grounded tutor and retrieval | M2 complete first |
 | M4 | Exam-first planner and spaced repetition | M3 complete first |
 | M5 | Assessments, grading, and exam mode | M4 complete first |
-| M6 | Billing, hardening, export/delete, backup drill | M5 complete first |
-| M7 | Certified local mode and optional extensions | M6 complete first |
+| M6 | Billing (parked, ADR 0011), hardening, export/delete, backup drill | M5 complete first |
+| M7 | Baseline: certified local mode. ADR 0009 removed local mode, mobile and institution SSO; the replacement scope (Markdown export with round-trip links) awaits a scope ADR | M6 complete first |
 
 Every milestone requires tests, relevant evals, a runbook, a five-minute demo
 from a clean tenant, and no open critical or high security finding.

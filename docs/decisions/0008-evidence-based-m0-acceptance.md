@@ -1,6 +1,6 @@
 # 0008 — Evidence-based M0 acceptance without a human reviewer gate
 
-- Status: accepted
+- Status: accepted; amended by [ADR 0022](0022-derived-schema-evidence-and-branch-protection.md)
 - Date: 2026-09-25
 - Amends: ADR 0005 (compute policy), `AGENTS.md` staging paragraph
 - Related: ADR 0001 (tenant isolation), ADR 0007 (production on the shared platform)
@@ -32,7 +32,7 @@ production revision, each as a required check on `main`:
 | Evidence | Mechanism | Gate |
 | --- | --- | --- |
 | Tenant isolation under the runtime role | two-tenant plus no-context negative test, connecting as the non-superuser application role over a tunnel to the live database | `Verify production RLS` |
-| Migration state | Alembic head `20260925_0003` applied, 8 tables, 7 with RLS, verified by the restore drill | `backup-restore-drill.sh` |
+| Migration state | Live and restored alembic head equal the deployed revision's head; every `tenant_id` table has ENABLE + FORCE RLS (derived, ADR 0022; originally head `20260925_0003`, 8 tables, 7 with RLS) | `backup-restore-drill.sh`, `Verify production RLS` |
 | Role separation | runtime role is `NOBYPASSRLS`, owns no table, cannot `CREATE`, cannot reach another database | RLS proof assertions |
 | Static and dependency security | Ruff, mypy, Bandit, pip-audit, npm audit | `CI` |
 | Contract integrity | generated OpenAPI committed and validated | `CI` |
