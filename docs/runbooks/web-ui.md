@@ -31,11 +31,25 @@ HTTP 413). Split the file or upload from the local network.
 - `/` Today (sign-in screen when signed out), `/library`, `/library/{id}?page=N&block=M`
   (reader, deep links), `/search?q=`, `/tutor?thread={id}`, `/questions`, `/exams`,
   `/exams/{id}` (exam screen / results), `/knowledge`, `/knowledge/{concept}`,
-  `/progress`, `/settings`.
+  `/knowledge/review` (curriculum-mapping review queue), `/progress`, `/settings`
+  (appearance, profile, reminders, install, export my data, delete my account).
 - Server-only proxies: `POST /library/upload`, `GET /media/pages/{id}/{n}`,
   `GET /media/figures/{id}`, `POST /tutor/stream` (SSE progress, see
   [tutor runbook](tutor.md)), `POST|DELETE /settings/push` (`POST ?test` sends a test
-  push), `GET|PUT|POST /exams/{id}/session` (exam reload, autosave, submit).
+  push), `GET|PUT|POST /exams/{id}/session` (exam reload, autosave, submit),
+  `GET /settings/exports/{id}` (streams the owner's export ZIP, `no-store`).
+
+## PWA
+
+`static/manifest.webmanifest` declares `display: standalone`, `start_url: /`,
+light theme colours with dark overrides (`user_preferences.color_scheme_dark`),
+and PNG icons in `static/icons/` (192, 512, maskable 512, 180 apple-touch),
+rendered from the `favicon.svg` mark. The root layout captures
+`beforeinstallprompt` (`src/lib/install.svelte.ts`) so Settings can offer
+*Install radbrain*; iOS gets Add-to-Home-Screen instructions. The service worker
+caches only `/_app/immutable/*`, the icons, the manifest, and `/offline`
+(`radbrain-shell-v3`); `src/lib/service-worker.test.ts` pins that allowlist so an
+authenticated page, image, API response, or export download is never cached.
 
 ## API contracts
 

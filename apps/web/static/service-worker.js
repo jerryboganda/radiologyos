@@ -1,12 +1,14 @@
 // radbrain service worker.
 //
-// Caching policy (ADR 0017): only the public app shell is cached — hashed
-// build assets under /_app/immutable/, the icon, the manifest, and the offline
+// Caching policy (ADR 0017, 0018): only the public app shell is cached — hashed
+// build assets under /_app/immutable/, the icons, the manifest, and the offline
 // page. Authenticated responses (pages, /media images, /library, /api, /auth,
-// uploads, API JSON) are NEVER cached; they always go to the network.
-const CACHE = 'radbrain-shell-v2';
-const PRECACHE = ['/manifest.webmanifest', '/favicon.svg', '/offline'];
-const PUBLIC_FILES = new Set(['/manifest.webmanifest', '/favicon.svg']);
+// uploads, export downloads, API JSON) are NEVER cached; they always go to the
+// network. evals: src/lib/service-worker.test.ts pins this allowlist.
+const CACHE = 'radbrain-shell-v3';
+const ICONS = ['/favicon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png', '/icons/apple-touch-icon.png'];
+const PRECACHE = ['/manifest.webmanifest', ...ICONS, '/offline'];
+const PUBLIC_FILES = new Set(['/manifest.webmanifest', ...ICONS]);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)));
@@ -71,8 +73,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon: '/favicon.svg',
-      badge: '/favicon.svg',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       tag: 'radbrain-reminder',
       data: { url: path }
     })

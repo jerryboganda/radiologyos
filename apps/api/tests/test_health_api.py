@@ -61,19 +61,10 @@ def test_org_admin_can_access_admin_endpoint() -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_export_and_delete_are_explicitly_unavailable_until_durable_jobs_exist() -> None:
-    headers = {
-        "x-user-id": "10000000-0000-0000-0000-000000000001",
-        "x-tenant-id": "20000000-0000-0000-0000-000000000002",
-    }
-
-    export_response = client.post("/v1/me/export", headers=headers)
-    delete_response = client.delete("/v1/me", headers=headers)
-
-    assert export_response.status_code == 501
-    assert delete_response.status_code == 501
-    assert "not available" in export_response.json()["detail"]
-    assert "not available" in delete_response.json()["detail"]
+def test_account_delete_demands_a_confirmation_body() -> None:
+    # Durable jobs exist now (ADR 0018); a bare DELETE is never accepted.
+    response = client.request("DELETE", "/v1/me")
+    assert response.status_code == 401
 
 
 def test_development_headers_are_rejected_in_staging(monkeypatch) -> None:

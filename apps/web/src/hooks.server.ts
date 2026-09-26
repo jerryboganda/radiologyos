@@ -3,9 +3,9 @@ import { readSession } from '$lib/server/auth';
 import { parseThemePref, THEME_COOKIE, themeClass } from '$lib/theme';
 
 // Page routes are guarded in (app)/+layout.server.ts (redirects serialise
-// correctly for client navigations there). Media, upload, and tutor-stream
-// endpoints refuse here; apiFetch also refuses without a session.
-const ENDPOINTS = ['/media/', '/library/upload', '/tutor/stream'];
+// correctly for client navigations there). Media, upload, tutor-stream, and
+// export-download endpoints refuse here; apiFetch also refuses without a session.
+const ENDPOINTS = ['/media/', '/library/upload', '/tutor/stream', '/settings/exports/'];
 
 export const handle: Handle = async ({ event, resolve }) => {
   event.locals.user = await readSession(event.cookies);

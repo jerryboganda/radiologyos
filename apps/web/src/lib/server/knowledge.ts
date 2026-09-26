@@ -6,8 +6,12 @@ import type {
   ConceptDetail,
   ConceptSummary,
   ConflictOut,
+  CurriculumSystem,
   ExtractRequest,
   ExtractResponse,
+  MappingDecision,
+  MappingOut,
+  MappingStatus,
   ResolveRequest,
   TopicWeightOut,
   WeightTarget
@@ -35,5 +39,16 @@ export const listTopicWeights = (event: RequestEvent, target: WeightTarget | nul
 export const approveTopicWeights = (event: RequestEvent, body: ApproveRequest) =>
   sendJson<ApproveResponse>(event, `${K}/topic-weights/approve`, 'POST', body);
 
-export const extractSource = (event: RequestEvent, sourceId: string, body: ExtractRequest) =>
+/** Curriculum mappings awaiting review (low classifier confidence). */
+export const listMappings = (event: RequestEvent, status: MappingStatus = 'review') =>
+  getJson<MappingOut[]>(event, `${K}/mappings${query({ status })}`);
+
+/** Accept, reject, or re-code one mapping (audited by the API). */
+export const decideMapping = (event: RequestEvent, id: string, body: MappingDecision) =>
+  sendJson<MappingOut>(event, `${K}/mappings/${encodeURIComponent(id)}/decide`, 'POST', body);
+
+export const listCurriculumSystems = (event: RequestEvent) =>
+  getJson<CurriculumSystem[]>(event, `${K}/curriculum/systems`);
+
+export const extractSource =(event: RequestEvent, sourceId: string, body: ExtractRequest) =>
   sendJson<ExtractResponse>(event, `${K}/sources/${encodeURIComponent(sourceId)}/extract`, 'POST', body);

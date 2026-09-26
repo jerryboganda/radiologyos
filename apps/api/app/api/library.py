@@ -161,7 +161,11 @@ async def source_detail(
 
 @router.delete("/sources/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_source(source_id: UUID, principal: PrincipalDep, session: SessionDep) -> None:
-    if not await service.delete_source(session, get_store(), principal, source_id):
+    try:
+        deleted = await service.delete_source(session, get_store(), principal, source_id)
+    except service.SourceOnHold as exc:
+        raise HTTPException(status_code=409, detail="source is under legal hold") from exc
+    if not deleted:
         raise HTTPException(status_code=404, detail="source not found")
 
 

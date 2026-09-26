@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from apps.api.app.api.assessment import router as assessment_router
 from apps.api.app.api.billing import router as billing_router
+from apps.api.app.api.data_rights import router as data_rights_router
 from apps.api.app.api.exams import router as exams_router
 from apps.api.app.api.knowledge import router as knowledge_router
 from apps.api.app.api.library import router as library_router
@@ -57,6 +58,7 @@ app.include_router(assessment_router)
 app.include_router(exams_router)
 app.include_router(study_router)
 app.include_router(knowledge_router)
+app.include_router(data_rights_router)
 app.include_router(preview_router)
 app.include_router(billing_router)
 app.include_router(preview_knowledge_router)
@@ -155,30 +157,6 @@ async def switch_tenant(
         kind="solo",
         role=principal.role,
     )
-
-
-@app.post(
-    f"{settings.api_prefix}/me/export",
-    response_model=ErrorResponse,
-    status_code=501,
-    tags=["data-rights"],
-)
-async def export_data(
-    principal: Annotated[Principal, Depends(principal_context)],
-) -> ErrorResponse:
-    raise HTTPException(status_code=501, detail="data export is not available in preview mode")
-
-
-@app.delete(
-    f"{settings.api_prefix}/me",
-    response_model=ErrorResponse,
-    status_code=501,
-    tags=["data-rights"],
-)
-async def delete_account(
-    principal: Annotated[Principal, Depends(principal_context)],
-) -> ErrorResponse:
-    raise HTTPException(status_code=501, detail="account deletion is not available in preview mode")
 
 
 @app.get(f"{settings.api_prefix}/admin/ping", tags=["admin"])

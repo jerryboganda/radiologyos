@@ -78,7 +78,7 @@ decision or required release evidence.
 | I | M2 | Extraction workers, schemas, versioning, and mock/local route boundary | **durable** (0008, ADR 0016) — `knowledge_extract` with verbatim evidence spans enforced in code; resumable worker |
 | J | M2 | Entity resolution and knowledge graph with tenant isolation | **durable** — alias + trigram resolution (0.92 merge, 0.80–0.92 flagged) |
 | K | M2 | Claims, explicit conflicts, curriculum seed/mapping, concept pages | **durable** — claims, explicit `knowledge_conflicts`, curriculum mapping (<0.7 → review) |
-| L | M2 | Editor queues for mappings/conflicts with authorization and audit | **partial** — conflict resolve and weight approval are audited APIs + UI; no editor queue UI for mappings |
+| L | M2 | Editor queues for mappings/conflicts with authorization and audit | **durable** — conflict resolve, weight approval, and the curriculum-mapping review queue (`/knowledge/review`, ADR 0018) are audited APIs + UI |
 | M | M3 | Query planner, explicit retrieval stages, hybrid fusion, reranking config | **durable** — explicit lexical + dense stages fused by RRF; reranker not yet configured |
 | N | M3 | Grounding judge, citations, figure cards, image-question upload | **durable** (0005, ADR 0013) — code-verified citations, allow-listed web fallback; semantic judge is a follow-up |
 | O | M3 | Tutor thread memory, “not in your sources,” tenant-aware cache boundaries | **durable** — persisted threads, explicit not-found response, no cross-tenant cache |
@@ -87,7 +87,7 @@ decision or required release evidence.
 | R | M5 | SBA, SEQ, image-case, and viva generation with versioned prompts/evals | **durable** (0007, ADR 0015) — SBA/SEQ/image-case/viva generation with checker gate and versioned prompts |
 | S | M5 | Practice, Exam mode, autosave/resume, grader, review queue, statistics | **durable** — exam mode with server deadline, revision autosave, idempotent submit, per-topic results; exams are SBA-only |
 | T | M6 | Stripe test-mode billing, portal, webhooks, caps, degradation, org/superadmin | **parked** (ADR 0011) — in-memory service and routes exist but answer 404 unless `BILLING_ENABLED=true`; plan values are placeholders pending an owner pricing decision |
-| U | M6 | Export/delete across data, derived artifacts, caches, queues, and observability | impl · eval · runbook (purge verified; release routes stay 501) |
+| U | M6 | Export/delete across data, derived artifacts, caches, queues, and observability | **durable** (0012, ADR 0018) — export ZIP job with 7-day expiry, resumable account delete across rows, embeddings, and objects, legal-hold aware; live proof in CI. Open: IdP session revocation, provider-log purge, backup expiry |
 | V | M6 | Load tests, security scans, backup/restore drill, RPO/RTO runbook | impl · eval · runbook (load + scans + drill all green) |
 | W | M7 | Certified local-model mode with lower approved thresholds | **out of scope** — removed by ADR 0009 |
 | X | M7 | Markdown/Obsidian-compatible export and round-trip links | impl · eval · runbook (Markdown only, no import) |

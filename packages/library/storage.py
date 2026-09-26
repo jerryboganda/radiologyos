@@ -7,9 +7,12 @@ private; the only browser access is a presigned GET that expires in minutes.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any, BinaryIO, Protocol
 from uuid import UUID
+
+STREAM_CHUNK = 1024 * 1024
 
 
 def source_prefix(tenant_id: UUID, source_id: UUID) -> str:
@@ -31,6 +34,11 @@ def figure_image_key(tenant_id: UUID, source_id: UUID, page_no: int, figure_no: 
     return f"{source_prefix(tenant_id, source_id)}/figures/{page_no:05d}-{figure_no:03d}.png"
 
 
+def export_key(tenant_id: UUID, job_id: UUID) -> str:
+    """Where an account export ZIP lives (ADR 0018); deleted when it expires."""
+    return f"tenants/{tenant_id}/exports/{job_id}.zip"
+
+
 def require_tenant_key(tenant_id: UUID, key: str) -> None:
     """Refuse any key that is not inside the caller's tenant prefix."""
     if not key.startswith(f"tenants/{tenant_id}/") or ".." in key:
@@ -43,6 +51,8 @@ class ObjectStore(Protocol):
     def put_file(self, key: str, fileobj: BinaryIO, content_type: str) -> None: ...
 
     def get(self, key: str) -> bytes: ...
+
+    def iter_chunks(self, key: str, size: int = STREAM_CHUNK) -> Iterator[bytes]: ...
 
     def delete_prefix(self, prefix: str) -> int: ...
 
@@ -88,6 +98,15 @@ class S3ObjectStore:
         body: bytes = response["Body"].read()
         return body
 
+    def iter_chunks(self, key: str, size: int = STREAM_CHUNK) -> Iterator[bytes]:
+        """Stream an object without holding it in memory (exports, originals)."""
+        body = self._client().get_object(Bucket=self.bucket, Key=key)["Body"]
+        try:
+            while chunk := body.read(size):
+                yield chunk
+        finally:
+            body.close()
+
     def delete_prefix(self, prefix: str) -> int:
         if not prefix.startswith("tenants/"):
             raise PermissionError("refusing to delete outside a tenant prefix")
@@ -125,6 +144,11 @@ class MemoryObjectStore:
 
     def get(self, key: str) -> bytes:
         return self.objects[key][0]
+
+    def iter_chunks(self, key: str, size: int = STREAM_CHUNK) -> Iterator[bytes]:
+        data = self.objects[key][0]
+        for start in range(0, len(data), size):
+            yield data[start : start + size]
 
     def delete_prefix(self, prefix: str) -> int:
         doomed = [key for key in self.objects if key.startswith(prefix)]

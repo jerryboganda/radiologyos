@@ -14,6 +14,7 @@ celery_app = Celery(
         "apps.worker.app.study_jobs",
         "apps.worker.app.knowledge.tasks",
         "apps.worker.app.assessment.tasks",
+        "apps.worker.app.datarights.tasks",
     ],
 )
 celery_app.conf.update(
@@ -31,5 +32,6 @@ celery_app.conf.update(
         # Resolvers pick users by local time (Monday 06:00+, 22:00+) and skip done work.
         "study-weekly-reports": {"task": "radbrain.weekly_reports", "schedule": 3600.0},
         "study-nightly-replan": {"task": "radbrain.nightly_replan", "schedule": 1800.0},
+        "expire-data-exports": {"task": "radbrain.expire_data_exports", "schedule": 3600.0},
     },
 )

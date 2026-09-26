@@ -122,3 +122,34 @@ export interface ExtractResponse {
   job_id: string;
   mode: string;
 }
+
+export type MappingStatus = 'accepted' | 'review' | 'rejected';
+
+/** A classifier's curriculum mapping for one unit of a source (GET /v1/knowledge/mappings). */
+export interface MappingOut {
+  id: string;
+  source_id: string;
+  source_title: string;
+  page_from: number;
+  page_to: number;
+  curriculum_code: string;
+  topic: string;
+  confidence: number;
+  status: MappingStatus;
+  agent_version: string;
+  created_at: string;
+  /** Start of the mapped chunk (the owner's own text), for context. */
+  excerpt: string;
+}
+
+export type MappingDecisionKind = 'accept' | 'reject' | 'code';
+
+export interface MappingDecision {
+  decision: MappingDecisionKind;
+  curriculum_code?: string | null;
+}
+
+export interface CurriculumSystem {
+  code: string;
+  title: string;
+}

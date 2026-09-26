@@ -1,6 +1,6 @@
 # Data handling runbook
 
-Status: **M0 control document; ingestion and deletion workflows are not complete**
+Status: **Control document; account export and deletion are durable jobs (ADR 0018)**
 Scope: local development, private study inputs, tenant data, model egress, Core Library content, and operations
 Related: [`M0 runbook`](m0-foundation.md), [RLS ADR](../decisions/0001-tenant-isolation-rls.md), [model-provider gate](../decisions/0002-model-provider-gate.md)
 
@@ -23,9 +23,9 @@ Related: [`M0 runbook`](m0-foundation.md), [RLS ADR](../decisions/0001-tenant-is
 7. Private object buckets, tenant-prefixed keys, short-lived signed URLs, RLS, and
    tenant-aware caches are required before tenant data is accepted.
 
-This scaffold does not yet implement upload, malware/identifier scanning, export,
-deletion, signed download URLs, or production telemetry. Those are control
-obligations, not capabilities to infer from a placeholder endpoint.
+Account export and deletion are implemented as durable, audited jobs (section 6,
+ADR 0018). Malware scanning, identifier scanning, and production telemetry remain
+control obligations, not capabilities to infer from a placeholder.
 
 ## 2. Data classification
 
@@ -120,27 +120,75 @@ for shared caches; only immutable, explicitly Core-scoped artifacts may share.
 
 ## 6. Retention, export, deletion, and backups
 
-The implementation spec sets a maximum 30-day purge target after account deletion.
-Deletion is not complete when only the user row is hidden. The approved workflow must
-cover user/account records, memberships, sources, pages, figures, OCR, chunks,
-embeddings, claims, questions, chats, attempts, exports, object versions, queues,
-LLM/cache entries, and observability containing identifiable user data.
+### Retention
 
-Required behavior:
+| Data | Kept for | Removed by |
+| --- | --- | --- |
+| Account content (sources, derived rows, embeddings, objects, study data) | Until the user deletes it, at most 24 months (ADR 0009) | Per-source delete, account delete, scheduled purge |
+| Export ZIPs (`tenants/<tenant>/exports/<job>.zip`) and their `data_jobs` rows | 7 days after the ZIP is built | Hourly beat task `radbrain.expire_data_exports` |
+| Delete-job rows (`data_jobs`, kind `delete`) | Indefinitely: ids, step, counts, held source ids only | Not removed; this is the deletion evidence |
+| `account.erased` audit row | Indefinitely: tenant id, user id, identity outcome only | Not removed |
+| Sources under `legal_hold` and their derived rows/objects | Until the hold is lifted | Skipped by every delete path; reported by id |
+| Backups | Per the backup runbook window | Expiry of the backup set |
 
-- soft-delete/hide immediately; record completion state without source text;
-- revoke active sessions, signed URLs, and export artifacts;
-- prevent deleted content from search, generation, cache repopulation, and backups
-  beyond the approved legal/backup window;
-- purge or irreversibly de-identify derived/cache data within the approved window;
-- preserve only the minimum audit evidence required by the approved policy;
-- make export authenticated, tenant-scoped, time-bound, and free of other tenants.
+A retention change requires human approval and an ADR.
 
-The scaffold's export/delete response shapes are not evidence of these workflows.
-A retention change requires human approval and an ADR. Backups must be encrypted,
-access-controlled, tested for tenant-safe restore, and documented with expiry and
-RPO/RTO. The product target is RPO 1 hour and RTO 4 hours, with a quarterly restore
-drill once production backups exist.
+### Export (`POST /v1/me/export`)
+
+- Settings → *Export my data* queues `radbrain.data_export`. One active export per
+  user; repeating the request returns (and re-sends) the active job. Export is
+  refused (409) once an account deletion was requested.
+- The ZIP holds `data/<table>.json` for every table in
+  `apps/worker/app/datarights/registry.py` (the user's own rows, embeddings
+  included), `notes/cards.md` and `notes/claims.md` with source and page
+  citations, `files/<source>/` originals, `figures/<source>/` crops,
+  `manifest.json`, and `README.md`. Nothing of another user or tenant is read:
+  every query runs under the tenant's RLS context and is filtered to the user.
+- Download goes browser → `/settings/exports/{id}` → `GET /v1/me/exports/{id}/download`,
+  streamed by the API to the owner only, `Cache-Control: no-store`, audited as
+  `data.export_downloaded`. No presigned or public URL exists.
+
+### Account deletion (`DELETE /v1/me`)
+
+- Settings → *Delete my account* requires typing `delete my account`; the API
+  enforces the same phrase. The job `radbrain.data_delete` is idempotent and
+  resumable: a failure returns it to `queued` with the error class, Celery
+  retries with backoff, and re-running any step is safe.
+- Steps, in dependency order (`data_jobs.step` shows progress):
+  1. `study_rows`: card reviews, attempts, exams, cards, questions, plans,
+     profile, tutor messages and threads, topic weights and frequencies, push
+     subscriptions, notification settings;
+  2. `sources`: for each source not under legal hold, delete the object prefix
+     `tenants/<tenant>/sources/<source>/` (original, pages, figures), then the
+     per-source purge (pages, blocks, figures, chunks and embeddings, claims,
+     edges, conflicts, mappings, knowledge runs, jobs, orphaned concepts);
+  3. `exports`: every export ZIP and its row;
+  4. `identity`: `app.erase_user_identity` deletes `users`, `memberships`, and
+     the user's audit trail, marks an emptied tenant deleted, and writes one
+     content-free `account.erased` audit row.
+- Legal hold: held sources (and what cascades from them) stay; the job reports
+  `held_sources` and `held_source_ids`, and the user row is kept only as an
+  anonymous stub (email, name, and login subject erased). Lift the hold, then
+  re-run a delete job to finish.
+- The registry test (`apps/api/tests/test_data_rights.py`) fails when a
+  migration adds a table that is neither registered nor explicitly exempt.
+  Register every new user-owned table there with its predicate and erasure.
+
+### Operating checks
+
+- Stuck job: `SELECT id, kind, status, step, error_code, attempts FROM data_jobs`
+  under the tenant context; the user can re-request (export) or re-confirm
+  (delete) to re-send an active job.
+- Proof: `evals/checks/test_data_rights_live.py` exports and deletes synthetic
+  users as the runtime role in CI and asserts nothing of theirs remains while
+  the other tenant is untouched. A local pass is not release evidence.
+
+Still open: session revocation at the identity provider (the deleted user can no
+longer resolve a membership, so API calls fail closed), purge of provider-side
+logs, and backup expiry. Backups must be encrypted, access-controlled, tested
+for tenant-safe restore, and documented with expiry and RPO/RTO. The product
+target is RPO 1 hour and RTO 4 hours, with a quarterly restore drill once
+production backups exist.
 
 
 ## 7. Logging, observability, and support access
@@ -165,7 +213,7 @@ Before a tenant-data test:
 - [ ] private bucket and `tenants/{tenant_id}/...` key policy verified
 - [ ] RLS two-tenant suite passes as the runtime role
 - [ ] logs/traces inspected for source text, prompts, secrets, and tokens
-- [ ] export/delete/cache cleanup behavior verified
+- [ ] export/delete/cache cleanup behavior verified (`test_data_rights_live.py` in CI)
 - [ ] test tenant and object prefix removed after the test
 
 Useful repository checks (when dependencies and services are available):

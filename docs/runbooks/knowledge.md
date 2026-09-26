@@ -40,7 +40,14 @@ preference to keep both `active`. Every resolution is audited.
 ## Review queue
 
 Curriculum mappings with confidence < 0.7 are stored with `status = 'review'`
-in `curriculum_mappings`; the editor queue UI is not built yet.
+in `curriculum_mappings`. The owner reviews them at `/knowledge/review`
+(`GET /v1/knowledge/mappings?status=review`): **accept** keeps the code,
+**reject** discards it, and **re-code** (`POST /v1/knowledge/mappings/{id}/decide`
+with `{"decision": "code", "curriculum_code": ...}`) moves it to another system
+code from `GET /v1/knowledge/curriculum/systems` (unknown codes are refused).
+Re-coding onto a code the same unit already has merges into that row. Only the
+source's uploader sees or decides a mapping; each decision is audited as
+`knowledge.mapping_decided` with the decision and code only.
 
 ## Logging
 
