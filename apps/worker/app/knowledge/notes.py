@@ -15,7 +15,12 @@ from apps.worker.app.ingest.db import tenant_tx
 from apps.worker.app.knowledge import db, graph
 from apps.worker.app.knowledge.runtime import KnowledgeDeps, call_agent
 from packages.knowledge.curriculum import mapping_status, prompt_listing
-from packages.knowledge.evidence import FilteredExtraction, filter_extraction, locate_blocks
+from packages.knowledge.evidence import (
+    FilteredExtraction,
+    evidence_pages,
+    filter_extraction,
+    locate_blocks,
+)
 from packages.knowledge.models import KnowledgeExtraction, TopicClassification
 from packages.knowledge.text import normalize_name, word_count
 from packages.library.quality import extraction_problem
@@ -110,10 +115,12 @@ async def _chunk(
 
 def _citation(source: dict[str, Any], chunk: dict[str, Any], blocks: list[dict[str, Any]],
               span: str) -> dict[str, Any]:
+    """Cites the pages the evidence is on, not the whole chunk's range."""
+    refs = locate_blocks(span, blocks) if span else []
+    first, last = evidence_pages(refs, chunk["page_from"], chunk["page_to"])
     return {
         "source_id": str(source["id"]), "source_title": source["title"],
-        "chunk_id": str(chunk["id"]), "page_from": chunk["page_from"],
-        "page_to": chunk["page_to"], "blocks": locate_blocks(span, blocks) if span else [],
+        "chunk_id": str(chunk["id"]), "page_from": first, "page_to": last, "blocks": refs,
     }
 
 
@@ -130,7 +137,9 @@ async def _persist(
     for claim in kept.claims:
         concept_id = ids[normalize_name(claim.concept)]
         citation = _citation(source, chunk, blocks, claim.evidence_span)
-        await graph.store_claim(session, tenant_id, concept_id, claim, citation, meta)
+        pages = {"page_from": citation["page_from"], "page_to": citation["page_to"]}
+        await graph.store_claim(session, tenant_id, concept_id, claim, citation,
+                                {**meta, **pages})
     for relation in kept.relations:
         citation = _citation(source, chunk, [], "")
         await graph.store_edge(session, tenant_id, ids[normalize_name(relation.src)],

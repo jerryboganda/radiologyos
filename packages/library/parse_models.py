@@ -62,6 +62,15 @@ class ImageCase(BaseModel):
     confidence: Literal["low", "medium", "high"]
 
 
+class SourceImageCase(ImageCase):
+    """A library figure read together with its page and neighbouring pages (ADR 0036)."""
+
+    impression_source: Literal["source", "model"] = Field(
+        description="'source' only when the supplied page text states the diagnosis.")
+    source_quote: str = Field(
+        description="Verbatim span of the supplied page text stating the diagnosis, or ''.")
+
+
 def inline_schema(model: type[BaseModel]) -> dict[str, Any]:
     """JSON Schema with every $ref inlined, for tools that reject $defs."""
     schema = model.model_json_schema()

@@ -22,6 +22,22 @@ async def pages(session: AsyncSession, source_id: UUID) -> list[dict[str, Any]]:
     return [dict(row) for row in rows.mappings()]
 
 
+async def page_texts(
+    session: AsyncSession, source_id: UUID, first: int, last: int
+) -> dict[int, str]:
+    """Page text in a range: parsed blocks where a page has them, else its native layer."""
+    rows = await session.execute(
+        text(
+            "SELECT p.page_no, COALESCE((SELECT string_agg(b.text, ' ' ORDER BY b.block_no) "
+            "FROM source_blocks b WHERE b.source_id = p.source_id AND b.page_no = p.page_no), "
+            "p.native_text, '') AS text FROM source_pages p "
+            "WHERE p.source_id = :s AND p.page_no BETWEEN :a AND :b"
+        ),
+        {"s": source_id, "a": first, "b": last},
+    )
+    return {int(row.page_no): str(row.text) for row in rows}
+
+
 async def blocks(session: AsyncSession, source_id: UUID) -> list[dict[str, Any]]:
     rows = await session.execute(
         text(
@@ -61,9 +77,10 @@ async def replace_figures(
         await session.execute(
             text(
                 "INSERT INTO figures (tenant_id, source_id, page_no, figure_no, bbox, image_key, "
-                "caption, description, modality, anatomy, findings) VALUES "
+                "caption, description, modality, anatomy, findings, impression_origin, "
+                "source_quote) VALUES "
                 "(:t, :s, :p, :n, :bbox, :key, :caption, :description, :modality, :anatomy, "
-                "CAST(:findings AS jsonb))"
+                "CAST(:findings AS jsonb), :origin, :quote)"
             ),
             {
                 "t": tenant_id, "s": source_id, "p": page_no, "n": figure["figure_no"],
@@ -73,6 +90,8 @@ async def replace_figures(
                 "modality": figure.get("modality", ""),
                 "anatomy": figure.get("anatomy", ""),
                 "findings": as_json(figure.get("findings", [])),
+                "origin": figure.get("impression_origin"),
+                "quote": figure.get("source_quote"),
             },
         )
 

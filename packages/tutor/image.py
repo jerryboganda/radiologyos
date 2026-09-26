@@ -111,8 +111,9 @@ def clean_image(data: bytes) -> CleanImage:
 
 def read_image(transport: Transport, data: bytes, extension: str) -> ImageCase:
     """The vision agent's structured reading of an attached image."""
+    # v1 reads a lone image; v2 needs the library page text around a figure.
     parsed, _ = run_agent(transport, IMAGE_AGENT, READ_PROMPT,
-                          files=[(f"attached.{extension}", data)])
+                          files=[(f"attached.{extension}", data)], version=1)
     return cast(ImageCase, parsed)
 
 

@@ -92,7 +92,7 @@ services:
   worker:
     <<: *restricted
     image: ${RADBRAIN_PYTHON_IMAGE:?RADBRAIN_PYTHON_IMAGE is required}
-    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "--beat", "--schedule=/tmp/celerybeat-schedule", "--loglevel=INFO", "--concurrency=2"]
+    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "--beat", "--schedule=/tmp/celerybeat-schedule", "--loglevel=INFO", "--concurrency=6"]
     environment:
       DATABASE_URL: ${DATABASE_URL:?required}
       APP_ENV: ${APP_ENV:-production}
@@ -131,8 +131,9 @@ services:
       retries: 10
       start_period: 30s
     networks: [default, platform]
-    cpus: "2.0"
-    mem_limit: 3g
+    # Six parallel jobs (owner, 2026-09-26): model calls mostly wait on the network.
+    cpus: "3.0"
+    mem_limit: 4g
 
   embedder:
     # Switched off by the owner (2026-09-26): all embeddings use voyage-4-large

@@ -1,0 +1,78 @@
+{
+  "additionalProperties": false,
+  "description": "A library figure read together with its page and neighbouring pages (ADR 0036).",
+  "properties": {
+    "modality": {
+      "type": "string"
+    },
+    "anatomy": {
+      "type": "string"
+    },
+    "visible_text": {
+      "description": "Any text burned into or printed on the image.",
+      "type": "string"
+    },
+    "findings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "impression": {
+      "description": "Most likely diagnosis, or '' if not determinable.",
+      "type": "string"
+    },
+    "differentials": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "teaching_points": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "topics": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "type": "string"
+    },
+    "impression_source": {
+      "description": "'source' only when the supplied page text states the diagnosis.",
+      "enum": [
+        "source",
+        "model"
+      ],
+      "type": "string"
+    },
+    "source_quote": {
+      "description": "Verbatim span of the supplied page text stating the diagnosis, or ''.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "modality",
+    "anatomy",
+    "visible_text",
+    "findings",
+    "impression",
+    "differentials",
+    "teaching_points",
+    "topics",
+    "confidence",
+    "impression_source",
+    "source_quote"
+  ],
+  "type": "object"
+}

@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from packages.knowledge.evidence import filter_extraction, locate_blocks, verify_span
+from packages.knowledge.evidence import (
+    evidence_pages,
+    filter_extraction,
+    locate_blocks,
+    only_questions,
+    verify_span,
+)
 from packages.knowledge.models import KnowledgeExtraction
 from packages.knowledge.resolution import Candidate, decide, merged_aliases
 from packages.knowledge.text import alias_keys, normalize_name, trigram_similarity
@@ -81,6 +87,22 @@ def test_locate_blocks_cites_the_block_carrying_the_span() -> None:
     assert refs == [{"page_no": 3, "block_no": 1, "bbox": [0.1, 0.3, 0.9, 0.4]}]
     crossing = locate_blocks("UIP pattern Basal honeycombing", blocks)
     assert {(r["page_no"], r["block_no"]) for r in crossing} == {(3, 0), (3, 1)}
+
+
+def test_a_span_that_only_asks_questions_supports_nothing() -> None:
+    deck = ("PELVIS. • Q1. What examination is this? • Q2. What does line A represent? "
+            "Answer. 1. MR pelvimetry. 2. Line A is the obstetric conjugate.")
+    assert verify_span("Q2. What does line A represent?", deck) is None
+    assert only_questions("Q1. What is the modality used? Q2. What are the findings? Ans.")
+    assert verify_span("2. Line A is the obstetric conjugate.", deck)
+    assert not only_questions("What is the diagnosis? Pericardial effusion.")
+
+
+def test_citations_name_the_page_the_evidence_is_on() -> None:
+    refs = [{"page_no": 13, "block_no": 2, "bbox": []}]
+    assert evidence_pages(refs, 12, 15) == (13, 13)
+    assert evidence_pages([], 12, 15) == (12, 15)
+    assert evidence_pages([{"page_no": 40, "block_no": 0}], 12, 15) == (12, 15)
 
 
 def test_normalisation_handles_spelling_eponyms_and_abbreviations() -> None:

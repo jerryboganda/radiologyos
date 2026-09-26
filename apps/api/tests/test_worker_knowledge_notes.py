@@ -166,7 +166,7 @@ async def test_chunk_is_extracted_filtered_persisted_and_recorded(world: World) 
     concept_id, claim, citation, meta = world.writes[2][1]
     assert claim.evidence_span == GOOD_SPAN and concept_id == UUID(int=1)
     assert citation["source_id"] == str(SOURCE["id"]) and citation["chunk_id"] == str(chunk["id"])
-    assert (citation["page_from"], citation["page_to"]) == (7, 8)
+    assert (citation["page_from"], citation["page_to"]) == (7, 7)  # the evidence page
     assert citation["blocks"] and citation["blocks"][0]["block_no"] == 2
     assert meta["agent"] == notes.EXTRACT and meta["unit"] == f"chunk:{db.unit_hash(TEXT)}"
     src, dst, relation, edge_citation, _ = world.writes[3][1]

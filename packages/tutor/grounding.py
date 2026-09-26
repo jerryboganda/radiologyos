@@ -22,6 +22,7 @@ from typing import Any
 from urllib.parse import urlsplit
 from uuid import UUID
 
+from packages.library.figure_context import evidence_description
 from packages.tutor.models import (
     Citation,
     GroundedAnswer,
@@ -121,13 +122,15 @@ def figures_from_hits(
     hits: Sequence[dict[str, Any]], limit: int = MAX_FIGURES
 ) -> list[FigureExcerpt]:
     """Label described figure hits F1..Fn in rank order (undescribed ones are skipped)."""
-    described = [hit for hit in hits if (hit.get("description") or "").strip()][:limit]
+    described = [{**hit, "description": evidence_description(hit.get("description"))}
+                 for hit in hits]
+    described = [hit for hit in described if hit["description"]][:limit]
     return [
         FigureExcerpt(
             label=f"F{rank}", figure_id=hit["id"], source_id=hit["source_id"],
             source_title=hit["source_title"], page_no=int(hit["page_no"]),
             caption=hit.get("caption") or "", modality=hit.get("modality") or "",
-            anatomy=hit.get("anatomy") or "", description=hit["description"].strip(),
+            anatomy=hit.get("anatomy") or "", description=hit["description"],
         )
         for rank, hit in enumerate(described, start=1)
     ]

@@ -23,8 +23,14 @@ from apps.worker.app.ingest.embedding import embed_pending
 from apps.worker.app.ingest.tables import extract_tables
 from packages.library import storage
 from packages.library.chunking import BlockInput, build_chunks, looks_like_heading
+from packages.library.figure_context import (
+    build_context,
+    case_text,
+    impression_origin,
+    neighbour_pages,
+)
 from packages.library.formats import SourceKind
-from packages.library.parse_models import ImageCase, PageParse
+from packages.library.parse_models import PageParse, SourceImageCase
 from packages.library.quality import bbox_ok, page_parse_problem
 from packages.library.render import RenderError, crop_png, iter_pages, office_to_pdf
 from packages.library.text_first import text_only_pages
@@ -277,8 +283,10 @@ async def _parse_page(
     assert isinstance(parsed, PageParse)
     # A box that is still invalid never reaches provenance or a crop: blocks
     # fall back to a whole-page box, figures without a valid box are dropped.
-    figures = [await _figure(deps, job, page_no, png, n, fig.model_dump())
-               for n, fig in enumerate(f for f in parsed.figures if bbox_ok(f.bbox))]
+    boxed = [f for f in parsed.figures if bbox_ok(f.bbox)]
+    context = await _figure_context(deps, job, page_no, parsed) if boxed else ""
+    figures = [await _figure(deps, job, page_no, png, n, fig.model_dump(), context)
+               for n, fig in enumerate(boxed)]
     blocks = [
         {"block_no": n, "kind": b.kind, "text": b.text, "origin": "vision",
          "bbox": b.bbox if bbox_ok(b.bbox) else [0.0, 0.0, 1.0, 1.0]}
@@ -293,8 +301,19 @@ async def _parse_page(
         )
 
 
+async def _figure_context(
+    deps: Deps, job: dict[str, Any], page_no: int, parsed: PageParse
+) -> str:
+    """This page's freshly parsed text plus the next page's text (ADR 0036)."""
+    async with db.tenant_tx(deps.engine, job["tenant_id"]) as session:
+        texts = await db_content.page_texts(session, job["entity_id"], *neighbour_pages(page_no))
+    own = " ".join(b.text for b in parsed.blocks if b.text.strip())
+    return build_context(page_no, {**texts, page_no: own or texts.get(page_no, "")})
+
+
 async def _figure(
-    deps: Deps, job: dict[str, Any], page_no: int, png: bytes, number: int, fig: dict[str, Any]
+    deps: Deps, job: dict[str, Any], page_no: int, png: bytes, number: int,
+    fig: dict[str, Any], context: str,
 ) -> dict[str, Any]:
     fig = {**fig, "figure_no": number, "image_key": None}
     if not fig.pop("is_radiology_image", False):
@@ -307,28 +326,20 @@ async def _figure(
     deps.store.put(key, crop, "image/png")
     fig["image_key"] = key
     try:
-        prompt = user_prompt("image_case", figure_no=str(number), page_no=str(page_no),
-                             caption=str(fig["caption"]))
+        prompt = user_prompt("image_case", 2, figure_no=str(number), page_no=str(page_no),
+                             caption=str(fig["caption"]), context=context)
         case, _ = run_agent(deps.transport, "image_case", prompt,  # type: ignore[arg-type]
-                            files=[("figure.png", crop)])
+                            files=[("figure.png", crop)], version=2)
     except UsageLimitError as exc:
         raise Deferred from exc
     except ModelCallError:
         return fig
-    assert isinstance(case, ImageCase)
+    assert isinstance(case, SourceImageCase)
+    origin, quote = impression_origin(case, context)
     fig.update(
         modality=case.modality or fig["modality"], anatomy=case.anatomy or fig["anatomy"],
-        description=_case_text(case), findings=case.findings,
+        description=case_text(case, origin), findings=case.findings,
+        impression_origin=origin if case.impression.strip() else None, source_quote=quote,
     )
     return fig
 
-
-def _case_text(case: ImageCase) -> str:
-    parts = [f"Findings: {'; '.join(case.findings)}" if case.findings else ""]
-    if case.impression:
-        parts.append(f"Impression: {case.impression} (confidence {case.confidence})")
-    if case.differentials:
-        parts.append(f"Differentials: {', '.join(case.differentials)}")
-    if case.teaching_points:
-        parts.append(f"Teaching points: {'; '.join(case.teaching_points)}")
-    return "\n".join(p for p in parts if p)

@@ -34,7 +34,7 @@ def test_page_and_figure_prompts_are_unchanged(monkeypatch: pytest.MonkeyPatch) 
     assert user_prompt("page_parse", source_title=SOURCE["title"], page_no="7",
                        native_text=page["native_text"][:12000]) == legacy
     fig = {"caption": TRICKY}
-    assert user_prompt("image_case", figure_no="2", page_no="7", caption=fig["caption"]) \
+    assert user_prompt("image_case", 1, figure_no="2", page_no="7", caption=fig["caption"]) \
         == f"Figure {2} on page {7}. Caption: {fig['caption']}"
     assert "user_prompt(\"page_parse\"" in Path(steps.__file__).read_text(encoding="utf-8")
 

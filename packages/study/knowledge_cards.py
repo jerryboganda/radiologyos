@@ -17,6 +17,7 @@ import re
 from collections.abc import Collection, Iterable, Mapping
 from typing import Any
 
+from packages.library.figure_context import evidence_description
 from packages.study.weakness import FALLBACK_CODE
 
 BLANK = "_____"
@@ -122,7 +123,7 @@ def _figure_hint(figure: Mapping[str, Any]) -> str:
 
 def image_card(figure: Mapping[str, Any], systems: Collection[str]) -> dict[str, Any] | None:
     """An image card for one described figure, or None without a description or citation."""
-    description = " ".join(str(figure.get("description") or "").split())
+    description = " ".join(evidence_description(figure.get("description")).split())
     citation = figure_citation(figure)
     if not description or citation is None:
         return None

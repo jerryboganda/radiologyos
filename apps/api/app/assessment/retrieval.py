@@ -14,6 +14,7 @@ from uuid import UUID
 
 from apps.api.app.library import rerank, search
 from packages.assessment.validation import Excerpt
+from packages.library.figure_context import evidence_description
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -114,7 +115,8 @@ def chunk_excerpts(rows: Sequence[dict[str, Any]], budget: int = MAX_CHARS) -> l
 
 def figure_excerpt(row: dict[str, Any]) -> Excerpt:
     findings = row.get("findings") or []
-    text_parts = [f"{row['modality']} {row['anatomy']}".strip(), row["description"]]
+    text_parts = [f"{row['modality']} {row['anatomy']}".strip(),
+                  evidence_description(row["description"])]
     if findings:
         text_parts.append("Findings: " + "; ".join(str(f) for f in findings))
     return Excerpt(

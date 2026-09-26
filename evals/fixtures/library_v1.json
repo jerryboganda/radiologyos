@@ -30,6 +30,15 @@
       "input": {"source_title": "Synthetic spotter"},
       "expected": {"confidence_in": ["low", "medium", "high"]},
       "assertions": ["schema_valid", "visible_evidence_only"]
+    },
+    {
+      "case_id": "image-case-source-anchored",
+      "prompt": "image_case/v2.yaml",
+      "route": "vision",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {"caption": "Synthetic spotter", "context": "Answer: synthetic diagnosis"},
+      "expected": {"impression_source_in": ["source", "model"]},
+      "assertions": ["schema_valid", "visible_evidence_only", "source_quote_verbatim"]
     }
   ]
 }

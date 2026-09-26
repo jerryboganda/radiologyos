@@ -9,6 +9,7 @@ Rejected claims are counted, never stored and never logged with their text.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -22,11 +23,26 @@ from packages.knowledge.models import (
 from packages.knowledge.text import collapse_ws, normalize_name
 
 MIN_SPAN_CHARS = 8
+_SEGMENT = re.compile(r"(?<=[?.!])\s+|\s*(?=\bQ\d+[.):])")
+_ASKS = re.compile(r"^(q\d+[.):]?\s*)?(what|which|how|why|where|when|who|name|describe|list|"
+                   r"identify|enumerate|give)\b", re.IGNORECASE)
+_LABEL = re.compile(r"^(q\d+|ans|answer|answar)[.):]?$", re.IGNORECASE)
+_BULLETS = " \t\r\n-•�"
+
+
+def only_questions(span: str) -> bool:
+    """True when every sentence of the span asks rather than states (e.g. "Q2. What is...")."""
+    parts = [p.strip(_BULLETS) for p in _SEGMENT.split(span)]
+    parts = [p for p in parts if p and not _LABEL.match(p)]
+    return bool(parts) and all(p.endswith("?") or _ASKS.match(p) for p in parts)
 
 
 def verify_span(span: str, chunk_text: str) -> str | None:
-    """Return the span to store if it is verbatim in the chunk, else None."""
-    if len(span.strip()) < MIN_SPAN_CHARS:
+    """Return the span to store if it is verbatim in the chunk, else None.
+
+    A span that only quotes exam questions states nothing, so it never supports a claim.
+    """
+    if len(span.strip()) < MIN_SPAN_CHARS or only_questions(span):
         return None
     if span in chunk_text:
         return span
@@ -101,3 +117,9 @@ def locate_blocks(span: str, blocks: Sequence[dict[str, Any]]) -> list[dict[str,
         return [ref(inside[0])]
     crossing = [b for b in blocks if overlaps(b["text"])]
     return [ref(b) for b in (crossing or list(blocks))]
+
+
+def evidence_pages(refs: Sequence[dict[str, Any]], page_from: int, page_to: int) -> tuple[int, int]:
+    """The pages the evidence sits on, within the chunk's range; the range itself if unknown."""
+    pages = [int(r["page_no"]) for r in refs if page_from <= int(r["page_no"]) <= page_to]
+    return (min(pages), max(pages)) if pages else (page_from, page_to)

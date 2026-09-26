@@ -186,7 +186,7 @@ async def persist(
         session, principal.tenant_id, principal.user_id, repo.thread_title(body.question))
     if prepared.fresh_reading and prepared.reading is not None and body.image_id is not None:
         await images.save_reading(session, body.image_id, prepared.reading,
-                                  load_agent(IMAGE_AGENT).key)
+                                  load_agent(IMAGE_AGENT, 1).key)
     message_id = await repo.add_exchange(session, principal.tenant_id, thread_id,
                                          body.question, answer, body.image_id)
     if memory is not None:
