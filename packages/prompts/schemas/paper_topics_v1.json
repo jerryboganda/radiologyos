@@ -1,0 +1,81 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "is_exam_paper": {
+      "description": "True only if the page shows exam questions.",
+      "type": "boolean"
+    },
+    "exam_target": {
+      "enum": [
+        "imm",
+        "fcps2_theory",
+        "fcps2_toacs",
+        "frcr",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "year": {
+      "anyOf": [
+        {
+          "maximum": 2100,
+          "minimum": 1990,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Sitting year if printed, else null."
+    },
+    "paper_label": {
+      "description": "Paper/sitting label if printed, or ''.",
+      "maxLength": 120,
+      "type": "string"
+    },
+    "questions": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "question_no": {
+            "description": "Question number as printed, or ''.",
+            "maxLength": 20,
+            "type": "string"
+          },
+          "curriculum_code": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "topic": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "confidence": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "question_no",
+          "curriculum_code",
+          "topic",
+          "confidence"
+        ],
+        "type": "object"
+      },
+      "maxItems": 60,
+      "type": "array"
+    }
+  },
+  "required": [
+    "is_exam_paper",
+    "exam_target",
+    "year",
+    "paper_label",
+    "questions"
+  ],
+  "type": "object"
+}

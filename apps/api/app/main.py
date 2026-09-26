@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from apps.api.app.api.assessment import router as assessment_router
 from apps.api.app.api.billing import router as billing_router
+from apps.api.app.api.knowledge import router as knowledge_router
 from apps.api.app.api.library import router as library_router
 from apps.api.app.api.notifications import router as notifications_router
 from apps.api.app.api.preview import router as preview_router
@@ -51,6 +52,7 @@ app.include_router(notifications_router)
 app.include_router(tutor_router)
 app.include_router(assessment_router)
 app.include_router(study_router)
+app.include_router(knowledge_router)
 app.include_router(preview_router)
 app.include_router(billing_router)
 app.include_router(preview_knowledge_router)

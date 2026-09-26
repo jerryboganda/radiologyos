@@ -1,0 +1,156 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "concepts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Canonical concept name.",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "disease",
+              "finding",
+              "sign",
+              "anatomy",
+              "technique",
+              "modality",
+              "classification",
+              "physics",
+              "drug",
+              "other"
+            ],
+            "type": "string"
+          },
+          "aliases": {
+            "description": "Abbreviations, eponyms, spelling variants seen in the text.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "aliases"
+        ],
+        "type": "object"
+      },
+      "maxItems": 30,
+      "type": "array"
+    },
+    "claims": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "description": "Name from concepts.",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "definition",
+              "imaging_finding",
+              "epidemiology",
+              "pathology",
+              "clinical",
+              "differential",
+              "classification",
+              "management",
+              "physics",
+              "other"
+            ],
+            "type": "string"
+          },
+          "text": {
+            "description": "One atomic statement.",
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "evidence_span": {
+            "description": "Exact, verbatim substring of the chunk that supports the claim.",
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "importance": {
+            "description": "5 = high-yield exam fact.",
+            "maximum": 5,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "modality": {
+            "description": "Imaging modality, or '' if none.",
+            "maxLength": 40,
+            "type": "string"
+          }
+        },
+        "required": [
+          "concept",
+          "type",
+          "text",
+          "evidence_span",
+          "importance",
+          "modality"
+        ],
+        "type": "object"
+      },
+      "maxItems": 40,
+      "type": "array"
+    },
+    "relations": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "src": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "dst": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "relation": {
+            "enum": [
+              "is_a",
+              "part_of",
+              "differential_of",
+              "sign_of",
+              "causes",
+              "seen_on",
+              "contrasts_with",
+              "classified_by",
+              "associated_with"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "src",
+          "dst",
+          "relation"
+        ],
+        "type": "object"
+      },
+      "maxItems": 30,
+      "type": "array"
+    }
+  },
+  "required": [
+    "concepts",
+    "claims",
+    "relations"
+  ],
+  "type": "object"
+}

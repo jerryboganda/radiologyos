@@ -8,7 +8,11 @@ redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 celery_app = Celery(
     "radbrain",
     broker=redis_url,
-    include=["apps.worker.app.tasks", "apps.worker.app.reminders"],
+    include=[
+        "apps.worker.app.tasks",
+        "apps.worker.app.reminders",
+        "apps.worker.app.knowledge.tasks",
+    ],
 )
 celery_app.conf.update(
     accept_content=["json"],
