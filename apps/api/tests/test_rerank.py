@@ -208,6 +208,14 @@ async def test_reranks_drops_low_scores_and_meters_its_own_model(
     assert all("embedding_tokens_total" not in s for s, _ in seen["sql"])
 
 
+async def test_library_search_only_reorders_and_keeps_low_scores(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _wire(monkeypatch, 1_000, _ranking((2, 0.9), (0, 0.6), (3, 0.19)))
+    out = await metered.rerank_hits(TENANT, "crazy paving", HITS, 3, keep_low=True)
+    assert [h["id"] for h in out.hits] == [HITS[2]["id"], HITS[0]["id"], HITS[3]["id"]]
+
+
 async def test_past_the_rerank_cap_nothing_is_sent_and_order_is_rrf(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

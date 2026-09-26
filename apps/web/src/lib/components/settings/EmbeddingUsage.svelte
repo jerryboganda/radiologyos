@@ -79,7 +79,7 @@
       <dt class="label">Query model</dt>
       <dd class="mt-1">
         <span class="font-mono text-sm break-all text-ink">{usage.query_model}</span>
-        <span class="block text-xs text-muted">Queries run locally — free</span>
+        <span class="block text-xs text-muted">Queries use the same model, metered inside the free quota</span>
       </dd>
     </div>
   </dl>

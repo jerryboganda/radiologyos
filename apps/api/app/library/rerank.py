@@ -67,9 +67,14 @@ def document_text(hit: dict[str, Any]) -> str:
 
 
 async def rerank_hits(
-    tenant_id: UUID, query: str, hits: Sequence[dict[str, Any]], limit: int
+    tenant_id: UUID, query: str, hits: Sequence[dict[str, Any]], limit: int,
+    keep_low: bool = False,
 ) -> Reranked:
-    """Hits reordered by the reranker, or the first ``limit`` in RRF order (fail-open)."""
+    """Hits reordered by the reranker, or the first ``limit`` in RRF order (fail-open).
+
+    ``keep_low`` only reorders: nothing is dropped under ``min_score`` (library
+    search, where a keyword hit the reranker scores low must stay visible).
+    """
     fused = Reranked([dict(h) for h in hits[:limit]], False)
     reranker = ready()
     if reranker is None or len(hits) < 2 or not query.strip():
@@ -81,7 +86,7 @@ async def rerank_hits(
         logger.warning("rerank_skipped", extra={"error_type": type(exc).__name__,
                                                 "candidates": len(hits)})
         return fused
-    floor = reranker.config.min_score
+    floor = float("-inf") if keep_low else reranker.config.min_score
     kept = [{**hits[r.index], "score": round(r.score, 6)}
             for r in result.ranking if r.score >= floor][:limit]
     logger.info("reranked", extra={"candidates": len(hits), "kept": len(kept),
@@ -121,6 +126,7 @@ async def model_tokens(session: AsyncSession, model: str) -> int:
 async def ranked_search(
     session: AsyncSession, tenant_id: UUID, user_id: UUID, query: str,
     vector: Sequence[float] | None, limit: int, rerank_query: str | None = None,
+    keep_low: bool = False,
 ) -> Reranked:
     """Hybrid (RRF) search over a candidate pool, then metered reranking.
 
@@ -128,4 +134,4 @@ async def ranked_search(
     ``query`` is a keyword expression (the tutor ORs its terms).
     """
     hits = await search.hybrid_search(session, user_id, query, vector, candidate_pool(limit))
-    return await rerank_hits(tenant_id, rerank_query or query, hits, limit)
+    return await rerank_hits(tenant_id, rerank_query or query, hits, limit, keep_low)

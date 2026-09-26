@@ -230,7 +230,7 @@ async def search_library(
 ) -> SearchResponse:
     vector = await query_vector(principal.tenant_id, body.query)
     ranked = await rerank.ranked_search(session, principal.tenant_id, principal.user_id, body.query,
-                                 vector, body.limit)
+                                        vector, body.limit, keep_low=True)
     hits = ranked.hits
     figures = await search.search_figures(session, principal.user_id, body.query,
                                           query_vector=vector)
