@@ -18,6 +18,7 @@ row then survives only as an anonymous stub (no email, name, or login).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
@@ -42,7 +43,7 @@ async def run_delete(deps: jobs.DataDeps, tenant_id: UUID, job_id: UUID) -> str:
     exports = await _delete_exports(deps, tenant_id, job_id, user_id)
     async with tenant_tx(deps.engine, tenant_id) as session:
         await jobs.set_step(session, job_id, "identity")
-        identity = (
+        identity: Any = (
             await session.execute(text("SELECT app.erase_user_identity(:u)"), {"u": user_id})
         ).scalar_one()
         await jobs.finish(session, job_id, {
@@ -69,7 +70,7 @@ async def _delete_sources(
 ) -> list[str]:
     async with tenant_tx(deps.engine, tenant_id) as session:
         await jobs.set_step(session, job_id, "sources")
-        rows = (
+        rows: Sequence[Any] = (
             await session.execute(
                 text("SELECT id, legal_hold FROM sources WHERE uploaded_by = :u"),
                 {"u": user_id},
@@ -79,9 +80,9 @@ async def _delete_sources(
     for source_id, on_hold in rows:
         if on_hold:
             continue
-        deps.store.delete_prefix(storage.source_prefix(tenant_id, source_id) + "/")
+        deps.store.delete_prefix(storage.source_prefix(tenant_id, UUID(str(source_id))) + "/")
         async with tenant_tx(deps.engine, tenant_id) as session:
-            await purge_source_rows(session, source_id)
+            await purge_source_rows(session, UUID(str(source_id)))
     if held:
         async with tenant_tx(deps.engine, tenant_id) as session:
             await jobs.set_step(session, job_id, "sources", {"held_source_ids": held})
@@ -93,7 +94,7 @@ async def _delete_exports(
 ) -> int:
     async with tenant_tx(deps.engine, tenant_id) as session:
         await jobs.set_step(session, job_id, "exports")
-        rows = (
+        rows: Sequence[Any] = (
             await session.execute(
                 text("SELECT id FROM data_jobs WHERE user_id = :u AND kind = 'export'"),
                 {"u": user_id},

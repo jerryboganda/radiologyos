@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import tempfile
+from collections.abc import Sequence
 from typing import Any, BinaryIO
 from uuid import UUID, uuid4
 
@@ -178,7 +179,7 @@ async def purge_source_rows(session: AsyncSession, source_id: UUID) -> None:
     concepts left with no claim and no edge are removed with the source. Shared
     by the per-source delete and the account-deletion job (ADR 0018).
     """
-    concepts = (
+    concepts: Sequence[Any] = (
         await session.execute(
             text(
                 "SELECT concept_id FROM claims WHERE source_id = :id UNION "
@@ -208,7 +209,7 @@ async def delete_source(
     source = await get_source(session, principal, source_id)
     if source is None:
         return False
-    held = (
+    held: Any = (
         await session.execute(
             text("SELECT legal_hold FROM sources WHERE id = :id"), {"id": source_id}
         )
