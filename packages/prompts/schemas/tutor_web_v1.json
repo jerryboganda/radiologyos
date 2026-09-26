@@ -1,0 +1,39 @@
+{
+  "additionalProperties": false,
+  "description": "Output of ``tutor_web``: an answer researched on authoritative sites.",
+  "properties": {
+    "segments": {
+      "description": "The answer in reading order; [] if nothing reliable found.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "description": "One or two sentences of the answer, supported by the cited pages.",
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "urls": {
+            "description": "https URLs of the authoritative pages actually read. Never empty.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "type": "array"
+          }
+        },
+        "required": [
+          "text",
+          "urls"
+        ],
+        "type": "object"
+      },
+      "maxItems": 40,
+      "type": "array"
+    }
+  },
+  "required": [
+    "segments"
+  ],
+  "type": "object"
+}
