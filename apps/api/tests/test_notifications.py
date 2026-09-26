@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 def test_reminder_payload_carries_counts_only() -> None:
     payload = reminder_payload(3, 120, 90)
-    assert payload["url"] == "/today"
+    assert payload["url"] == "/"
     assert "3 cards due" in payload["body"] and "120 days" in payload["body"]
     assert reminder_payload(None, None, None)["body"] == "Your study session is ready."
     assert "1 card due" in reminder_payload(1, None, None)["body"]

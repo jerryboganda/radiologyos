@@ -40,7 +40,7 @@ def reminder_payload(
     if plan_minutes:
         parts.append(f"today's plan: {plan_minutes} min")
     body = " · ".join(parts) or "Your study session is ready."
-    return {"title": "radbrain — time to study", "body": body, "url": "/today", "tag": "daily"}
+    return {"title": "radbrain — time to study", "body": body, "url": "/", "tag": "daily"}
 
 
 def send(subscription: Subscription, payload: dict[str, Any], private_key: str) -> None:
