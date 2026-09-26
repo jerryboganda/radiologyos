@@ -15,6 +15,7 @@ from typing import Any
 
 from packages.assessment.grading import ExamState, apply_seq_grade, grade_sba
 from packages.assessment.models import SeqGrade
+from packages.assessment.staged_case import stage_scores
 
 FREE_TEXT_TYPES = frozenset({"seq", "image_case", "viva"})
 NO_ANSWER_FEEDBACK = "No answer was submitted for this item."
@@ -45,9 +46,10 @@ def free_text_base(question: Mapping[str, Any], answer_text: str) -> dict[str, A
 
 
 def graded_free_text(base: Mapping[str, Any], graded: Mapping[str, Any]) -> dict[str, Any]:
+    staged = stage_scores(graded["points"])
     return {**base, "status": "graded", "score": graded["score"],
             "max_score": graded["max_score"], "points": graded["points"],
-            "feedback": graded["feedback"]}
+            "feedback": graded["feedback"], **({"stage_scores": staged} if staged else {})}
 
 
 def free_text_item(question: Mapping[str, Any], answer_text: str) -> dict[str, Any]:

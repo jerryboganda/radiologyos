@@ -15,6 +15,7 @@ export const NAV: NavItem[] = [
   { href: '/tutor', label: 'Tutor', icon: 'tutor', primary: true },
   { href: '/questions', label: 'Questions', icon: 'questions', primary: false },
   { href: '/exams', label: 'Exams', icon: 'exams', primary: false },
+  { href: '/viva', label: 'Viva', icon: 'viva', primary: false },
   { href: '/knowledge', label: 'Knowledge', icon: 'knowledge', primary: false },
   { href: '/progress', label: 'Progress', icon: 'progress', primary: false },
   { href: '/settings', label: 'Settings', icon: 'settings', primary: false }

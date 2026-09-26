@@ -47,6 +47,12 @@
     <div class="mt-4 overflow-hidden rounded-xl bg-stage">
       <img src={image} alt="Radiology image for question {number}" class="mx-auto max-h-[60dvh] w-auto" />
     </div>
+    <p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+      {#if question.stages?.length}
+        <a class="link" href="/viva?kind=image_case&question={question.id}">Practise as a staged station</a>
+      {/if}
+      {#if question.figure_id}<a class="link" href="/viva?figure={question.figure_id}">Viva on this image</a>{/if}
+    </p>
   {/if}
   {#if isRecall}
     <p class="mt-4 text-sm text-muted">Rapid-recall items are practised through card review on Today.</p>

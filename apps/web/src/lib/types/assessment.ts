@@ -29,6 +29,8 @@ export interface QuestionPublic {
   checked: boolean;
   difficulty: number | null;
   created_at: string;
+  /** Staged image cases only: the stage order (describe → next_step); never the answers. */
+  stages?: string[];
 }
 
 export interface GenerateQuestionsIn {
@@ -154,6 +156,8 @@ export interface WrittenResultItem {
   explanation: string;
   citations: LooseCitation[];
   error?: string;
+  /** Staged image cases: marks per stage, from stage-tagged scheme points. */
+  stage_scores?: { stage: string; score: number; max_score: number }[];
 }
 
 export type ExamResultItem = SbaResultItem | WrittenResultItem;

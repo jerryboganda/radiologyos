@@ -2,6 +2,7 @@
   import SbaFeedback from '$lib/components/questions/SbaFeedback.svelte';
   import WrittenFeedback from '$lib/components/questions/WrittenFeedback.svelte';
   import { optionLetter } from '$lib/questions';
+  import { STAGE_LABELS, type Stage } from '$lib/viva';
   import type { ExamResultItem, QuestionPublic, SbaResultItem, WrittenResultItem } from '$lib/types/assessment';
 
   let { item, number, question }: { item: ExamResultItem; number: number; question: QuestionPublic | undefined } = $props();
@@ -48,6 +49,15 @@
           <WrittenFeedback result={{ ...written, attempt_id: null, score: 0, points: [] }} />
         </div>
       {:else}
+        {#if written.stage_scores?.length}
+          <ul class="mb-3 flex flex-wrap gap-2" aria-label="Marks per stage">
+            {#each written.stage_scores as stage (stage.stage)}
+              <li class="rounded-lg border border-line px-2.5 py-1 font-mono text-xs text-ink-2">
+                {STAGE_LABELS[stage.stage as Stage] ?? stage.stage}: {stage.score}/{stage.max_score}
+              </li>
+            {/each}
+          </ul>
+        {/if}
         <WrittenFeedback result={{ ...written, attempt_id: null, score: written.score ?? 0 }} />
       {/if}
     {/if}

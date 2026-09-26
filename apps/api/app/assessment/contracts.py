@@ -47,6 +47,7 @@ class QuestionPublic(BaseModel):
     checked: bool
     difficulty: int | None
     created_at: datetime
+    stages: list[str] = Field(default_factory=list)
 
 
 class RejectedItem(BaseModel):
@@ -162,4 +163,5 @@ def public_question(row: dict[str, Any]) -> QuestionPublic:
         figure_image_path=f"/v1/library/figures/{figure_id}/image" if figure_id else None,
         status=row["status"], checked=bool(quality.get("passed")),
         difficulty=quality.get("difficulty"), created_at=row["created_at"],
+        stages=[str(stage["stage"]) for stage in (row.get("answer") or {}).get("stages") or []],
     )

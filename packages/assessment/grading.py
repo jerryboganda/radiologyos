@@ -84,6 +84,7 @@ def apply_seq_grade(scheme: Sequence[Mapping[str, Any]], grade: SeqGrade) -> dic
             "status": status,
             "justification": result.justification if result is not None else "",
             "citations": item["citations"],
+            **({"stage": item["stage"]} if item.get("stage") else {}),
         })
     score = round(sum(p["awarded"] for p in points), 2)
     return {"points": points, "score": score,

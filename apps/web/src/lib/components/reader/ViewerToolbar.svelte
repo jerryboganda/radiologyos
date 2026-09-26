@@ -7,12 +7,15 @@
     mode,
     showBlocks = $bindable(false),
     original,
+    blocksToggle = true,
     onzoom
   }: {
     effective: number;
     mode: 'fit' | 'scale';
     showBlocks?: boolean;
     original: string;
+    /** False for a lone figure, which has no text blocks to overlay. */
+    blocksToggle?: boolean;
     onzoom: (next: number | 'fit') => void;
   } = $props();
 
@@ -47,15 +50,17 @@
   >
     <span class="font-mono text-[0.6875rem] tracking-wider">1:1</span>
   </button>
-  <span class="mx-1 h-5 w-px bg-stage-line" aria-hidden="true"></span>
-  <button
-    type="button"
-    class="{tool} {showBlocks ? 'bg-white/10 text-overlay' : ''}"
-    aria-pressed={showBlocks}
-    onclick={() => (showBlocks = !showBlocks)}
-  >
-    <Icon name="layers" size={16} /><span class="font-mono text-[0.6875rem] tracking-wider">BLOCKS</span>
-  </button>
+  {#if blocksToggle}
+    <span class="mx-1 h-5 w-px bg-stage-line" aria-hidden="true"></span>
+    <button
+      type="button"
+      class="{tool} {showBlocks ? 'bg-white/10 text-overlay' : ''}"
+      aria-pressed={showBlocks}
+      onclick={() => (showBlocks = !showBlocks)}
+    >
+      <Icon name="layers" size={16} /><span class="font-mono text-[0.6875rem] tracking-wider">BLOCKS</span>
+    </button>
+  {/if}
   <a href={original} target="_blank" rel="noopener" class="{tool} ml-auto" title="Open the original image in a new tab">
     <Icon name="external" size={16} /><span class="sr-only">Open original image</span>
   </a>

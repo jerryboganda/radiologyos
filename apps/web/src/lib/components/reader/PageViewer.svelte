@@ -12,6 +12,7 @@
     figures,
     selected,
     showBlocks = $bindable(false),
+    blocksToggle = true,
     onselect
   }: {
     src: string;
@@ -21,6 +22,8 @@
     figures: PageFigure[];
     selected: number | null;
     showBlocks?: boolean;
+    /** False for a lone figure: hides the block overlay toggle and its B shortcut. */
+    blocksToggle?: boolean;
     onselect: (block: number) => void;
   } = $props();
 
@@ -119,7 +122,9 @@
       '-': () => setScale(zoomOut(effective)),
       '0': () => setScale('fit'),
       '1': () => setScale(1),
-      b: () => (showBlocks = !showBlocks)
+      b: () => {
+        if (blocksToggle) showBlocks = !showBlocks;
+      }
     };
     const run = actions[e.key];
     if (run) {
@@ -134,6 +139,7 @@
     {effective}
     {mode}
     bind:showBlocks
+    {blocksToggle}
     original={src}
     onzoom={setScale}
   />
@@ -146,7 +152,9 @@
       {mode === 'scale' ? 'cursor-grab active:cursor-grabbing' : ''}"
     tabindex="0"
     role="region"
-    aria-label="Page image. Plus and minus zoom, 0 fits, 1 shows actual pixels, B toggles blocks."
+    aria-label={blocksToggle
+      ? 'Page image. Plus and minus zoom, 0 fits, 1 shows actual pixels, B toggles blocks.'
+      : `${alt}. Plus and minus zoom, 0 fits, 1 shows actual pixels.`}
     onpointerdown={onPointerDown}
     onpointermove={onPointerMove}
     onpointerup={onPointerUp}

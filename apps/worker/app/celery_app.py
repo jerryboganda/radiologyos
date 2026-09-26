@@ -14,6 +14,7 @@ celery_app = Celery(
         "apps.worker.app.study_jobs",
         "apps.worker.app.knowledge.tasks",
         "apps.worker.app.assessment.tasks",
+        "apps.worker.app.assessment.viva_tasks",
         "apps.worker.app.datarights.tasks",
     ],
 )

@@ -1,0 +1,74 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "topic": {
+      "description": "Specific radiology topic of the case, most specific form.",
+      "type": "string"
+    },
+    "scenario": {
+      "description": "Case or image scenario read to the candidate.",
+      "type": "string"
+    },
+    "citations": {
+      "description": "Excerpt ids behind the scenario.",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "question": {
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "description": "One examiner question; no leading, no praise.",
+          "type": "string"
+        },
+        "hint": {
+          "description": "Probe only: a non-leading nudge; '' when escalating.",
+          "type": "string"
+        },
+        "expected_points": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "point": {
+                "description": "One point a passing candidate states, from the excerpts.",
+                "type": "string"
+              },
+              "citations": {
+                "description": "Excerpt ids supporting the point.",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "point",
+              "citations"
+            ],
+            "type": "object"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "question",
+        "hint",
+        "expected_points"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "topic",
+    "scenario",
+    "citations",
+    "question"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,180 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "points": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "description": "0-based index into the current expected points.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "matched",
+              "partial",
+              "missed"
+            ],
+            "type": "string"
+          },
+          "justification": {
+            "description": "What in the answer earned or missed the point.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "status",
+          "justification"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "reasoning": {
+      "description": "Differential and reasoning quality, 0-4.",
+      "maximum": 4,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "communication": {
+      "description": "Structure and clarity, 0-4.",
+      "maximum": 4,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "unsafe": {
+      "description": "True when the answer states something dangerous.",
+      "type": "boolean"
+    },
+    "feedback": {
+      "description": "Two sentences on what was missed; no praise inflation.",
+      "type": "string"
+    },
+    "teaching_point": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "description": "The discriminating fact the candidate should remember.",
+          "type": "string"
+        },
+        "citations": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "text",
+        "citations"
+      ],
+      "type": "object"
+    },
+    "escalate": {
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "description": "One examiner question; no leading, no praise.",
+          "type": "string"
+        },
+        "hint": {
+          "description": "Probe only: a non-leading nudge; '' when escalating.",
+          "type": "string"
+        },
+        "expected_points": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "point": {
+                "description": "One point a passing candidate states, from the excerpts.",
+                "type": "string"
+              },
+              "citations": {
+                "description": "Excerpt ids supporting the point.",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "point",
+              "citations"
+            ],
+            "type": "object"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "question",
+        "hint",
+        "expected_points"
+      ],
+      "type": "object"
+    },
+    "probe": {
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "description": "One examiner question; no leading, no praise.",
+          "type": "string"
+        },
+        "hint": {
+          "description": "Probe only: a non-leading nudge; '' when escalating.",
+          "type": "string"
+        },
+        "expected_points": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "point": {
+                "description": "One point a passing candidate states, from the excerpts.",
+                "type": "string"
+              },
+              "citations": {
+                "description": "Excerpt ids supporting the point.",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "point",
+              "citations"
+            ],
+            "type": "object"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "question",
+        "hint",
+        "expected_points"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "points",
+    "reasoning",
+    "communication",
+    "unsafe",
+    "feedback",
+    "teaching_point",
+    "escalate",
+    "probe"
+  ],
+  "type": "object"
+}
