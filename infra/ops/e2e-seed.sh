@@ -32,7 +32,7 @@ auth_header="$workdir/auth-header"
 
 admin_login() {
   local token
-  token="$(jq -rn '"client_id=admin-cli&grant_type=password&username=\(env.KC_ADMIN_USER|@uri)&password=\(env.KC_ADMIN_PASSWORD|@uri)"' \
+  token="$(jq -jn '"client_id=admin-cli&grant_type=password&username=\(env.KC_ADMIN_USER|@uri)&password=\(env.KC_ADMIN_PASSWORD|@uri)"' \
     | curl -fsS -X POST "$KC_URL/realms/master/protocol/openid-connect/token" \
         -H 'content-type: application/x-www-form-urlencoded' --data-binary @- \
     | jq -r '.access_token // empty')"
