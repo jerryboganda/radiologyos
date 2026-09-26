@@ -61,6 +61,13 @@ jobs:
           set -euo pipefail
           KCIMG=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep radiologyos-python | head -1)
           test -n "$KCIMG"
+          # The synthetic verification principal (provision-verify-user.sh) signs in
+          # when present, so admin MFA (ADR 0032) never blocks this check; the
+          # owner's bootstrap account is the fallback before it is provisioned.
+          LOGIN_FILE=/run/kc/bootstrap.env
+          if [ -f /opt/radiologyos/keycloak/verify.env ]; then
+            LOGIN_FILE=/run/kc/verify.env
+          fi
           # Optional synthetic student credential for the role-denial probe.
           STUDENT_ARG=()
           if [ -f /opt/radiologyos/keycloak/student.env ]; then
@@ -76,7 +83,7 @@ jobs:
             --api http://radbrain-api:8000 \
             --client-id radbrain-web \
             --client-secret-file /run/kc/keycloak.env \
-            --bootstrap-file /run/kc/bootstrap.env \
+            --bootstrap-file "$LOGIN_FILE" \
             ${STUDENT_ARG[@]+"${STUDENT_ARG[@]}"}
           REMOTE
 
