@@ -34,12 +34,11 @@ Commit and push to `main` freely. Never dispatch `deploy-production.yml`, and ne
 change it back to an automatic trigger, without the owner's explicit OK for that
 deploy.
 
-## Non-release preview exception
+## Preview surface retired
 
-ADR 0006 permits M1–M7 implementation in explicitly local/test-only preview mode
-using synthetic or mock/local data. It does not change the M0–M7 exit evidence,
-tenant/RLS requirements, provider decisions, or release status defined by ADR 0008.
-Preview artifacts must be labelled non-release and cannot be used as release evidence.
+The in-memory non-release preview (ADR 0006) was removed by ADR 0031; all features
+are durable, RLS-protected implementations. Synthetic or mock data is still the
+rule for tests, and a test pass is still never release evidence (ADR 0008/0022).
 
 ## Hard rules
 

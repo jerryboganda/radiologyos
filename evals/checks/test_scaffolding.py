@@ -58,8 +58,8 @@ def test_compute_policy_and_production_verification_are_fail_closed() -> None:
     assert "VPS_SSH_HOST" in workflow
     assert "verify-oidc.py" in workflow
     assert "GitHub Actions" in agents and "GitHub Actions" in claude
-    assert "Non-release preview exception" in agents
-    assert "Non-release preview exception" in claude
+    assert "Preview surface retired" in agents and "ADR 0031" in agents
+    assert "Preview surface retired" in claude and "ADR 0031" in claude
 
     goal = REMAINING_WORK.read_text(encoding="utf-8")
     headings = (

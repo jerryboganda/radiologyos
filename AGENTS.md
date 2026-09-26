@@ -12,13 +12,11 @@
    under `docs/` or the named root guidance files; application code is not a docs
    worker's responsibility.
 
-## Non-release preview exception
+## Preview surface retired
 
-ADR 0006 permits M1–M7 implementation in an explicitly local/test-only preview mode
-using synthetic or mock/local data. This is an implementation-sequencing exception,
-not a release acceptance exception: M0–M7 exit evidence, tenant isolation, provenance,
-privacy, and provider decisions remain required under ADR 0008. Preview artifacts must
-be labelled non-release and must never be presented as release evidence.
+The in-memory non-release preview (ADR 0006) was removed by ADR 0031. Every feature is
+a durable, RLS-protected implementation; tests still use synthetic data only, and a
+test pass is never release evidence (ADR 0008/0022).
 
 ## Product and safety boundaries
 
@@ -101,9 +99,8 @@ See [ADR 0007](docs/decisions/0007-production-on-shared-platform.md) and the
 - CI holds one credential for the host, a dedicated `gha-deploy-radiologyos` deploy
   key. Database, Redis, and MinIO credentials never leave the host; compose reads
   `/opt/radiologyos/app.env` (mode 600).
-- `PREVIEW_ENABLED` is false in production since 2026-09-26 (ADR 0011 supersedes
-  the ADR 0009 preview-behind-auth decision); billing routes stay off unless
-  `BILLING_ENABLED=true` (ADR 0011).
+- The preview surface no longer exists (ADR 0031; a leftover `PREVIEW_ENABLED` is
+  ignored); billing routes stay off unless `BILLING_ENABLED=true` (ADR 0011).
 
 ## Change workflow
 
