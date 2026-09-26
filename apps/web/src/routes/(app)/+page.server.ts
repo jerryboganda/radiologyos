@@ -12,6 +12,7 @@ import {
   saveProfile,
   startBaseline
 } from '$lib/server/study';
+import { getTodaySession, sessionActions } from '$lib/server/session';
 import { needsOnboarding, parseProfileForm } from '$lib/study';
 import { parseRating } from '$lib/types/study';
 import type { SourceSummary } from '$lib/types/library';
@@ -29,6 +30,8 @@ export const load: PageServerLoad = async (event) => {
     getJson<SourceSummary[]>(event, '/v1/library/sources'),
     getBaseline(event)
   ]);
+  // Built after the plan so the session always reads the day's cached plan.
+  const session = profile.state === 'ok' ? await getTodaySession(event) : null;
   const onboarding = needsOnboarding(profile, today);
   return {
     signedIn: true as const,
@@ -39,6 +42,8 @@ export const load: PageServerLoad = async (event) => {
     todayProblem: onboarding ? null : loadProblem(today),
     due: dataOr(due, null),
     dueProblem: onboarding ? null : loadProblem(due),
+    session: session ? dataOr(session, null) : null,
+    sessionProblem: onboarding || !session ? null : loadProblem(session),
     sources: dataOr(sources, [])
       .filter((s) => s.status === 'ready')
       .map((s) => ({ id: s.id, title: s.title })),
@@ -49,6 +54,7 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions: Actions = {
+  ...sessionActions,
   onboard: async (event) => {
     const parsed = parseProfileForm(await event.request.formData());
     if (!parsed.ok) return fail(400, { section: 'onboard', error: parsed.error });

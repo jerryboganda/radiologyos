@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { optionLetter } from '$lib/questions';
+  import { CONFIDENCE } from '$lib/session';
   import type { AttemptOut, QuestionPublic } from '$lib/types/assessment';
   import { mediaUrl } from '$lib/viewer';
   import Notice from './Notice.svelte';
@@ -78,6 +79,16 @@
               </label>
             {/each}
           </div>
+          {#if !shown}
+            <div class="mt-3 flex flex-wrap items-center gap-2 text-sm" role="radiogroup" aria-label="How sure are you? (optional)">
+              <span class="label mr-1">How sure?</span>
+              {#each CONFIDENCE as c (c.level)}
+                <label class="cursor-pointer rounded-lg border border-line px-3 py-1 text-ink-2 has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:text-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--focus)]">
+                  <input type="radio" name="confidence" value={c.level} class="sr-only" />{c.label}
+                </label>
+              {/each}
+            </div>
+          {/if}
         {:else}
           <textarea name="answer_text" rows="6" required maxlength="8000" class="field resize-y" placeholder="Write your answer as you would in the exam…"></textarea>
         {/if}

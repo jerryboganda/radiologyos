@@ -57,6 +57,8 @@ export interface GenerateQuestionsOut {
 export interface AttemptIn {
   selected_option?: number | null;
   answer_text?: string | null;
+  /** Self-rated confidence on an SBA: 1 low, 2 medium, 3 high (calibration only). */
+  confidence?: number | null;
 }
 
 export interface OptionExplanation {

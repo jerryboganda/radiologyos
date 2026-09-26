@@ -1,6 +1,8 @@
 <script lang="ts">
   import LoadIssue from '$lib/components/LoadIssue.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import CoverageHeatmap from '$lib/components/study/CoverageHeatmap.svelte';
+  import PaceCalibration from '$lib/components/study/PaceCalibration.svelte';
   import WeeklyReport from '$lib/components/study/WeeklyReport.svelte';
   import { formatDate, percent } from '$lib/format';
   import { weightBasisLabel } from '$lib/study';
@@ -51,6 +53,11 @@
     {/each}
   </dl>
   {#if p.notice}<p class="mt-3 text-xs text-muted">{p.notice}</p>{/if}
+
+  {#if data.insights}
+    <div class="mt-6"><PaceCalibration projection={data.insights.projection} calibration={data.insights.calibration} /></div>
+    <div class="mt-6"><CoverageHeatmap rows={data.insights.heatmap} /></div>
+  {/if}
 
   <div class="mt-6"><WeeklyReport report={data.report} /></div>
 
