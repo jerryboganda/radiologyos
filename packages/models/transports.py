@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from packages.models.claude_code import ClaudeCodeTransport, ModelCall, ModelCallError, ModelResult
+from packages.models.codex import CodexTransport
 from packages.models.mistral import MistralTransport
 
 
@@ -44,4 +45,7 @@ def default_transport(claude_binary: str) -> MultiTransport | None:
     mistral = MistralTransport()
     if mistral.available():
         transports["mistral"] = mistral
+    codex = CodexTransport(os.environ.get("CODEX_BIN", "codex"))
+    if codex.available():  # ChatGPT subscription sign-in present (ADR 0035)
+        transports["codex"] = codex
     return MultiTransport(transports) if transports else None

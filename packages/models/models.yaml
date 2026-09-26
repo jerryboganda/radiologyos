@@ -42,14 +42,73 @@ routes:
     fallbacks: []
     timeout_ms: 600000
     max_retries: 2
-# ADR 0033 (owner decision 2026-09-26): pages are read by Claude Sonnet 5 at
-# high effort (same text, figures and boxes as Opus 5.5 low on a 5-page test at
-# about 55% of the usage); a page failing the quality gates (ADR 0027) is
-# redone by Opus 5.5 at medium effort. Mistral is not used.
+# OWNER MODEL RULES (mission critical, 2026-09-26; ADR 0035). Supersedes ADR 0033.
+# - Pages and figures: GPT-6 Luna high -> GPT-6 Sol high -> PAUSE for the owner's
+#   OK -> Claude Opus 5.5 high (requires_owner_approval; nothing is sent without it).
+# - Knowledge extraction, claims, topic tags: GPT-6 Luna at max effort, Fast tier.
+# - Everything the owner uses directly: Claude Opus 5.5 at medium.
+# - Opus 5.5 at high is never used except as the owner-approved last resort.
 agents:
   page_parse:
     targets:
-      - {backend: claude_code, model: claude-sonnet-5, effort: high}
+      - {backend: codex, model: gpt-6-luna, effort: high}
+      - {backend: codex, model: gpt-6-sol, effort: high}
+      - {backend: claude_code, model: claude-opus-5-5, effort: high, requires_owner_approval: true}
+  image_case:
+    targets:
+      - {backend: codex, model: gpt-6-luna, effort: high}
+      - {backend: codex, model: gpt-6-sol, effort: high}
+      - {backend: claude_code, model: claude-opus-5-5, effort: high, requires_owner_approval: true}
+  knowledge_extract:
+    targets:
+      - {backend: codex, model: gpt-6-luna, effort: max, speed: fast}
+  topic_classify:
+    targets:
+      - {backend: codex, model: gpt-6-luna, effort: max, speed: fast}
+  paper_topics:
+    targets:
+      - {backend: codex, model: gpt-6-luna, effort: max, speed: fast}
+  concept_synthesis:
+    targets:
+      - {backend: codex, model: gpt-6-luna, effort: max, speed: fast}
+  concept_resolver:
+    targets:
+      - {backend: codex, model: gpt-6-luna, effort: max, speed: fast}
+  claim_conflict:
+    targets:
+      - {backend: codex, model: gpt-6-luna, effort: max, speed: fast}
+  tutor_answer:
+    targets:
+      - {backend: claude_code, model: claude-opus-5-5, effort: medium}
+  tutor_web:
+    targets:
+      - {backend: claude_code, model: claude-opus-5-5, effort: medium}
+  tutor_memory:
+    targets:
+      - {backend: claude_code, model: claude-opus-5-5, effort: medium}
+  grounding_judge:
+    targets:
+      - {backend: claude_code, model: claude-opus-5-5, effort: medium}
+  question_generate:
+    targets:
+      - {backend: claude_code, model: claude-opus-5-5, effort: medium}
+  question_check:
+    targets:
+      - {backend: claude_code, model: claude-opus-5-5, effort: medium}
+  seq_grade:
+    targets:
+      - {backend: claude_code, model: claude-opus-5-5, effort: medium}
+  card_generate:
+    targets:
+      - {backend: claude_code, model: claude-opus-5-5, effort: medium}
+  viva_open:
+    targets:
+      - {backend: claude_code, model: claude-opus-5-5, effort: medium}
+  viva_examiner:
+    targets:
+      - {backend: claude_code, model: claude-opus-5-5, effort: medium}
+  image_case_stages:
+    targets:
       - {backend: claude_code, model: claude-opus-5-5, effort: medium}
 # ADR 0019 (owner override 2026-09-26): everything uses the paid best model,
 # voyage-4-large, inside the 200M free tokens. Every call (documents, figures,

@@ -79,9 +79,10 @@ def test_page_parse_agent_routes_and_generated_schema() -> None:
     agent = load_agent("page_parse")
     assert agent.schema == inline_schema(PageParse)
     calls = build_calls(agent, "prompt")
-    # ADR 0033: Sonnet 5 high reads pages; Opus 5.5 medium redoes gate failures.
-    assert [(c.model, c.effort) for c in calls] == [
-        ("claude-sonnet-5", "high"), ("claude-opus-5-5", "medium")]
+    # Owner rules (ADR 0035): Luna high, Sol high, then Opus high only with approval.
+    assert [(c.model, c.effort, c.requires_approval) for c in calls] == [
+        ("gpt-6-luna", "high", False), ("gpt-6-sol", "high", False),
+        ("claude-opus-5-5", "high", True)]
     assert all(c.tools == ("Read",) for c in calls)
 
 
@@ -95,7 +96,8 @@ class FakeTransport:
         return ModelResult(output=self.output, duration_ms=1, cost_usd=0.0)
 
 
-def test_run_agent_validates_output() -> None:
+def test_run_agent_validates_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BULK_CLAUDE_FALLBACK_APPROVED", "true")
     good = {"page_type": "blank", "blocks": [], "figures": [], "topics": []}
     parsed, _ = run_agent(FakeTransport(good), "page_parse", "p")
     assert isinstance(parsed, PageParse)

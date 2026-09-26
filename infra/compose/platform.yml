@@ -51,6 +51,9 @@ services:
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
       VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      # ADR 0035: tutor image questions are read by GPT-6 Luna (owner rules).
+      CODEX_HOME: /codex
+      BULK_CLAUDE_FALLBACK_APPROVED: ${BULK_CLAUDE_FALLBACK_APPROVED:-false}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
@@ -68,6 +71,9 @@ services:
       # Local voyage-4-nano (ADR 0019). No depends_on: if it is down, search
       # degrades to lexical instead of blocking the API.
       EMBEDDER_URL: http://radbrain-embedder:8080
+    volumes:
+      # Root-only host directory holding the Codex OAuth sign-in (ADR 0035).
+      - /opt/radiologyos/codex:/codex
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live')"]
       interval: 10s
@@ -101,6 +107,11 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      # ADR 0035: ChatGPT via the Codex CLI; the OAuth sign-in lives on the host.
+      CODEX_HOME: /codex
+      # Owner-only switch: approval-gated targets (Claude Opus for bulk work) stay
+      # paused until the owner explicitly allows them.
+      BULK_CLAUDE_FALLBACK_APPROVED: ${BULK_CLAUDE_FALLBACK_APPROVED:-false}
       CORE_TENANT_ID: ${CORE_TENANT_ID:-00000000-0000-0000-0000-000000000001}
       MODELS_CONFIG_PATH: ${MODELS_CONFIG_PATH:-packages/models/models.yaml}
       MODEL_USAGE_LIMIT_ALERT_PER_HOUR: ${MODEL_USAGE_LIMIT_ALERT_PER_HOUR:-5}
@@ -110,6 +121,9 @@ services:
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-radbrain}
       KEYCLOAK_ADMIN_CLIENT_ID: ${KEYCLOAK_ADMIN_CLIENT_ID:-}
       KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-}
+    volumes:
+      # Root-only host directory holding the Codex OAuth sign-in (refreshed in place).
+      - /opt/radiologyos/codex:/codex
     healthcheck:
       test: ["CMD-SHELL", "celery -A apps.worker.app.celery_app:celery_app inspect ping --timeout=5 | grep -q pong"]
       interval: 20s

@@ -12,6 +12,7 @@ crash or a subscription usage-limit pause resumes where it stopped.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -25,7 +26,7 @@ from packages.library.chunking import BlockInput, build_chunks, looks_like_headi
 from packages.library.formats import SourceKind
 from packages.library.parse_models import ImageCase, PageParse
 from packages.library.quality import bbox_ok, page_parse_problem
-from packages.library.render import RenderError, crop_png, iter_pages
+from packages.library.render import RenderError, crop_png, iter_pages, office_to_pdf
 from packages.library.text_first import text_only_pages
 from packages.models.budget import EmbeddingBudgetExhausted
 from packages.models.claude_code import ModelCallError, UsageLimitError
@@ -201,7 +202,7 @@ async def _vision_pass(deps: Deps, job: dict[str, Any], source: dict[str, Any]) 
                 if p["vision_status"] == "pending"]
         starting = await db.step_status(session, job["id"], "parse_layout") != "running"
         await db.mark_step(session, job, "parse_layout", "running")
-    if starting and todo and source["kind"] == SourceKind.PDF.value:
+    if starting and todo and source["kind"] in TEXT_FIRST_KINDS:
         todo = await _keep_text_pages(deps, job, source, todo)
     for page in todo[:PAGES_PER_RUN]:
         await _parse_page(deps, job, source, page)
@@ -226,13 +227,24 @@ async def _vision_pass(deps: Deps, job: dict[str, Any], source: dict[str, Any]) 
     enqueue_knowledge(tenant_id, source_id)
 
 
+TEXT_FIRST_KINDS = {SourceKind.PDF.value, SourceKind.PPTX.value, SourceKind.DOCX.value}
+
+
 async def _keep_text_pages(
     deps: Deps, job: dict[str, Any], source: dict[str, Any], todo: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """Text-first routing (ADR 0027): keep the native blocks of pages whose text
     layer is already good, and return only the pages that still need vision."""
     chars = {p["page_no"]: len(p["native_text"] or "") for p in todo}
-    keep = text_only_pages(deps.store.get(source["storage_key"]), chars)
+    data = deps.store.get(source["storage_key"])
+    if source["kind"] != SourceKind.PDF.value:
+        # PPTX/DOCX: pdf-inspector reads the same LibreOffice PDF the pages were
+        # rendered from, so text-only slides and pages need no model call.
+        try:
+            data = await asyncio.to_thread(office_to_pdf, data, str(source["kind"]))
+        except RenderError:
+            return todo
+    keep = text_only_pages(data, chars)
     if not keep:
         return todo
     async with db.tenant_tx(deps.engine, job["tenant_id"]) as session:

@@ -33,6 +33,11 @@ class ModelTarget(BaseModel):
     effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
     api_key_env: str | None = None
     base_url: str | None = None
+    # Codex "fast" service tier (owner rule, 2026-09-26: knowledge on Luna max + fast).
+    speed: Literal["fast"] | None = None
+    # A target the owner must approve before any job uses it (mission-critical rule:
+    # bulk work never falls through to Claude on its own).
+    requires_owner_approval: bool = False
 
 
 class EmbeddingTarget(BaseModel):

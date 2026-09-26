@@ -45,7 +45,7 @@ def test_tutor_answer_agent_is_tool_less_high_effort_reason_route() -> None:
     assert agent.key == "tutor_answer/v4"
     assert (agent.prompt.route, agent.prompt.effort) == ("reason", "high")
     call = build_call(agent, "p")
-    assert call.tools == () and call.effort == "high"
+    assert call.tools == () and (call.model, call.effort) == ("claude-opus-5-5", "medium")
 
 
 def test_tutor_web_agent_may_only_search_and_fetch() -> None:

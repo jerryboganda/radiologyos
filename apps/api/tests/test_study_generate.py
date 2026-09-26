@@ -66,7 +66,8 @@ def test_agent_is_versioned_on_the_extract_route_with_high_effort() -> None:
     assert agent.schema == inline_schema(CardBatch)
     call = build_call(agent, "prompt")
     assert call.model == routing_config().routes[agent.prompt.route].targets[0].model
-    assert call.effort == "high" and call.tools == ()
+    assert (call.model, call.effort) == ("claude-opus-5-5", "medium")  # owner rules
+    assert call.tools == ()
 
 
 def test_prompt_carries_only_supplied_chunks_and_codes() -> None:

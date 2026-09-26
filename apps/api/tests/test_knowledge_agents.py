@@ -50,7 +50,9 @@ def test_agent_uses_named_route_quota_effort_and_generated_schema(name: str) -> 
     assert agent.schema == inline_schema(model)
     assert agent.prompt.fixture == f"evals/fixtures/{FIXTURE[name]}.json"
     call = build_call(agent, "prompt")
-    assert call.effort == EFFORT[name] and call.tools == tools
+    # Owner rules (ADR 0035): bulk knowledge runs on GPT-6 Luna at max, Fast tier.
+    assert (call.model, call.effort, call.speed) == ("gpt-6-luna", "max", "fast")
+    assert call.tools == tools
     assert "untrusted" in agent.prompt.system_prompt
 
 

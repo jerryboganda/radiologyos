@@ -56,6 +56,7 @@ from fastapi.responses import StreamingResponse
 from packages.library.storage import ObjectStore
 from packages.models.claude_code import ClaudeCodeTransport, ModelCallError, UsageLimitError
 from packages.models.gateway import Transport
+from packages.models.transports import default_transport
 from packages.tutor.models import JudgeStats, Segment
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,9 +73,11 @@ UNAVAILABLE = ("The tutor is unavailable: the Claude Code CLI is not installed o
 
 
 def model_transport() -> Transport | None:
-    """The production model transport, or None when the CLI is absent; tests override."""
-    transport = ClaudeCodeTransport(get_settings().claude_code_bin)
-    return transport if transport.available() else None
+    """Claude (answers) plus Codex (image reading, owner rules), or None; tests override."""
+    claude = ClaudeCodeTransport(get_settings().claude_code_bin)
+    if not claude.available():
+        return None
+    return default_transport(get_settings().claude_code_bin) or claude
 
 
 def tutor_store() -> ObjectStore:

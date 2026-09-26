@@ -6,6 +6,14 @@ RUN npm install -g --omit=dev "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
     && cp "$(npm root -g)/@anthropic-ai/claude-code/bin/claude.exe" /claude \
     && /claude --version
 
+# Codex CLI (ADR 0035): ChatGPT models on the owner's subscription, copied as its
+# static native binary. The sign-in lives in CODEX_HOME on the host, never here.
+FROM node:22-bookworm-slim AS codex
+ARG CODEX_VERSION=0.157.1
+RUN npm install -g --omit=dev "@openai/codex@${CODEX_VERSION}" \
+    && cp "$(npm root -g)/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex" /codex \
+    && /codex --version
+
 FROM python:3.12-slim
 
 WORKDIR /srv
@@ -19,10 +27,12 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        libreoffice-impress libreoffice-writer libreoffice-core \
        fonts-dejavu-core fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea \
+       ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /srv/home
 
 COPY --from=claude /claude /usr/local/bin/claude
+COPY --from=codex /codex /usr/local/bin/codex
 
 COPY pyproject.toml ./
 COPY apps/api ./apps/api

@@ -15,7 +15,13 @@ import pypdfium2.raw as pdfium_c
 import pytest
 from packages.library import text_first
 from packages.library.text_first import pages_with_pictures, text_only_pages
-from packages.models.claude_code import ModelCall, ModelCallError, ModelResult, UsageLimitError
+from packages.models.claude_code import (
+    ModelCall,
+    ModelCallError,
+    ModelResult,
+    OwnerApprovalRequired,
+    UsageLimitError,
+)
 from packages.models.gateway import build_calls, load_agent, run_agent
 from packages.models.mistral import MistralTransport
 from packages.models.transports import MultiTransport
@@ -167,9 +173,9 @@ VALID_PAGE = {"page_type": "text", "blocks": [], "figures": [], "topics": []}
 
 
 class _ByModel:
-    """One claude_code transport whose outcome depends on the model called."""
+    """One transport serving Codex and Claude whose outcome depends on the model."""
 
-    backends = ("claude_code",)
+    backends = ("codex", "claude_code")
 
     def __init__(self, outcomes: dict[str, Any]) -> None:
         self.outcomes, self.models = outcomes, []
@@ -182,31 +188,62 @@ class _ByModel:
         return ModelResult(output=outcome, duration_ms=1, cost_usd=0.0, backend=call.backend)
 
 
+@pytest.fixture
+def approved(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The owner allowed the Claude last resort (BULK_CLAUDE_FALLBACK_APPROVED)."""
+    monkeypatch.setenv("BULK_CLAUDE_FALLBACK_APPROVED", "true")
+
+
+@pytest.fixture(autouse=True)
+def not_approved_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BULK_CLAUDE_FALLBACK_APPROVED", raising=False)
+
+
 @pytest.mark.parametrize("failure", [UsageLimitError("quota"), ModelCallError("boom"),
                                      {"not": "a page"}])
-def test_gateway_falls_back_from_sonnet_to_opus(failure: Any) -> None:
-    transport = _ByModel({"claude-sonnet-5": failure, "claude-opus-5-5": VALID_PAGE})
+def test_gateway_falls_back_from_luna_to_sol(failure: Any) -> None:
+    transport = _ByModel({"gpt-6-luna": failure, "gpt-6-sol": VALID_PAGE})
     run_agent(transport, "page_parse", "prompt")
-    assert transport.models == ["claude-sonnet-5", "claude-opus-5-5"]
+    assert transport.models == ["gpt-6-luna", "gpt-6-sol"]
+
+
+def test_claude_is_never_called_without_the_owners_ok() -> None:
+    transport = _ByModel({"gpt-6-luna": ModelCallError("x"), "gpt-6-sol": ModelCallError("y"),
+                          "claude-opus-5-5": VALID_PAGE})
+    with pytest.raises(OwnerApprovalRequired):
+        run_agent(transport, "page_parse", "prompt")
+    assert transport.models == ["gpt-6-luna", "gpt-6-sol"]
+
+
+def test_with_the_owners_ok_opus_is_the_last_resort(approved: None) -> None:
+    transport = _ByModel({"gpt-6-luna": ModelCallError("x"), "gpt-6-sol": ModelCallError("y"),
+                          "claude-opus-5-5": VALID_PAGE})
+    run_agent(transport, "page_parse", "prompt")
+    assert transport.models == ["gpt-6-luna", "gpt-6-sol", "claude-opus-5-5"]
 
 
 def test_gateway_uses_only_backends_the_transport_serves() -> None:
-    claude = _Backend(VALID_PAGE)
-    _, result = run_agent(MultiTransport({"claude_code": claude}), "page_parse", "prompt")
-    assert result.backend == "claude_code" and claude.calls == 1
+    codex = _Backend(VALID_PAGE)
+    _, result = run_agent(MultiTransport({"codex": codex}), "page_parse", "prompt")
+    assert result.backend == "codex" and codex.calls == 1
     with pytest.raises(ModelCallError):  # nothing this transport can serve
         run_agent(MultiTransport({"mistral": _Backend(VALID_PAGE)}), "page_parse", "prompt")
-    with pytest.raises(UsageLimitError):  # every target exhausted: the job pauses
-        run_agent(_ByModel({"claude-sonnet-5": UsageLimitError("q"),
-                            "claude-opus-5-5": UsageLimitError("q")}), "page_parse", "p")
+    with pytest.raises(OwnerApprovalRequired):  # only Claude here: pause, never spend
+        run_agent(MultiTransport({"claude_code": _Backend(VALID_PAGE)}), "page_parse", "p")
 
 
-def test_page_parse_is_sonnet_high_then_opus_medium_and_no_agent_uses_mistral() -> None:
-    calls = build_calls(load_agent("page_parse"), "p")
-    assert [(c.backend, c.model, c.effort) for c in calls] == [
-        ("claude_code", "claude-sonnet-5", "high"), ("claude_code", "claude-opus-5-5", "medium")]
-    for name in ("paper_topics", "knowledge_extract", "topic_classify", "image_case"):
-        assert {c.backend for c in build_calls(load_agent(name), "p")} == {"claude_code"}, name
+def test_owner_rules_in_models_yaml() -> None:
+    chain = [("codex", "gpt-6-luna", "high", False), ("codex", "gpt-6-sol", "high", False),
+             ("claude_code", "claude-opus-5-5", "high", True)]
+    for name in ("page_parse", "image_case"):
+        calls = build_calls(load_agent(name), "p")
+        assert [(c.backend, c.model, c.effort, c.requires_approval) for c in calls] == chain
+    for name in ("paper_topics", "knowledge_extract", "topic_classify"):
+        calls = build_calls(load_agent(name), "p")
+        assert [(c.model, c.effort, c.speed) for c in calls] == [("gpt-6-luna", "max", "fast")]
+    for name in ("tutor_answer", "question_generate", "seq_grade", "viva_examiner"):
+        calls = build_calls(load_agent(name), "p")
+        assert [(c.model, c.effort) for c in calls] == [("claude-opus-5-5", "medium")], name
 
 
 # --- quality gates ("no lapses") -------------------------------------------
@@ -246,19 +283,22 @@ def _page_dict(text: str) -> dict[str, Any]:
             "blocks": [{"kind": "paragraph", "text": text, "bbox": [0.1, 0.1, 0.9, 0.2]}]}
 
 
-def test_gateway_redoes_a_rejected_sonnet_reading_with_opus() -> None:
+def test_gateway_redoes_a_rejected_luna_reading_with_sol() -> None:
     from packages.library.quality import page_parse_problem
 
-    transport = _ByModel({"claude-sonnet-5": _page_dict("radiology0"),
-                          "claude-opus-5-5": _page_dict(NATIVE)})
+    transport = _ByModel({"gpt-6-luna": _page_dict("radiology0"),
+                          "gpt-6-sol": _page_dict(NATIVE)})
     parsed, _ = run_agent(transport, "page_parse", "prompt",
                           accept=lambda p: page_parse_problem(p, NATIVE))
-    assert transport.models == ["claude-sonnet-5", "claude-opus-5-5"]
+    assert transport.models == ["gpt-6-luna", "gpt-6-sol"]
     assert page_parse_problem(parsed, NATIVE) is None
 
 
-def test_gateway_keeps_the_last_targets_output_when_nothing_better_exists() -> None:
-    transport = _ByModel({"claude-sonnet-5": _page_dict("a"), "claude-opus-5-5": _page_dict("b")})
+def test_gateway_keeps_the_last_targets_output_when_nothing_better_exists(
+    approved: None,
+) -> None:
+    transport = _ByModel({"gpt-6-luna": _page_dict("x"), "gpt-6-sol": _page_dict("a"),
+                          "claude-opus-5-5": _page_dict("b")})
     parsed, _ = run_agent(transport, "page_parse", "p", accept=lambda _: "low_text_coverage")
-    assert transport.models == ["claude-sonnet-5", "claude-opus-5-5"]
+    assert transport.models == ["gpt-6-luna", "gpt-6-sol", "claude-opus-5-5"]
     assert parsed.blocks[0].text == "b"  # the strongest target's reading is kept

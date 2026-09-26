@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib
 import json
 import logging
+import os
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -24,6 +25,7 @@ from packages.models.claude_code import (
     ModelCall,
     ModelCallError,
     ModelResult,
+    OwnerApprovalRequired,
     UsageLimitError,
 )
 from packages.models.claude_stream import DeltaCallback, StreamOutputInvalid, StreamUnsupported
@@ -110,6 +112,8 @@ def build_calls(
             backend=target.backend,
             api_key_env=target.api_key_env,
             base_url=target.base_url,
+            speed=target.speed,
+            requires_approval=target.requires_owner_approval,
         )
         for target in targets
     ]
@@ -214,11 +218,23 @@ def run_agent(
     return _run_targets(transport, agent, calls, accept)
 
 
+def owner_approved_fallback() -> bool:
+    """The owner's explicit OK for approval-gated targets (set on the host only)."""
+    return os.environ.get("BULK_CLAUDE_FALLBACK_APPROVED", "").lower() == "true"
+
+
 def _run_targets(
     transport: Transport, agent: Agent, calls: list[ModelCall], accept: Accept | None
 ) -> tuple[BaseModel, ModelResult]:
     last: ModelCallError | None = None
     for n, call in enumerate(calls):
+        if call.requires_approval and not owner_approved_fallback():
+            # Mission-critical owner rule: bulk work never falls through to this
+            # target by itself. The caller pauses (usage-limit semantics) and the
+            # owner decides; nothing is sent.
+            log.warning("owner approval required agent=%s backend=%s model=%s",
+                        agent.key, call.backend, call.model)
+            raise OwnerApprovalRequired(f"{agent.key}: owner approval required for {call.model}")
         started = time.monotonic()
         result: ModelResult | None = None
         try:

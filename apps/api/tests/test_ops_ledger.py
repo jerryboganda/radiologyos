@@ -39,6 +39,12 @@ class Sequenced:
                            backend=call.backend)
 
 
+@pytest.fixture(autouse=True)
+def owner_approved(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These cases exercise every target, including the approval-gated last one."""
+    monkeypatch.setenv("BULK_CLAUDE_FALLBACK_APPROVED", "true")
+
+
 @pytest.fixture
 def records() -> Iterator[list[ledger.CallRecord]]:
     seen: list[ledger.CallRecord] = []

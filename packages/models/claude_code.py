@@ -40,6 +40,10 @@ class UsageLimitError(ModelCallError):
     """The subscription usage window is exhausted; retry later."""
 
 
+class OwnerApprovalRequired(UsageLimitError):
+    """The next target needs the owner's explicit OK; the job pauses, nothing is sent."""
+
+
 @dataclass(frozen=True, slots=True)
 class ModelCall:
     model: str
@@ -53,6 +57,8 @@ class ModelCall:
     backend: str = "claude_code"
     api_key_env: str | None = None
     base_url: str | None = None
+    speed: str | None = None
+    requires_approval: bool = False
 
     def __post_init__(self) -> None:
         if self.effort not in EFFORTS:
