@@ -48,7 +48,12 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:?required}
       S3_REGION: ${S3_REGION:-us-east-1}
       WEB_API_SECRET: ${WEB_API_SECRET:-}
+      # The API is not on the ingress network; tutor and question generation
+      # call the model in-process (ADR 0012 addendum).
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
       VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_JWKS_URL: ${OIDC_JWKS_URL:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
@@ -74,7 +79,7 @@ services:
   worker:
     <<: *restricted
     image: ${RADBRAIN_PYTHON_IMAGE:?RADBRAIN_PYTHON_IMAGE is required}
-    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "--beat", "--schedule=/tmp/celerybeat-schedule", "--loglevel=INFO", "--concurrency=2"]
     environment:
       DATABASE_URL: ${DATABASE_URL:?required}
       APP_ENV: ${APP_ENV:-production}
@@ -87,6 +92,7 @@ services:
       S3_REGION: ${S3_REGION:-us-east-1}
       # ADR 0010: the owner's subscription token and the Voyage key; worker only.
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
       CORE_TENANT_ID: ${CORE_TENANT_ID:-00000000-0000-0000-0000-000000000001}
       MODELS_CONFIG_PATH: ${MODELS_CONFIG_PATH:-packages/models/models.yaml}

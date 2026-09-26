@@ -27,3 +27,11 @@ tenant and role from the membership table exactly as for an OIDC token.
 (DOCX/PPTX to PDF), and the Claude Code CLI native binary copied from a Node
 build stage (no Node at runtime). The worker's limits rise to 2 CPUs / 3 GB for
 LibreOffice and rendering.
+
+**Addendum (2026-09-26):** the tutor and question generation call the model
+inside the API process, so the API container also receives
+`CLAUDE_CODE_OAUTH_TOKEN`. The API is not on the ingress network (only the web
+container is), never logs the token, and never returns it. Push reminders use
+Web Push with VAPID keys held in `app.env` (`pywebpush` added); Celery beat runs
+inside the worker (`--beat`) every five minutes, and the narrow
+`app.due_reminders` SECURITY DEFINER resolver returns only (tenant, user) ids.

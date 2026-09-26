@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from apps.api.app.api.billing import router as billing_router
 from apps.api.app.api.library import router as library_router
+from apps.api.app.api.notifications import router as notifications_router
 from apps.api.app.api.preview import router as preview_router
 from apps.api.app.api.preview_admin import router as preview_admin_router
 from apps.api.app.api.preview_assessment import router as preview_assessment_router
@@ -44,6 +45,7 @@ settings = get_settings()
 bearer_scheme = HTTPBearer(auto_error=False)
 oidc_verifier = OIDCVerifier(settings)
 app.include_router(library_router)
+app.include_router(notifications_router)
 app.include_router(tutor_router)
 app.include_router(preview_router)
 app.include_router(billing_router)

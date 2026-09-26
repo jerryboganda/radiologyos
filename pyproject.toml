@@ -16,6 +16,7 @@ dependencies = [
   "boto3>=1.35,<2",
   "pypdfium2>=4.30,<6",
   "pillow>=10.4,<13",
+  "pywebpush>=2.0,<3",
   "asyncpg>=0.29,<1",
   "celery>=5.4,<6",
   "fastapi>=0.115,<1",

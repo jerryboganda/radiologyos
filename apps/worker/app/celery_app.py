@@ -5,7 +5,11 @@ import os
 from celery import Celery
 
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-celery_app = Celery("radbrain", broker=redis_url, include=["apps.worker.app.tasks"])
+celery_app = Celery(
+    "radbrain",
+    broker=redis_url,
+    include=["apps.worker.app.tasks", "apps.worker.app.reminders"],
+)
 celery_app.conf.update(
     accept_content=["json"],
     broker_connection_retry_on_startup=True,
@@ -16,4 +20,7 @@ celery_app.conf.update(
     task_track_started=True,
     timezone="UTC",
     worker_prefetch_multiplier=1,
+    beat_schedule={
+        "study-reminders": {"task": "radbrain.send_due_reminders", "schedule": 300.0},
+    },
 )
