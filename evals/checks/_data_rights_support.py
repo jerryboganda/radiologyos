@@ -22,7 +22,8 @@ ALL_TABLES = (
     "study_profiles", "tutor_messages", "tutor_threads", "tutor_images", "topic_weights",
     "topic_frequencies",
     "push_subscriptions", "notification_settings", "knowledge_conflicts", "concept_edges",
-    "claims", "curriculum_mappings", "knowledge_runs", "concepts", "chunks", "figures",
+    "model_escalations", "claims", "curriculum_mappings", "knowledge_runs", "concepts", "chunks",
+    "figures",
     "source_blocks", "source_pages", "job_steps", "jobs", "audit_log", "sources",
     "memberships", "users",
 )

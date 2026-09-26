@@ -11,7 +11,12 @@ from apps.worker.app.knowledge.runtime import Deferred, KnowledgeDeps, call_agen
 from evals.contracts import load_eval_fixtures
 from fastapi.testclient import TestClient
 from packages.curriculum.candidates import validate_node_id
-from packages.knowledge.models import KnowledgeExtraction, PaperTopicsTree, TopicClassification
+from packages.knowledge.models import (
+    CheckedExtraction,
+    KnowledgeExtraction,
+    PaperTopicsTree,
+    TopicClassification,
+)
 from packages.library.parse_models import inline_schema
 from packages.models.claude_code import ModelCall, ModelCallError, ModelResult, UsageLimitError
 from packages.models.gateway import build_call, load_agent, run_agent
@@ -20,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[3]
 # v2 prompts: owner-approved quota efforts (ADR 0021).
 EFFORT = {"knowledge_extract": "medium", "topic_classify": "low", "paper_topics": "low"}
 AGENTS = {
-    "knowledge_extract": ("extract", KnowledgeExtraction, ()),
+    "knowledge_extract": ("extract", CheckedExtraction, ()),  # v3 (ADR 0037)
     "topic_classify": ("classify", TopicClassification, ()),
     "paper_topics": ("classify", PaperTopicsTree, ("Read",)),
 }
@@ -89,7 +94,8 @@ def test_run_agent_validates_knowledge_output() -> None:
     parsed, _ = run_agent(FakeTransport(good), "knowledge_extract", "p")
     assert isinstance(parsed, KnowledgeExtraction)
     bad = {"concepts": [], "claims": [{"concept": "x"}], "relations": []}
-    with pytest.raises(ModelCallError, match="schema validation"):
+    # Luna and Sol both invalid: the item waits for the owner (no Opus call).
+    with pytest.raises(ModelCallError, match="owner approval required"):
         run_agent(FakeTransport(bad), "knowledge_extract", "p")
 
 

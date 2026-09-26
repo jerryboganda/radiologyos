@@ -37,11 +37,25 @@ class ModelCallError(RuntimeError):
 
 
 class UsageLimitError(ModelCallError):
-    """The subscription usage window is exhausted; retry later."""
+    """The subscription usage window is exhausted; retry later.
+
+    ``retry_after_s`` is the provider's own reset hint when it gave one;
+    ``provider`` names the quota that ran out (shown to the owner).
+    """
+
+    def __init__(self, message: str, retry_after_s: int | None = None,
+                 provider: str = "claude") -> None:
+        super().__init__(message)
+        self.retry_after_s = retry_after_s
+        self.provider = provider
 
 
-class OwnerApprovalRequired(UsageLimitError):
-    """The next target needs the owner's explicit OK; the job pauses, nothing is sent."""
+class OwnerApprovalRequired(ModelCallError):
+    """Only an approval-gated target is left and no usable answer exists yet.
+
+    Nothing is sent to that target. The caller records the item for the owner's
+    batch approval ("collect & ask") and carries on with other work.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +86,10 @@ class ModelResult:
     cost_usd: float
     usage: dict[str, Any] = field(default_factory=dict)
     backend: str = "claude_code"
+    # Set by the gateway when this is the best answer the free targets gave but a
+    # quality gate still rejects it: the item waits for the owner's approval of
+    # the approval-gated target (a fixed reason string, never content).
+    escalation: str | None = None
 
 
 @dataclass(slots=True)

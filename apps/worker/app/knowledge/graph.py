@@ -82,7 +82,14 @@ async def store_claim(
     session: AsyncSession, tenant_id: UUID, concept_id: UUID, claim: ExtractedClaim,
     citation: dict[str, Any], meta: dict[str, Any],
 ) -> str:
-    """Insert a claim, merge a duplicate, or record conflicts. Returns the outcome."""
+    """Insert a claim, merge a duplicate, or record conflicts. Returns the outcome.
+
+    A claim the extractor doubts (its source contradicts standard teaching) is
+    stored as ``flagged`` for the owner's review, outside conflict detection.
+    """
+    if (getattr(claim, "source_doubt", "") or "").strip():
+        await _insert_claim(session, tenant_id, concept_id, claim, citation, meta)
+        return "flagged"
     rows = (await session.execute(
         text("SELECT id, statement, source_id FROM claims WHERE concept_id = :c "
              "AND status IN ('active', 'disputed')"),
@@ -123,14 +130,15 @@ async def _insert_claim(
     session: AsyncSession, tenant_id: UUID, concept_id: UUID, claim: ExtractedClaim,
     citation: dict[str, Any], meta: dict[str, Any],
 ) -> UUID:
+    doubt = (getattr(claim, "source_doubt", "") or "").strip()
     created = await session.execute(
         text(
             """
             INSERT INTO claims (tenant_id, concept_id, claim_type, statement, evidence_span,
                 source_id, chunk_id, page_from, page_to, citation, importance, modality,
-                agent_version)
+                agent_version, status, doubt)
             VALUES (:t, :c, :type, :statement, :span, :s, :chunk, :pf, :pt,
-                    CAST(:citation AS jsonb), :importance, :modality, :agent)
+                    CAST(:citation AS jsonb), :importance, :modality, :agent, :status, :doubt)
             RETURNING id
             """
         ),
@@ -138,7 +146,8 @@ async def _insert_claim(
          "span": claim.evidence_span, "s": meta["source_id"], "chunk": meta["chunk_id"],
          "pf": meta["page_from"], "pt": meta["page_to"], "citation": as_json(citation),
          "importance": claim.importance, "modality": claim.modality[:40],
-         "agent": meta["agent"]},
+         "agent": meta["agent"], "status": "flagged" if doubt else "active",
+         "doubt": doubt[:500] or None},
     )
     return UUID(str(created.scalar_one()))
 

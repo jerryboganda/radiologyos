@@ -20,6 +20,7 @@ from packages.knowledge.models import (
     ExtractedRelation,
     KnowledgeExtraction,
 )
+from packages.knowledge.support import supported_span
 from packages.knowledge.text import collapse_ws, normalize_name
 
 MIN_SPAN_CHARS = 8
@@ -72,7 +73,10 @@ def filter_extraction(result: KnowledgeExtraction, chunk_text: str) -> FilteredE
     rejected = 0
     for claim in result.claims:
         span = verify_span(claim.evidence_span, chunk_text)
-        if span is None or not normalize_name(claim.concept):
+        # Over-reach (ADR 0037): the evidence, widened to nearby sentences if
+        # needed, must carry the claim's content words, numbers, and laterality.
+        span = span and supported_span(claim.text, span, chunk_text)
+        if not span or not normalize_name(claim.concept):
             rejected += 1
             continue
         key = normalize_name(claim.concept)

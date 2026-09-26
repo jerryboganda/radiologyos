@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+from packages.library.glyphs import tidy
+
 TARGET_WORDS = 320
 MAX_WORDS = 460
 MAX_PAGE_SPAN = 3
@@ -57,7 +59,7 @@ def build_chunks(blocks: Iterable[BlockInput]) -> list[Chunk]:
                     page_from=min(p.page_no for p in body),
                     page_to=max(p.page_no for p in body),
                     heading=heading,
-                    text="\n".join(p.text.strip() for p in body),
+                    text="\n".join(tidy(p.text.strip()) for p in body),
                     block_refs=[{"page": p.page_no, "block": p.block_no} for p in body],
                 )
             )

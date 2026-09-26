@@ -14,56 +14,26 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
 from apps.worker.app.ingest import db, db_content
 from apps.worker.app.ingest.embedding import embed_pending
 from apps.worker.app.ingest.tables import extract_tables
+from apps.worker.app.ingest.types import Continue, Deferred, Deps
+from apps.worker.app.ingest.vision import parse_pages
 from packages.library import storage
 from packages.library.chunking import BlockInput, build_chunks, looks_like_heading
-from packages.library.figure_context import (
-    build_context,
-    case_text,
-    impression_origin,
-    neighbour_pages,
-)
 from packages.library.formats import SourceKind
-from packages.library.parse_models import PageParse, SourceImageCase
-from packages.library.quality import bbox_ok, page_parse_problem
-from packages.library.render import RenderError, crop_png, iter_pages, office_to_pdf
+from packages.library.render import RenderError, iter_pages, office_to_pdf
 from packages.library.text_first import text_only_pages
 from packages.models.budget import EmbeddingBudgetExhausted
-from packages.models.claude_code import ModelCallError, UsageLimitError
-from packages.models.embeddings import EmbeddingError, VoyageEmbedder
-from packages.models.gateway import Transport, run_agent, user_prompt
-from packages.models.routing import EmbeddingBudget
-from sqlalchemy.ext.asyncio import AsyncEngine
+from packages.models.claude_code import ModelCallError
+from packages.models.embeddings import EmbeddingError
+
+__all__ = ["Continue", "Deferred", "Deps", "run_ingest"]
 
 log = logging.getLogger("radbrain.ingest")
-
-
-@dataclass(slots=True)
-class Deps:
-    engine: AsyncEngine
-    store: storage.ObjectStore
-    transport: Transport | None
-    embedder: VoyageEmbedder | None
-    budget: EmbeddingBudget | None = None
-
-
-class Deferred(Exception):
-    """Work paused (usage window); the task reschedules itself."""
-
-
-class Continue(Exception):
-    """This run hit its page budget; the task re-queues itself immediately.
-
-    Keeping each run short (well under the broker's one-hour visibility
-    timeout) stops Redis re-delivering a still-running job, which would parse
-    the same pages twice and spend the subscription window twice.
-    """
 
 
 PAGES_PER_RUN = 25
@@ -210,8 +180,7 @@ async def _vision_pass(deps: Deps, job: dict[str, Any], source: dict[str, Any]) 
         await db.mark_step(session, job, "parse_layout", "running")
     if starting and todo and source["kind"] in TEXT_FIRST_KINDS:
         todo = await _keep_text_pages(deps, job, source, todo)
-    for page in todo[:PAGES_PER_RUN]:
-        await _parse_page(deps, job, source, page)
+    await parse_pages(deps, job, source, todo[:PAGES_PER_RUN])
     if len(todo) > PAGES_PER_RUN:
         raise Continue
     async with db.tenant_tx(deps.engine, tenant_id) as session:
@@ -220,10 +189,13 @@ async def _vision_pass(deps: Deps, job: dict[str, Any], source: dict[str, Any]) 
                          for p in await db_content.pages(session, source_id))
         await db.mark_step(session, job, "parse_layout", "succeeded")
         await db.mark_step(session, job, "extract_figures", "succeeded")
-    if first_time and parsed_any:
-        await _chunk(deps, job)  # vision rewrote the text
+    # Re-chunk when vision rewrote text: on the first pass, or when this run
+    # re-read pages (failed pages retried, or items the owner approved for Opus).
+    reread = bool(todo) and not first_time
+    if parsed_any and (first_time or reread):
+        await _chunk(deps, job)
     await _embed(deps, job)
-    if not first_time:
+    if not (first_time or reread):
         return  # reprocess of a finished source: nothing else to redo
     async with db.tenant_tx(deps.engine, tenant_id) as session:
         await db.mark_step(session, job, "knowledge_extraction", "pending")
@@ -260,86 +232,3 @@ async def _keep_text_pages(
     log.info("text_first source=%s native_pages=%s vision_pages=%s",
              job["entity_id"], len(keep), len(todo) - len(keep))
     return [p for p in todo if p["page_no"] not in keep]
-
-
-async def _parse_page(
-    deps: Deps, job: dict[str, Any], source: dict[str, Any], page: dict[str, Any]
-) -> None:
-    tenant_id, source_id, page_no = job["tenant_id"], job["entity_id"], page["page_no"]
-    png = deps.store.get(page["image_key"])
-    prompt = user_prompt("page_parse", source_title=str(source["title"]), page_no=str(page_no),
-                         native_text=page["native_text"][:12000])
-    try:
-        parsed, _ = run_agent(deps.transport, "page_parse", prompt,  # type: ignore[arg-type]
-                              files=[(f"page-{page_no:05d}.png", png)],
-                              accept=lambda p: page_parse_problem(p, page["native_text"]))
-    except UsageLimitError as exc:
-        raise Deferred from exc
-    except ModelCallError:
-        log.warning("page_parse failed source=%s page=%s", source_id, page_no)
-        async with db.tenant_tx(deps.engine, tenant_id) as session:
-            await db_content.set_vision_status(session, source_id, page_no, "failed")
-        return
-    assert isinstance(parsed, PageParse)
-    # A box that is still invalid never reaches provenance or a crop: blocks
-    # fall back to a whole-page box, figures without a valid box are dropped.
-    boxed = [f for f in parsed.figures if bbox_ok(f.bbox)]
-    context = await _figure_context(deps, job, page_no, parsed) if boxed else ""
-    figures = [await _figure(deps, job, page_no, png, n, fig.model_dump(), context)
-               for n, fig in enumerate(boxed)]
-    blocks = [
-        {"block_no": n, "kind": b.kind, "text": b.text, "origin": "vision",
-         "bbox": b.bbox if bbox_ok(b.bbox) else [0.0, 0.0, 1.0, 1.0]}
-        for n, b in enumerate(parsed.blocks) if b.text.strip()
-    ]
-    async with db.tenant_tx(deps.engine, tenant_id) as session:
-        if blocks:
-            await db.replace_blocks(session, tenant_id, source_id, page_no, blocks)
-        await db_content.replace_figures(session, tenant_id, source_id, page_no, figures)
-        await db_content.set_vision_status(
-            session, source_id, page_no, "done", "vision" if blocks else None
-        )
-
-
-async def _figure_context(
-    deps: Deps, job: dict[str, Any], page_no: int, parsed: PageParse
-) -> str:
-    """This page's freshly parsed text plus the next page's text (ADR 0036)."""
-    async with db.tenant_tx(deps.engine, job["tenant_id"]) as session:
-        texts = await db_content.page_texts(session, job["entity_id"], *neighbour_pages(page_no))
-    own = " ".join(b.text for b in parsed.blocks if b.text.strip())
-    return build_context(page_no, {**texts, page_no: own or texts.get(page_no, "")})
-
-
-async def _figure(
-    deps: Deps, job: dict[str, Any], page_no: int, png: bytes, number: int,
-    fig: dict[str, Any], context: str,
-) -> dict[str, Any]:
-    fig = {**fig, "figure_no": number, "image_key": None}
-    if not fig.pop("is_radiology_image", False):
-        return fig
-    try:
-        crop = crop_png(png, tuple(fig["bbox"]))
-    except RenderError:
-        return fig
-    key = storage.figure_image_key(job["tenant_id"], job["entity_id"], page_no, number)
-    deps.store.put(key, crop, "image/png")
-    fig["image_key"] = key
-    try:
-        prompt = user_prompt("image_case", 2, figure_no=str(number), page_no=str(page_no),
-                             caption=str(fig["caption"]), context=context)
-        case, _ = run_agent(deps.transport, "image_case", prompt,  # type: ignore[arg-type]
-                            files=[("figure.png", crop)], version=2)
-    except UsageLimitError as exc:
-        raise Deferred from exc
-    except ModelCallError:
-        return fig
-    assert isinstance(case, SourceImageCase)
-    origin, quote = impression_origin(case, context)
-    fig.update(
-        modality=case.modality or fig["modality"], anatomy=case.anatomy or fig["anatomy"],
-        description=case_text(case, origin), findings=case.findings,
-        impression_origin=origin if case.impression.strip() else None, source_quote=quote,
-    )
-    return fig
-

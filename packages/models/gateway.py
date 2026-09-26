@@ -12,7 +12,9 @@ import json
 import logging
 import os
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -38,7 +40,9 @@ PROMPT_ROOT = ROOT / "packages" / "prompts"
 MODELS_YAML = ROOT / "packages" / "models" / "models.yaml"
 log = logging.getLogger("radbrain.models")
 # Returns a fixed reason string when an output is not good enough (ADR 0027).
+# A reason made with ``soft()`` asks only for a second opinion (ADR 0037).
 Accept = Callable[[BaseModel], str | None]
+SOFT = "soft:"
 
 
 class Transport(Protocol):
@@ -223,18 +227,48 @@ def owner_approved_fallback() -> bool:
     return os.environ.get("BULK_CLAUDE_FALLBACK_APPROVED", "").lower() == "true"
 
 
+_approved: ContextVar[frozenset[str]] = ContextVar("owner_approved_agents", default=frozenset())
+
+
+@contextmanager
+def owner_approved(*agents: str) -> Iterator[None]:
+    """Run these agents straight on their approval-gated target (the owner approved
+    these items; the free targets already failed them)."""
+    token = _approved.set(_approved.get() | frozenset(agents))
+    try:
+        yield
+    finally:
+        _approved.reset(token)
+
+
+def soft(reason: str) -> str:
+    """Mark a gate reason as a second-opinion request: it moves to the next free
+    target but never, by itself, to an approval-gated one."""
+    return SOFT + reason
+
+
 def _run_targets(
     transport: Transport, agent: Agent, calls: list[ModelCall], accept: Accept | None
 ) -> tuple[BaseModel, ModelResult]:
+    """Owner flow (ADR 0035/0037): first target, then the next free one on a failure
+    or a gate rejection; the approval-gated target only with the owner's OK.
+
+    A usage limit skips that backend's other targets (same quota) and never falls
+    through to an approval-gated target: the caller pauses instead.
+    """
+    forced = agent.prompt.agent in _approved.get()
+    if forced:
+        calls = [c for c in calls if c.requires_approval] or calls
     last: ModelCallError | None = None
+    best: tuple[BaseModel, ModelResult, str] | None = None
+    limited: set[str] = set()
     for n, call in enumerate(calls):
-        if call.requires_approval and not owner_approved_fallback():
-            # Mission-critical owner rule: bulk work never falls through to this
-            # target by itself. The caller pauses (usage-limit semantics) and the
-            # owner decides; nothing is sent.
-            log.warning("owner approval required agent=%s backend=%s model=%s",
-                        agent.key, call.backend, call.model)
-            raise OwnerApprovalRequired(f"{agent.key}: owner approval required for {call.model}")
+        if call.backend in limited:
+            continue
+        if call.requires_approval and limited and best is None:
+            break  # a quota is a pause, never a reason to spend the gated target
+        if call.requires_approval and not (forced or owner_approved_fallback()):
+            return _awaiting_owner(agent, call, best, last)
         started = time.monotonic()
         result: ModelResult | None = None
         try:
@@ -247,18 +281,49 @@ def _run_targets(
         except ModelCallError as exc:
             _record(agent, call, started, _failure(exc), None, type(exc).__name__)
             last = exc
+            if isinstance(exc, UsageLimitError):
+                limited.add(call.backend)
             continue
         reason = accept(parsed) if accept else None
         if reason is None:
             _record(agent, call, started, "ok", result)
             return parsed, result
-        final = n == len(calls) - 1
-        log.warning("quality gate agent=%s backend=%s reason=%s action=%s",
-                    agent.key, call.backend, reason, "kept_last" if final else "fallback")
-        if final:
+        best = (parsed, result, reason)
+        if _keep(calls, n, reason, forced):
+            log.warning("quality gate agent=%s backend=%s reason=%s action=kept_last",
+                        agent.key, call.backend, reason)
             _record(agent, call, started, "ok", result, "gate_kept_last")
             return parsed, result
+        log.warning("quality gate agent=%s backend=%s reason=%s action=fallback",
+                    agent.key, call.backend, reason)
         _record(agent, call, started, "rejected", result, "quality_gate")
         last = ModelCallError(f"{agent.key} output rejected: {reason}")
-    assert last is not None
+    if last is None:
+        raise ModelCallError(f"{agent.key}: no target could run")
     raise last
+
+
+def _keep(calls: list[ModelCall], n: int, reason: str, forced: bool) -> bool:
+    """Keep a gate-rejected answer: it came from the last target, or the reason is a
+    second-opinion one and the next target needs the owner's approval."""
+    if n == len(calls) - 1:
+        return True
+    gated_next = calls[n + 1].requires_approval and not (forced or owner_approved_fallback())
+    return reason.startswith(SOFT) and gated_next
+
+
+def _awaiting_owner(
+    agent: Agent, call: ModelCall, best: tuple[BaseModel, ModelResult, str] | None,
+    last: ModelCallError | None,
+) -> tuple[BaseModel, ModelResult]:
+    """Collect & ask: never call the gated target; hand back the best free answer
+    marked for the owner's approval, or pause on a quota, or report the item."""
+    log.warning("owner approval required agent=%s backend=%s model=%s",
+                agent.key, call.backend, call.model)
+    if best is not None:
+        parsed, result, reason = best
+        result.escalation = reason
+        return parsed, result
+    if isinstance(last, UsageLimitError):
+        raise last  # a quota pause, not a reason to spend the owner's Claude quota
+    raise OwnerApprovalRequired(f"{agent.key}: owner approval required for {call.model}")

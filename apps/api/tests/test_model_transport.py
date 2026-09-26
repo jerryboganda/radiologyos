@@ -79,9 +79,9 @@ def test_page_parse_agent_routes_and_generated_schema() -> None:
     agent = load_agent("page_parse")
     assert agent.schema == inline_schema(PageParse)
     calls = build_calls(agent, "prompt")
-    # Owner rules (ADR 0035): Luna high, Sol high, then Opus high only with approval.
+    # Final owner flow (ADR 0037): Luna max, Sol high, then Opus high only with approval.
     assert [(c.model, c.effort, c.requires_approval) for c in calls] == [
-        ("gpt-6-luna", "high", False), ("gpt-6-sol", "high", False),
+        ("gpt-6-luna", "max", False), ("gpt-6-sol", "high", False),
         ("claude-opus-5-5", "high", True)]
     assert all(c.tools == ("Read",) for c in calls)
 

@@ -68,6 +68,9 @@ class World:
     writes: list[tuple[str, Any]] = field(default_factory=list)
     model: list[tuple[str, str, int]] = field(default_factory=list)
     replies: dict[str, Callable[[], Any]] = field(default_factory=dict)
+    approved: set[str] = field(default_factory=set)
+    escalated: list[tuple[str, str]] = field(default_factory=list)
+    waiting: str | None = None
 
 
 @dataclass
@@ -112,8 +115,25 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
         w.model.append((name, prompt, w.open_txs))
         return w.replies[name]()
 
+    def call_agent_result(deps: Any, name: str, prompt: str, accept: Any = None) -> Any:
+        return call_agent(deps, name, prompt, accept), w.waiting
+
+    async def approved_units(session: Tx, source_id: UUID, agent: str) -> set[str]:
+        return w.approved
+
+    async def escalate(engine: Any, tenant: UUID, source_id: UUID, agent: str, unit: str,
+                       reason: str) -> None:
+        w.escalated.append((unit, reason))
+
+    async def mark_done(session: Tx, source_id: UUID, agent: str, unit: str) -> None:
+        w.escalated.append((unit, "done"))
+
     monkeypatch.setattr(notes, "tenant_tx", fake_tx)
     monkeypatch.setattr(notes, "call_agent", call_agent)
+    monkeypatch.setattr(notes, "call_agent_result", call_agent_result)
+    for name, fn in (("approved_units", approved_units), ("escalate", escalate),
+                     ("mark_done", mark_done)):
+        monkeypatch.setattr(notes.escalations, name, fn)
     for name, fn in (("chunks", chunks), ("run_done", run_done), ("record_run", record_run),
                      ("blocks_for_pages", blocks)):
         monkeypatch.setattr(notes.db, name, fn)
@@ -298,6 +318,7 @@ async def test_real_call_agent_uses_the_versioned_system_prompt_and_defers(
     from apps.worker.app.knowledge import runtime
 
     monkeypatch.setattr(notes, "call_agent", runtime.call_agent)
+    monkeypatch.setattr(notes, "call_agent_result", runtime.call_agent_result)
     world.chunks = [_chunk()]
     limited = _Transport(UsageLimitError("window"))
     with pytest.raises(Deferred):
@@ -306,3 +327,22 @@ async def test_real_call_agent_uses_the_versioned_system_prompt_and_defers(
     call = limited.calls[0]
     assert call.system_prompt == load_agent("knowledge_extract").prompt.system_prompt
     assert TEXT in call.user_prompt and call.system_prompt not in call.user_prompt
+
+
+async def test_a_chunk_neither_gpt_model_answers_well_is_held_for_the_owner(
+    world: World,
+) -> None:
+    world.chunks, world.waiting = [_chunk()], "unsupported_claims"
+    await notes.run_notes(KnowledgeDeps("engine", None), TENANT, SOURCE, VERSION)  # type: ignore[arg-type]
+    [(unit, reason)] = world.escalated
+    assert reason == "unsupported_claims" and unit.startswith("chunk:")
+    assert world.runs == [(unit, "failed", "awaiting_owner")]
+    assert world.writes == []  # nothing stored until the owner approves Opus
+
+
+async def test_an_approved_chunk_is_redone_and_closed(world: World) -> None:
+    world.chunks = [_chunk()]
+    world.approved = {f"chunk:{notes.db.unit_hash(TEXT)}"}
+    await notes.run_notes(KnowledgeDeps("engine", None), TENANT, SOURCE, VERSION)  # type: ignore[arg-type]
+    assert world.escalated == [(next(iter(world.approved)), "done")]
+    assert [kind for kind, _ in world.writes].count("store_claim") >= 1

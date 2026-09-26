@@ -42,41 +42,56 @@ routes:
     fallbacks: []
     timeout_ms: 600000
     max_retries: 2
-# OWNER MODEL RULES (mission critical, 2026-09-26; ADR 0035). Supersedes ADR 0033.
-# - Pages and figures: GPT-6 Luna high -> GPT-6 Sol high -> PAUSE for the owner's
-#   OK -> Claude Opus 5.5 high (requires_owner_approval; nothing is sent without it).
-# - Knowledge extraction, claims, topic tags: GPT-6 Luna at max effort, Fast tier.
+# OWNER MODEL RULES, FINAL (mission critical, 2026-09-26; ADR 0035, ADR 0037).
+# - All bulk work (pages, figures, knowledge): GPT-6 Luna at MAX reasoning ->
+#   GPT-6 Sol high when Luna fails or its answer is ambiguous -> Claude Opus 5.5
+#   high ONLY after the owner approves (requires_owner_approval; "collect & ask":
+#   the item is saved for the owner's batch approval and nothing is sent).
+# - A ChatGPT quota limit pauses the pipeline; it never falls through to Claude.
+# - Knowledge agents keep the Fast tier on Luna (owner, 2026-09-26).
 # - Everything the owner uses directly: Claude Opus 5.5 at medium.
 # - Opus 5.5 at high is never used except as the owner-approved last resort.
 agents:
   page_parse:
     targets:
-      - {backend: codex, model: gpt-6-luna, effort: high}
+      - {backend: codex, model: gpt-6-luna, effort: max}
       - {backend: codex, model: gpt-6-sol, effort: high}
       - {backend: claude_code, model: claude-opus-5-5, effort: high, requires_owner_approval: true}
   image_case:
     targets:
-      - {backend: codex, model: gpt-6-luna, effort: high}
+      - {backend: codex, model: gpt-6-luna, effort: max}
       - {backend: codex, model: gpt-6-sol, effort: high}
       - {backend: claude_code, model: claude-opus-5-5, effort: high, requires_owner_approval: true}
   knowledge_extract:
     targets:
       - {backend: codex, model: gpt-6-luna, effort: max, speed: fast}
+      - {backend: codex, model: gpt-6-sol, effort: high}
+      - {backend: claude_code, model: claude-opus-5-5, effort: high, requires_owner_approval: true}
   topic_classify:
     targets:
       - {backend: codex, model: gpt-6-luna, effort: max, speed: fast}
+      - {backend: codex, model: gpt-6-sol, effort: high}
+      - {backend: claude_code, model: claude-opus-5-5, effort: high, requires_owner_approval: true}
   paper_topics:
     targets:
       - {backend: codex, model: gpt-6-luna, effort: max, speed: fast}
+      - {backend: codex, model: gpt-6-sol, effort: high}
+      - {backend: claude_code, model: claude-opus-5-5, effort: high, requires_owner_approval: true}
   concept_synthesis:
     targets:
       - {backend: codex, model: gpt-6-luna, effort: max, speed: fast}
+      - {backend: codex, model: gpt-6-sol, effort: high}
+      - {backend: claude_code, model: claude-opus-5-5, effort: high, requires_owner_approval: true}
   concept_resolver:
     targets:
       - {backend: codex, model: gpt-6-luna, effort: max, speed: fast}
+      - {backend: codex, model: gpt-6-sol, effort: high}
+      - {backend: claude_code, model: claude-opus-5-5, effort: high, requires_owner_approval: true}
   claim_conflict:
     targets:
       - {backend: codex, model: gpt-6-luna, effort: max, speed: fast}
+      - {backend: codex, model: gpt-6-sol, effort: high}
+      - {backend: claude_code, model: claude-opus-5-5, effort: high, requires_owner_approval: true}
   tutor_answer:
     targets:
       - {backend: claude_code, model: claude-opus-5-5, effort: medium}

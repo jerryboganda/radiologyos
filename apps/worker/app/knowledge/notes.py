@@ -13,7 +13,8 @@ from uuid import UUID
 
 from apps.worker.app.ingest.db import tenant_tx
 from apps.worker.app.knowledge import db, graph
-from apps.worker.app.knowledge.runtime import KnowledgeDeps, call_agent
+from apps.worker.app.knowledge.runtime import KnowledgeDeps, call_agent, call_agent_result
+from apps.worker.app.ops import escalations
 from packages.knowledge.curriculum import mapping_status, prompt_listing
 from packages.knowledge.evidence import (
     FilteredExtraction,
@@ -22,16 +23,19 @@ from packages.knowledge.evidence import (
     locate_blocks,
 )
 from packages.knowledge.models import KnowledgeExtraction, TopicClassification
+from packages.knowledge.support import context_free
 from packages.knowledge.text import normalize_name, word_count
 from packages.library.quality import extraction_problem
-from packages.models.gateway import load_agent, user_prompt
+from packages.models.gateway import load_agent, owner_approved, soft, user_prompt
 
 log = logging.getLogger("radbrain.knowledge")
 # The run labels are the versions ``call_agent`` actually loads, so a prompt bump
 # makes every chunk a new unit and re-extracts it (knowledge_runs is keyed on it).
-EXTRACT = load_agent("knowledge_extract").key
+AGENT = "knowledge_extract"
+EXTRACT = load_agent(AGENT).key
 CLASSIFY = load_agent("topic_classify").key
 MIN_WORDS = 30  # spec: chunks under ~40 tokens are skipped
+MAX_CONTEXT_FREE = 0.3  # share of "The diagnosis is X" claims that asks for a second look
 
 
 def _extract_prompt(source: dict[str, Any], chunk: dict[str, Any]) -> str:
@@ -48,8 +52,18 @@ def _classify_prompt(chunk: dict[str, Any], concepts: list[str]) -> str:
 
 
 def _evidence_problem(extraction: Any, chunk_text: str) -> str | None:
+    """Why Sol should redo this chunk (ADR 0037): too many unsupported claims; or,
+    as a second opinion only, a doubted source statement or context-free claims."""
     kept = filter_extraction(extraction, chunk_text)
-    return extraction_problem(kept.rejected_claims, len(kept.claims))
+    problem = extraction_problem(kept.rejected_claims, len(kept.claims))
+    if problem:
+        return problem
+    if any(getattr(c, "source_doubt", "").strip() for c in kept.claims):
+        return soft("source_doubt")
+    loose = sum(context_free(c.text) for c in kept.claims)
+    if kept.claims and loose / len(kept.claims) > MAX_CONTEXT_FREE:
+        return soft("context_free_claims")
+    return None
 
 
 UNITS_PER_RUN = 20
@@ -66,6 +80,7 @@ async def run_notes(
     """Process every eligible chunk; returns a stable summary for job_steps."""
     async with tenant_tx(deps.engine, tenant_id) as session:
         chunks = await db.chunks(session, source["id"])
+        approved = await escalations.approved_units(session, source["id"], AGENT)
     totals = {"chunks": 0, "claims": 0, "rejected": 0, "failed": 0}
     worked = 0
     for chunk in chunks:
@@ -73,7 +88,7 @@ async def run_notes(
             continue
         if worked >= UNITS_PER_RUN:
             raise Continue
-        outcome = await _chunk(deps, tenant_id, source, chunk, version)
+        outcome = await _chunk(deps, tenant_id, source, chunk, version, approved)
         if outcome:
             worked += 1
         totals["chunks"] += 1
@@ -84,14 +99,25 @@ async def run_notes(
 
 async def _chunk(
     deps: KnowledgeDeps, tenant_id: UUID, source: dict[str, Any], chunk: dict[str, Any],
-    version: int,
+    version: int, approved: set[str],
 ) -> dict[str, int]:
     unit = f"chunk:{db.unit_hash(chunk['text'])}"
     async with tenant_tx(deps.engine, tenant_id) as session:
         if await db.run_done(session, source["id"], unit, EXTRACT, version):
             return {}
-    extraction = call_agent(deps, "knowledge_extract", _extract_prompt(source, chunk),
-                            accept=lambda e: _evidence_problem(e, chunk["text"]))
+    # Items the owner approved go straight to Opus; the rest follow Luna -> Sol.
+    with owner_approved(*([AGENT] if unit in approved else [])):
+        extraction, waiting = call_agent_result(
+            deps, AGENT, _extract_prompt(source, chunk),
+            accept=lambda e: _evidence_problem(e, chunk["text"]))
+    if waiting:
+        # Collect & ask (ADR 0037): neither GPT model answered well enough, so the
+        # chunk is held (nothing stored) until the owner approves Opus for it.
+        await escalations.escalate(deps.engine, tenant_id, source["id"], AGENT, unit, waiting)
+        async with tenant_tx(deps.engine, tenant_id) as session:
+            await db.record_run(session, tenant_id, source["id"], unit, EXTRACT, version,
+                                "failed", "awaiting_owner")
+        return {"held": 1}
     if extraction is None:
         async with tenant_tx(deps.engine, tenant_id) as session:
             await db.record_run(session, tenant_id, source["id"], unit, EXTRACT, version,
@@ -107,6 +133,8 @@ async def _chunk(
             await _map(session, tenant_id, source, chunk, unit, classified, stored)
         await db.record_run(session, tenant_id, source["id"], unit, EXTRACT, version,
                             "succeeded", f"claims:{len(kept.claims)},rej:{kept.rejected_claims}")
+        if unit in approved:
+            await escalations.mark_done(session, source["id"], AGENT, unit)
     if kept.rejected_claims:
         log.info("knowledge rejected_claims=%s source=%s unit=%s",
                  kept.rejected_claims, source["id"], unit)

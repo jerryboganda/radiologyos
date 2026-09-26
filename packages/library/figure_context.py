@@ -18,6 +18,7 @@ from collections.abc import Mapping
 from typing import Literal
 
 from packages.library.parse_models import ImageCase, SourceImageCase
+from packages.models.gateway import soft
 
 PAGES_AFTER = 1  # the answer slide; earlier or later pages belong to other cases
 PAGE_CHARS = 2500
@@ -71,6 +72,22 @@ def impression_origin(case: SourceImageCase, context: str) -> tuple[Origin, str 
             and quote_in_context(case.source_quote, context)):
         return "source", case.source_quote.strip()
     return "model", None
+
+
+def figure_problem(case: SourceImageCase, context: str) -> str | None:
+    """Quality gate for a figure reading (ADR 0037): why Sol should look again, or None.
+
+    A reading that sees nothing, or that cites the page for a diagnosis the page
+    does not state, goes on to Sol (and, if Sol fails too, to the owner). A
+    low-confidence impression only asks Sol for a second opinion.
+    """
+    if not case.findings and not case.impression.strip():
+        return "empty_reading"
+    if case.impression_source == "source" and not quote_in_context(case.source_quote, context):
+        return "unverified_source_quote"
+    if case.impression.strip() and case.confidence == "low":
+        return soft("low_confidence")
+    return None
 
 
 def case_text(case: ImageCase, origin: Origin | None = None) -> str:

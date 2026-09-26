@@ -77,7 +77,7 @@ SPAN = "typical age at presentation is over {} years"
 
 def _claim(concept: str, text: str, span: str) -> dict[str, Any]:
     return {"concept": concept, "type": "epidemiology", "text": text, "evidence_span": span,
-            "importance": 4, "modality": ""}
+            "importance": 4, "modality": "", "source_doubt": ""}
 
 
 def _concept(name: str, kind: str, *aliases: str) -> dict[str, Any]:
@@ -122,6 +122,7 @@ class World:
         self.db, self.model = KnowledgeDB(), transport()
         self.sa = self.db.add_source(TENANT_A, USER_A, "Chest", [CHUNK_60, CHUNK_50, SHORT])
         self.sb = self.db.add_source(TENANT_B, USER_B, "Neuro", [CHUNK_HEAD])
+        self.escalated: list[tuple[Any, ...]] = []
 
     def run_all(self) -> World:
         extract(self.db, TENANT_A, self.sa, self.model)
@@ -143,7 +144,11 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
     async def tenant_tx(_engine: Any, tenant_id: UUID) -> AsyncIterator[Any]:
         yield built.db.session(tenant_id)
 
+    async def escalate(*args: Any) -> None:  # collect & ask is proven in its live test
+        built.escalated.append(args[3:])
+
     monkeypatch.setattr(notes, "tenant_tx", tenant_tx)
+    monkeypatch.setattr(notes.escalations, "escalate", escalate)
     return built
 
 
@@ -196,6 +201,8 @@ def test_a_model_failure_never_stores_fake_claims(world: World, error: Any) -> N
     else:
         extract(world.db, TENANT_A, world.sa, model)
         assert {r["status"] for r in world.db.rows("runs", TENANT_A)} == {"failed"}
+        if error is not None:  # Luna and Sol both failed: saved for the owner's approval
+            assert world.escalated and all(e[0] == "knowledge_extract" for e in world.escalated)
     assert world.claims() == [] and world.concepts() == {}
 
 

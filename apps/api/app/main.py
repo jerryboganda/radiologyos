@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from apps.api.app.api.account import router as account_router
 from apps.api.app.api.admin_model_usage import router as admin_model_usage_router
+from apps.api.app.api.admin_pipeline import router as admin_pipeline_router
 from apps.api.app.api.admin_usage import router as admin_usage_router
 from apps.api.app.api.assessment import router as assessment_router
 from apps.api.app.api.billing import router as billing_router
@@ -63,6 +64,7 @@ app.include_router(ops_router)
 app.include_router(library_router)
 app.include_router(admin_usage_router)
 app.include_router(admin_model_usage_router)
+app.include_router(admin_pipeline_router)
 app.include_router(notifications_router)
 app.include_router(tutor_router)
 app.include_router(tutor_images_router)

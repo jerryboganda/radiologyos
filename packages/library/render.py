@@ -20,6 +20,7 @@ from pathlib import Path
 from PIL import Image
 
 from packages.library.formats import SourceKind
+from packages.library.glyphs import tidy
 
 RENDER_DPI = 150
 MAX_IMAGE_EDGE = 4096
@@ -184,7 +185,7 @@ def _merge(
     x1 = max(r[2] for r in rects)
     y0 = min(r[1] for r in rects)
     y1 = max(r[3] for r in rects)
-    text = " ".join(r[4] for r in rects)
+    text = tidy(" ".join(r[4] for r in rects))
     bbox = (
         _clamp(x0 / width),
         _clamp((y0 + height) / height),

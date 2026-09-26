@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess  # nosec B404 - fixed argv to the codex CLI, no shell
 import tempfile
@@ -94,11 +95,27 @@ def _strict(schema: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+_UNITS = {"day": 86400, "hour": 3600, "hr": 3600, "minute": 60, "min": 60, "second": 1,
+          "sec": 1}
+_AFTER = re.compile(r"try again in ((?:\s*(?:and\s+)?\d+\s*(?:days?|hours?|hrs?|minutes?|mins?"
+                    r"|seconds?|secs?)\b,?)+)")
+_PART = re.compile(r"(\d+)\s*(day|hour|hr|minute|min|second|sec)")
+
+
+def retry_after(text: str) -> int | None:
+    """Seconds until the quota resets, from "try again in 2 hours 5 minutes"; else None."""
+    found = _AFTER.search(text.lower())
+    if found is None:
+        return None
+    seconds = sum(int(n) * _UNITS[unit] for n, unit in _PART.findall(found.group(1)))
+    return seconds or None
+
+
 def _result(done: subprocess.CompletedProcess[bytes], last: Path, elapsed: int) -> ModelResult:
     if done.returncode != 0 or not last.exists():
         text = (done.stderr + done.stdout).decode("utf-8", "replace").lower()
         if any(marker in text for marker in LIMIT_MARKERS):
-            raise UsageLimitError("codex usage limit reached")
+            raise UsageLimitError("codex usage limit reached", retry_after(text), "chatgpt")
         raise ModelCallError(f"codex exited with status {done.returncode}")
     try:
         output = json.loads(last.read_text(encoding="utf-8"))

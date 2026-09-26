@@ -68,6 +68,20 @@ class KnowledgeExtraction(BaseModel):
     relations: list[ExtractedRelation] = Field(max_length=30)
 
 
+class CheckedClaim(ExtractedClaim):
+    """knowledge_extract v3 (ADR 0037): the extractor also says when the source looks wrong."""
+
+    source_doubt: str = Field(
+        max_length=300,
+        description="'' unless the chunk's statement contradicts standard radiology "
+                    "teaching; then a short reason (the claim is held for the owner's review).",
+    )
+
+
+class CheckedExtraction(KnowledgeExtraction):
+    claims: list[CheckedClaim] = Field(max_length=40)  # type: ignore[assignment]
+
+
 class TopicMapping(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -7,6 +7,7 @@ from typing import TypedDict
 from uuid import UUID
 
 from apps.worker.app.celery_app import celery_app
+from apps.worker.app.ops.pausing import defer_delay
 
 log = logging.getLogger("radbrain.worker")
 DEFER_SECONDS = 30 * 60
@@ -48,6 +49,41 @@ def ingest_source(self: object, tenant_id: str, job_id: str) -> str:
     if outcome == "continue":
         ingest_source.apply_async(args=[tenant_id, job_id], countdown=1)
     if outcome == "deferred":
-        delay = int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS))
+        delay = defer_delay(int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS)))
         ingest_source.apply_async(args=[tenant_id, job_id], countdown=delay)
     return outcome
+
+
+@celery_app.task(name="radbrain.quota_alert")  # type: ignore[untyped-decorator]
+def quota_alert(tenant_id: str, provider: str, until: float) -> str:
+    """Tell the owner the pipeline is paused on a provider quota (ADR 0037)."""
+    from apps.worker.app.ingest.db import make_engine
+    from apps.worker.app.ops.escalations import quota_paused
+
+    async def run() -> None:
+        engine = make_engine()
+        try:
+            await quota_paused(engine, UUID(tenant_id), provider, until)
+        finally:
+            await engine.dispose()
+
+    asyncio.run(run())
+    return "alerted"
+
+
+@celery_app.task(name="radbrain.approve_escalations")  # type: ignore[untyped-decorator]
+def approve_escalations(tenant_id: str, user_id: str) -> str:
+    """The owner approved Opus for the saved items (Settings, ADR 0037)."""
+    from apps.worker.app.ingest.db import make_engine
+    from apps.worker.app.ops.pipeline_control import approve
+
+    async def run() -> dict[str, int]:
+        engine = make_engine()
+        try:
+            return await approve(engine, UUID(tenant_id), UUID(user_id))
+        finally:
+            await engine.dispose()
+
+    counts = asyncio.run(run())
+    log.info("approve_escalations %s", counts)
+    return "approved"

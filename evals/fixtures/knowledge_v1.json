@@ -76,6 +76,21 @@
       },
       "expected": {"is_exam_paper": false, "questions": [], "year": null},
       "assertions": ["schema_valid", "no_invented_content"]
+    },
+    {
+      "case_id": "extract-v3-exam-deck-answers",
+      "prompt": "knowledge_extract/v3.yaml",
+      "route": "extract",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "heading_path": "MSK",
+        "source_title": "Synthetic spotter deck",
+        "page_from": 14,
+        "page_to": 15,
+        "chunk_text": "Q1. Which view is this? Q2. What are the findings? Answer. 1. This is a lateral view of the elbow joint. 2. There is elevation of both the anterior and posterior fat pads. This signifies an underlying fracture, most commonly of the medial neck."
+      },
+      "expected": {"no_question_spans": true, "self_contained_claims": true, "source_doubt_on": "medial neck"},
+      "assertions": ["schema_valid", "evidence_span_is_substring", "no_prior_knowledge_claims", "source_doubt_flagged"]
     }
   ]
 }

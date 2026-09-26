@@ -199,12 +199,19 @@ def not_approved_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BULK_CLAUDE_FALLBACK_APPROVED", raising=False)
 
 
-@pytest.mark.parametrize("failure", [UsageLimitError("quota"), ModelCallError("boom"),
-                                     {"not": "a page"}])
+@pytest.mark.parametrize("failure", [ModelCallError("boom"), {"not": "a page"}])
 def test_gateway_falls_back_from_luna_to_sol(failure: Any) -> None:
     transport = _ByModel({"gpt-6-luna": failure, "gpt-6-sol": VALID_PAGE})
     run_agent(transport, "page_parse", "prompt")
     assert transport.models == ["gpt-6-luna", "gpt-6-sol"]
+
+
+def test_a_chatgpt_quota_pauses_and_never_spills_onto_sol_or_claude(approved: None) -> None:
+    transport = _ByModel({"gpt-6-luna": UsageLimitError("quota", 600),
+                          "gpt-6-sol": VALID_PAGE, "claude-opus-5-5": VALID_PAGE})
+    with pytest.raises(UsageLimitError) as raised:
+        run_agent(transport, "page_parse", "prompt")
+    assert transport.models == ["gpt-6-luna"] and raised.value.retry_after_s == 600
 
 
 def test_claude_is_never_called_without_the_owners_ok() -> None:
@@ -233,14 +240,13 @@ def test_gateway_uses_only_backends_the_transport_serves() -> None:
 
 
 def test_owner_rules_in_models_yaml() -> None:
-    chain = [("codex", "gpt-6-luna", "high", False), ("codex", "gpt-6-sol", "high", False),
+    chain = [("codex", "gpt-6-luna", "max", False), ("codex", "gpt-6-sol", "high", False),
              ("claude_code", "claude-opus-5-5", "high", True)]
-    for name in ("page_parse", "image_case"):
+    for name in ("page_parse", "image_case", "paper_topics", "knowledge_extract"):
         calls = build_calls(load_agent(name), "p")
         assert [(c.backend, c.model, c.effort, c.requires_approval) for c in calls] == chain
     for name in ("paper_topics", "knowledge_extract", "topic_classify"):
-        calls = build_calls(load_agent(name), "p")
-        assert [(c.model, c.effort, c.speed) for c in calls] == [("gpt-6-luna", "max", "fast")]
+        assert build_calls(load_agent(name), "p")[0].speed == "fast"
     for name in ("tutor_answer", "question_generate", "seq_grade", "viva_examiner"):
         calls = build_calls(load_agent(name), "p")
         assert [(c.model, c.effort) for c in calls] == [("claude-opus-5-5", "medium")], name

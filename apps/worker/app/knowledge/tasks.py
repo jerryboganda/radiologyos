@@ -8,6 +8,7 @@ import os
 from uuid import UUID
 
 from apps.worker.app.celery_app import celery_app
+from apps.worker.app.ops.pausing import defer_delay
 
 log = logging.getLogger("radbrain.knowledge")
 DEFER_SECONDS = 30 * 60
@@ -43,7 +44,7 @@ def knowledge_extract(
             args=[tenant_id, source_id, mode, exam_target, year], countdown=1
         )
     if outcome == "deferred":
-        delay = int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS))
+        delay = defer_delay(int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS)))
         knowledge_extract.apply_async(
             args=[tenant_id, source_id, mode, exam_target, year], countdown=delay
         )
@@ -81,7 +82,7 @@ def knowledge_depth(self: object, tenant_id: str, source_id: str, fresh: bool = 
     if outcome == "continue":
         knowledge_depth.apply_async(args=[tenant_id, source_id, False], countdown=1)
     if outcome == "deferred":
-        delay = int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS))
+        delay = defer_delay(int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS)))
         knowledge_depth.apply_async(args=[tenant_id, source_id, False], countdown=delay)
     return outcome
 
@@ -107,6 +108,6 @@ def concept_note(self: object, tenant_id: str, user_id: str, concept_id: str) ->
     outcome = asyncio.run(run())
     log.info("concept_note concept=%s outcome=%s", concept_id, outcome)
     if outcome == "deferred":
-        delay = int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS))
+        delay = defer_delay(int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS)))
         concept_note.apply_async(args=[tenant_id, user_id, concept_id], countdown=delay)
     return outcome

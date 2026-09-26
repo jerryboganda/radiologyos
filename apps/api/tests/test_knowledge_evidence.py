@@ -28,8 +28,9 @@ def _extraction(*spans: str) -> KnowledgeExtraction:
                       "aliases": ["UIP"]}],
         "claims": [
             {"concept": "Usual interstitial pneumonia", "type": "imaging_finding",
-             "text": f"claim {n}", "evidence_span": span, "importance": 4, "modality": "HRCT"}
-            for n, span in enumerate(spans)
+             "text": span, "evidence_span": span, "importance": 4,
+             "modality": "HRCT"}
+            for span in spans
         ],
         "relations": [{"src": "Honeycombing", "dst": "Usual interstitial pneumonia",
                        "relation": "sign_of"}],

@@ -190,10 +190,14 @@ def _insert_claim(s: FakeSession, p: Params) -> Result:
         "statement": p["statement"], "evidence_span": p["span"], "source_id": p["s"],
         "chunk_id": p["chunk"], "page_from": p["pf"], "page_to": p["pt"],
         "citation": json.loads(p["citation"]), "importance": p["importance"],
-        "modality": p["modality"], "agent_version": p["agent"], "status": "active",
-        "verification": "unverified", "supporting": [],
+        "modality": p["modality"], "agent_version": p["agent"], "status": p["status"],
+        "doubt": p["doubt"], "verification": "unverified", "supporting": [],
     }
     return Result(scalar=new)
+
+
+def _no_approvals(s: FakeSession, p: Params) -> Result:
+    return Result([])
 
 
 def _insert_conflict(s: FakeSession, p: Params) -> Result:
@@ -361,6 +365,7 @@ def _reviews(s: FakeSession, p: Params) -> Result:
 
 HANDLERS: list[tuple[str, Callable[[FakeSession, Params], Result]]] = [
     ("FROM chunks WHERE source_id = :s ORDER BY chunk_no", _chunks),
+    ("SELECT unit FROM model_escalations", _no_approvals),
     ("FROM source_blocks WHERE source_id = :s", _blocks),
     ("SELECT status FROM knowledge_runs", _run_status),
     ("INSERT INTO knowledge_runs", _record_run),

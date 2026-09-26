@@ -65,6 +65,8 @@ OWNED: tuple[Owned, ...] = (
           "source_cascade"),
     Owned("curriculum_mappings", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
     Owned("knowledge_runs", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
+    # Items of the user's sources waiting for the owner's Opus approval (ADR 0037).
+    Owned("model_escalations", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
     Owned("topic_frequencies", "t.user_id = :u", "direct"),
     # Synthesis notes and Resolver decisions recorded for this user (ADR 0030).
     Owned("concept_notes", "t.user_id = :u", "direct"),

@@ -76,11 +76,11 @@ def test_every_failed_attempt_is_recorded_with_its_outcome(
     records: list[ledger.CallRecord],
 ) -> None:
     n = _targets()
-    failures: list[Any] = [UsageLimitError("q"), ModelCallError("boom"), {"not": "a page"}]
+    failures: list[Any] = [ModelCallError("boom"), {"not": "a page"}, ModelCallError("x")]
     outcomes = failures[: n - 1] + [VALID_PAGE]
     run_agent(Sequenced(*outcomes), "page_parse", "p")
-    expected = [("usage_limit", "UsageLimitError"), ("error", "ModelCallError"),
-                ("error", "schema_invalid")][: n - 1] + [("ok", None)]
+    expected = [("error", "ModelCallError"), ("error", "schema_invalid"),
+                ("error", "ModelCallError")][: n - 1] + [("ok", None)]
     assert [(r.status, r.error_code) for r in records] == expected
     assert records[0].input_tokens is None  # no result, no numbers
 
@@ -96,9 +96,17 @@ def test_quality_gate_rejection_is_recorded_per_attempt(
 
 def test_exhausted_targets_raise_after_recording_each(records: list[ledger.CallRecord]) -> None:
     n = _targets()
+    with pytest.raises(ModelCallError):
+        run_agent(Sequenced(*[ModelCallError("q")] * n), "page_parse", "p")
+    assert [r.status for r in records] == ["error"] * n
+
+
+def test_a_usage_limit_is_recorded_once_and_pauses(records: list[ledger.CallRecord]) -> None:
+    # The same quota serves every ChatGPT target, and a quota never spills onto
+    # the approval-gated Claude target: one attempt, then the caller pauses.
     with pytest.raises(UsageLimitError):
-        run_agent(Sequenced(*[UsageLimitError("q")] * n), "page_parse", "p")
-    assert [r.status for r in records] == ["usage_limit"] * n
+        run_agent(Sequenced(UsageLimitError("q"), VALID_PAGE, VALID_PAGE), "page_parse", "p")
+    assert [r.status for r in records] == ["usage_limit"]
 
 
 class Streaming(Sequenced):
