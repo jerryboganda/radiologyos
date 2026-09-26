@@ -33,8 +33,15 @@ claimed complete before the preceding milestone passes its authoritative exit ev
 
 ## Current checkpoint
 
-- Remote `main`: `432cdb5`. The push-driven chain CI → Build images → Deploy
-  production → Verify production RLS is green on that revision.
+- Remote `main`: `5ece59d` is deployed. CI, Build images, Deploy production,
+  Verify production RLS and Verify production identity are green on it. From ADR
+  0011 onward a push to `main` builds but never deploys; each deploy needs the
+  owner's explicit OK and is dispatched for one exact SHA.
+- **Priority (ADR 0011): personal-first.** The next work is a real, usable study
+  loop for the owner's tenant (upload, parsing, cited search, tutor, planner,
+  questions) on the production VPS, with models per ADR 0010.
+- **Known blocker:** the public host returns Cloudflare HTTP 525 and the OIDC
+  issuer is internal only, so no browser can sign in yet.
 - Production runs on the shared platform VPS under ADR 0007. Postgres, Redis, and
   MinIO come from the shared `platform` project; radbrain starts no backing service
   and publishes no host port. See [`runbooks/production-deploy.md`](runbooks/production-deploy.md).
@@ -79,7 +86,7 @@ decision or required release evidence.
 | Q | M4 | FSRS-style cards, mastery, weekly report, reminders, nightly replan | impl · eval · runbook (no report, reminders, or nightly job) |
 | R | M5 | SBA, SEQ, image-case, and viva generation with versioned prompts/evals | impl · eval · runbook (SBA only; no versioned prompt registry) |
 | S | M5 | Practice, Exam mode, autosave/resume, grader, review queue, statistics | impl · eval · runbook (no review queue UI) |
-| T | M6 | Stripe test-mode billing, portal, webhooks, caps, degradation, org/superadmin | **blocked** — provider decision. Preview reports `preview_only` and creates no customer, checkout, portal, or charge |
+| T | M6 | Stripe test-mode billing, portal, webhooks, caps, degradation, org/superadmin | **parked** (ADR 0011) — in-memory service and routes exist but answer 404 unless `BILLING_ENABLED=true`; plan values are placeholders pending an owner pricing decision |
 | U | M6 | Export/delete across data, derived artifacts, caches, queues, and observability | impl · eval · runbook (purge verified; release routes stay 501) |
 | V | M6 | Load tests, security scans, backup/restore drill, RPO/RTO runbook | impl · eval · runbook (load + scans + drill all green) |
 | W | M7 | Certified local-model mode with lower approved thresholds | **out of scope** — removed by ADR 0009 |
@@ -96,10 +103,11 @@ Each gate is a standalone pytest module run by CI, using synthetic data only.
 | `evals/checks/test_m1_library.py` | E, F, G, H | 24 |
 | `evals/checks/test_m2_knowledge.py` | I, J, K, L | 30 |
 | `evals/checks/test_m3_tutor.py` | M, N, O | 19 |
-| `evals/checks/test_m4_planner.py` | P, Q | 40 |
+| `evals/checks/test_m4_planner.py` | P, Q | 39 |
 | `evals/checks/test_m5_assessment.py` | R, S | 28 |
-| `evals/checks/test_m6_ops.py` | T, U, V | 20 |
-| `evals/checks/test_m7_portability.py` | W, X | 13 |
+| `evals/checks/test_m6_ops.py` | U, V | 20 |
+| `evals/checks/test_m6_billing.py`, `test_m6_billing_http.py` | T | 52 |
+| `evals/checks/test_m7_portability.py` | W, X | 15 |
 
 Plus `test_preview_determinism.py`, `test_scaffolding.py`, and
 `test_rls_live.py` (the last is opt-in and runs against a live database in
@@ -120,64 +128,10 @@ Plus `test_preview_determinism.py`, `test_scaffolding.py`, and
 
 ## Immediate pursuit
 
-The remaining acceptance work is A–D, then the provider-gated and product-decision
-slices, then Z. A–D require one exact production candidate and its automated evidence;
+Personal-first (ADR 0011): fix public sign-in, then replace the in-memory preview
+with the real pipeline for the owner's tenant (storage, RLS tables, worker jobs,
+parsing, embeddings, retrieval, tutor, planner, questions). The remaining
+acceptance work is A–D, then the product-decision slices, then Z. A–D require one exact production candidate and its automated evidence;
 provider, privacy, pricing, curriculum, and legal decisions still require explicit
 decisions with ADRs. Those are recorded as open rather than simulated, and the
 implementation deliberately refuses instead of faking them.
-
-## A–Z execution queue
-
-Each slice is complete only when its implementation, tests, eval gate where relevant,
-runbook, five-minute demo, redacted release evidence, and security review are complete.
-
-| Slice | Milestone | Outcome | Gate before next slice |
-| --- | --- | --- | --- |
-| A | M0 | Deploy one exact candidate revision and capture redacted production health evidence | Deployment and readiness pass |
-| B | M0 | Verify production OIDC identity, membership, role denial, and logout behavior | OIDC, membership, role, switch, invalid-token, wrong-audience, logout pass |
-| C | M0 | Run production RLS proof as the non-privileged application role | Two-tenant/no-context proof and role audit pass |
-| D | M0 | Complete same-commit backup, security, compliance, and M0 evidence record | M0 evidence matrix complete |
-| E | M1 | Ingestion schema, migrations, private object-key policy, resumable job state | M0 accepted; expand migration and RLS negative tests pass |
-| F | M1 | Parsing pipeline steps 1–7 for PDF/DOCX and supported formats | Synthetic 1,000-page/DOCX eval and readiness target pass |
-| G | M1 | Library screen, reader, page/bounding-box/figure provenance | Browser acceptance and provenance eval pass |
-| H | M1 | Cited `POST /search` with tenant-scoped chunks and figures | Citation, no-result, and cross-tenant negative tests pass |
-| I | M2 | Extraction workers, schemas, versioning, and mock/local route boundary | Extraction eval and resumability tests pass |
-| J | M2 | Entity resolution and knowledge graph with tenant isolation | Duplicate-concept and cross-tenant graph tests pass |
-| K | M2 | Claims, explicit conflicts, curriculum seed/mapping, concept pages | Conflict and coverage evals pass |
-| L | M2 | Editor queues for mappings/conflicts with authorization and audit | Role-denial and mutation-audit staging evidence pass |
-| M | M3 | Query planner, explicit retrieval stages, hybrid fusion, reranking config | Retrieval eval and latency target pass |
-| N | M3 | Grounding judge, citations, figure cards, image-question upload | No-source and ungrounded-output negative tests pass |
-| O | M3 | Tutor thread memory, “not in your sources,” tenant-aware cache boundaries | Browser, grounding, and cache-isolation evidence pass |
-| P | M4 | Exam-date onboarding, baseline test, planner, phases, Today runner | Planner fixtures and onboarding → Today loop pass |
-| Q | M4 | FSRS-style cards, mastery, weekly report, reminders, nightly replan | Scheduling/idempotency and mobile PWA evidence pass |
-| R | M5 | SBA, SEQ, image-case, and viva generation with versioned prompts/evals | Item and generator quality gates pass |
-| S | M5 | Practice, Exam mode, autosave/resume, grader, review queue, statistics | Disconnect/resume and role/audit staging tests pass |
-| T | M6 | Stripe test-mode billing, portal, webhooks, caps, degradation, org/superadmin | Billing/security approval and webhook replay tests pass |
-| U | M6 | Export/delete across data, derived artifacts, caches, queues, and observability | Authenticated export/delete and purge evidence pass |
-| V | M6 | Load tests, security scans, backup/restore drill, RPO/RTO runbook | Restore timing, load targets, and no high/critical findings pass |
-| W | M7 | Certified local-model mode with lower approved thresholds | Out of scope under ADR 0009 |
-| X | M7 | Markdown/Obsidian-compatible export and round-trip links | Synthetic round-trip and provenance tests pass |
-| Y | M7 | Mobile wrapper/institution SSO/Core authoring scale work as approved | Out of scope under ADR 0009 |
-| Z | Release | Final cross-milestone security, privacy, legal, operational, and rollback audit | All milestone evidence and approvals committed; release verdict recorded |
-
-## Definition of done for the overall goal
-
-- M0 through M7 each have passing exit evidence and committed redacted records.
-- Every tenant-scoped table has RLS and a non-privileged two-tenant negative test.
-- Every agent route has a versioned schema, prompt, fixture, and eval result.
-- Every emitted claim/card/question/tutor sentence has a citation or fails closed.
-- Long jobs are idempotent, resumable, and expose visible step status.
-- Export/delete, backup/restore, cache isolation, object isolation, billing, and the
-  approved v1 portability scope have explicit evidence where applicable.
-- No open critical/high security finding remains.
-- Runbooks, five-minute demos, rollback procedures, approvals, and ADRs are current.
-- The final release audit records known limitations without private content or secrets.
-
-## Immediate pursuit
-
-The next acceptance slice is A–D: deploy one exact candidate and execute the production
-verification chain defined by ADR 0008. Under ADR 0006, local/test-only M1–M7 preview
-implementation may proceed in parallel, but it remains non-release and cannot satisfy
-any A–Z acceptance gate. The checkout includes production OIDC and RLS workflows,
-expanded runtime-role RLS coverage, callback URL observation, and redacted evidence
-guidance.

@@ -78,9 +78,8 @@ publishes no host port.
   `PREVIEW_ENABLED` is `false` in `app.env` per ADR 0006. ADR 0009 later
   enabled it behind authentication, which is a change to ADR 0006 rather than to
   this decision; the hosting topology here is unaffected.
-- It does not select an identity provider. The OIDC variables are empty, so
-  the deployment runs without federated sign-in. Choosing an IdP is a human
-  decision.
+- It does not select an identity provider. ADR 0009 later chose self-hosted
+  Keycloak, deployed alongside this topology as a separate compose project.
 
 ## Rejected alternatives
 

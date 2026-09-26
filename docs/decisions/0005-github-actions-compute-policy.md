@@ -27,6 +27,10 @@ runtime-role RLS acceptance run only through the manual `m0-staging-acceptance.y
 `m0-staging-rls.yml` workflows on `main`, using the protected `staging` GitHub
 Environment and exact candidate revisions.
 
+> Superseded in part: ADR 0008 removed the staging workflows (now deleted) and moved
+> M0 OIDC and RLS evidence to `verify-production-oidc.yml` and
+> `verify-production-rls.yml`. The staging paragraphs below are kept as history.
+
 The staging workflows use protected environment variables/secrets, keep Playwright
 screenshots/video/traces disabled, upload no artifacts, and record only redacted
 operational references. They execute only the trusted `main` workflow SHA, require that

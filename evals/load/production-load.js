@@ -43,8 +43,8 @@ const baseUrl = __ENV.RADBRAIN_API_URL || 'http://api:8000';
 const tenant = __ENV.RADBRAIN_LOAD_TENANT || '30000000-0000-0000-0000-00000000000a';
 const user = __ENV.RADBRAIN_LOAD_USER || '10000000-0000-0000-0000-00000000000a';
 
-// The preview surface is disabled on the production host (ADR 0006), so its
-// checks are opt-in and only run against a local or test stack.
+// Authenticated preview checks are opt-in and only run against a local or test
+// stack; production only proves the surface refuses anonymous callers.
 const previewEnabled = (__ENV.RADBRAIN_LOAD_PREVIEW || '0') === '1';
 
 const headers = {
@@ -70,10 +70,13 @@ export default function () {
   });
   if (deniedOk) authRefusals.add(1);
 
-  // Preview routes must be absent, not merely unauthorised, on this host.
+  // Preview is enabled in production behind OIDC (ADR 0009), so an anonymous
+  // caller must be refused; 404 (surface off) is also acceptable.
   const preview = http.get(`${baseUrl}/v1/preview/sources`);
   if (!previewEnabled) {
-    check(preview, { 'preview is disabled in production': (r) => r.status === 404 });
+    check(preview, {
+      'preview is gated in production': (r) => [401, 403, 404].includes(r.status),
+    });
   }
 
   if (health.status >= 500 || ready.status >= 500 || denied.status >= 500) {
