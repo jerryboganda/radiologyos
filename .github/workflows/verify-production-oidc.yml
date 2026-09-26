@@ -65,7 +65,8 @@ jobs:
             -v /opt/radiologyos/keycloak:/run/kc:ro \
             --cpus 1 --memory 512m --pids-limit 256 \
             --entrypoint python "$KCIMG" /run/verify.py \
-            --issuer http://keycloak:8080/realms/radbrain             --expected-issuer https://radiologyos.polytronx.com/auth/realms/radbrain \
+            --issuer http://radbrain-keycloak-keycloak-1:8080/realms/radbrain \
+            --expected-issuer https://radiologyos.polytronx.com/auth/realms/radbrain \
             --api http://radbrain-api:8000 \
             --client-id radbrain-web \
             --client-secret-file /run/kc/keycloak.env \

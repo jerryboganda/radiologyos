@@ -117,7 +117,9 @@ services:
       # adapter-node derives url.origin (CSRF check, cookie Secure flag) from ORIGIN.
       ORIGIN: ${PUBLIC_ORIGIN:-https://radiologyos.polytronx.com}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
-      API_INTERNAL_URL: http://api:8000
+      # Unique alias: bare names like "api" collide with other projects on the
+      # shared networks (the login callback once reached another app's "api").
+      API_INTERNAL_URL: http://radbrain-api:8000
       API_PUBLIC_URL: ${API_PUBLIC_URL:-https://radiologyos.polytronx.com}
       WEB_API_SECRET: ${WEB_API_SECRET:-}
       OIDC_ISSUER: ${OIDC_ISSUER:-}

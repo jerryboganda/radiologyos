@@ -249,3 +249,11 @@ def test_job_id_is_stable_and_includes_pipeline_version() -> None:
         "knowledge_extraction:v7"
     )
     assert JobId.from_key(str(job_id)) == job_id
+
+
+def test_production_uses_unique_internal_hostnames() -> None:
+    """Bare service names collide with other projects on the shared networks."""
+    platform = (ROOT / "infra" / "compose" / "platform.yml").read_text(encoding="utf-8")
+    assert "http://api:" not in platform
+    assert "http://keycloak:" not in platform
+    assert "API_INTERNAL_URL: http://radbrain-api:8000" in platform

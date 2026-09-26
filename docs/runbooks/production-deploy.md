@@ -108,7 +108,7 @@ forward fix.
   `radbrain-keycloak` compose project and configured by the root-run scripts in
   `infra/ops/` (`build-keycloak-env.sh`, `keycloak-bootstrap.sh`,
   `provision-tenant.sh`, `wire-oidc.sh`). Its issuer is internal only
-  (`http://keycloak:8080`) until the public hostname is routed.
+  (`http://radbrain-keycloak-keycloak-1:8080`) until the public hostname is routed.
 - **Public hostname.** `radiologyos.polytronx.com` is served by the
   nginx-proxy-manager container through a hand-managed file,
   `infra/proxy/radiologyos-manual.conf`, copied to
@@ -124,7 +124,7 @@ forward fix.
 - **Issuer.** Keycloak pins `KC_HOSTNAME=https://radiologyos.polytronx.com/auth`
   with a dynamic backchannel, so `iss` is
   `https://radiologyos.polytronx.com/auth/realms/radbrain` while JWKS and the
-  token exchange stay on `http://keycloak:8080/realms/radbrain`. `app.env` must
+  token exchange stay on `http://radbrain-keycloak-keycloak-1:8080/realms/radbrain`. `app.env` must
   set `OIDC_ISSUER` to the public issuer and `OIDC_JWKS_URL` /
   `OIDC_INTERNAL_ISSUER` to the internal one (`infra/ops/wire-oidc.sh`).
 - **Preview stays off in production.** `PREVIEW_ENABLED=false`, per ADR 0006.

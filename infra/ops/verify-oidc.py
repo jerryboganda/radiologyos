@@ -16,8 +16,8 @@ Secrets are read from root-only env files and are never printed. Token contents
 are never printed either; only structural facts and status codes.
 
 Usage:
-    verify-oidc.py --issuer http://keycloak:8080/realms/radbrain \\
-                   --api http://api:8000 \\
+    verify-oidc.py --issuer http://radbrain-keycloak-keycloak-1:8080/realms/radbrain \\
+                   --api http://radbrain-api:8000 \\
                    --client-id radbrain-web \\
                    --client-secret-file /run/kc/keycloak.env \\
                    --bootstrap-file /run/kc/bootstrap.env

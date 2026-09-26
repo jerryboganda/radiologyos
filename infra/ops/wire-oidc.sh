@@ -28,7 +28,7 @@ PY
 }
 
 echo "=== public issuer; JWKS and token exchange stay on the internal address ==="
-INTERNAL_ISSUER="http://keycloak:8080/realms/radbrain"
+INTERNAL_ISSUER="http://radbrain-keycloak-keycloak-1:8080/realms/radbrain"
 PUBLIC_ISSUER="https://radiologyos.polytronx.com/auth/realms/radbrain"
 
 set_env OIDC_ISSUER "$PUBLIC_ISSUER"
