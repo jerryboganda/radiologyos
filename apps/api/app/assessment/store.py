@@ -53,7 +53,7 @@ async def get_question(
 ) -> dict[str, Any] | None:
     row = (
         await session.execute(
-            text(f"SELECT {_COLUMNS} FROM questions WHERE id = :q AND user_id = :u"),
+            text(f"SELECT {_COLUMNS} FROM questions WHERE id = :q AND user_id = :u"),  # nosec B608 - constant column list; all values are bound parameters
             {"q": question_id, "u": user_id},
         )
     ).mappings().first()
@@ -64,7 +64,7 @@ async def get_questions(
     session: AsyncSession, user_id: UUID, ids: list[UUID]
 ) -> dict[str, dict[str, Any]]:
     rows = await session.execute(
-        text(f"SELECT {_COLUMNS} FROM questions WHERE id = ANY(:ids) AND user_id = :u"),
+        text(f"SELECT {_COLUMNS} FROM questions WHERE id = ANY(:ids) AND user_id = :u"),  # nosec B608 - constant column list; all values are bound parameters
         {"ids": ids, "u": user_id},
     )
     return {str(row["id"]): dict(row) for row in rows.mappings()}
@@ -92,7 +92,7 @@ async def list_questions(
     where, params = _where(user_id, filters)
     rows = await session.execute(
         text(
-            f"SELECT {_COLUMNS} FROM questions WHERE {where} "
+            f"SELECT {_COLUMNS} FROM questions WHERE {where} "  # nosec B608 - constant column list; all values are bound parameters
             "ORDER BY created_at DESC, id LIMIT :n OFFSET :o"
         ),
         {**params, "n": filters["limit"], "o": filters["offset"]},
@@ -107,7 +107,7 @@ async def pick_exam_questions(
     where, params = _where(user_id, {"type": "sba", "status": "active",
                                      "exam_target": exam_target, "topic": topic})
     rows = await session.execute(
-        text(f"SELECT id FROM questions WHERE {where} ORDER BY random() LIMIT :n"),
+        text(f"SELECT id FROM questions WHERE {where} ORDER BY random() LIMIT :n"),  # nosec B608 - constant column list; all values are bound parameters
         {**params, "n": count},
     )
     return [row[0] for row in rows]

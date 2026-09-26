@@ -43,7 +43,7 @@ async def resolve(engine: AsyncEngine, subject: str) -> Principal:
     if len(rows) != 1:
         raise SystemExit("subject must have exactly one active membership")
     user_id, tenant_id, role = rows[0]
-    return Principal(user_id=UUID(str(user_id)), tenant_id=UUID(str(tenant_id)), role=role)
+    return Principal(user_id=UUID(str(user_id)), tenant_id=UUID(str(tenant_id)), role=str(role))
 
 
 async def tenant_session(engine: AsyncEngine, tenant_id: UUID) -> AsyncSession:

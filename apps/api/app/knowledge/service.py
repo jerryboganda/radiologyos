@@ -41,7 +41,7 @@ async def search_concepts(
             ORDER BY CASE WHEN :key = '' THEN 0 ELSE similarity(k.normalized_name, :key) END DESC,
                      k.name
             LIMIT :limit
-            """
+            """  # nosec B608 - constant column list; all values are bound parameters
         ),
         {"u": user_id, "key": key, "limit": limit},
     )
@@ -54,7 +54,7 @@ async def concept_detail(
     concept = (
         await session.execute(
             text(
-                f"SELECT k.id, k.name, k.aliases, k.concept_type, k.curriculum_code, "
+                f"SELECT k.id, k.name, k.aliases, k.concept_type, k.curriculum_code, "  # nosec B608 - constant column list; all values are bound parameters
                 f"k.curriculum_confidence, k.summary FROM concepts k "
                 f"WHERE k.id = :id AND {_VISIBLE}"
             ),

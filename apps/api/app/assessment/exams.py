@@ -68,7 +68,7 @@ async def load_exam(
     suffix = " FOR UPDATE" if lock else ""
     row = (
         await session.execute(
-            text(f"SELECT {_EXAM_COLUMNS} FROM exams WHERE id = :e AND user_id = :u{suffix}"),
+            text(f"SELECT {_EXAM_COLUMNS} FROM exams WHERE id = :e AND user_id = :u{suffix}"),  # nosec B608 - constant column list; all values are bound parameters
             {"e": exam_id, "u": user_id},
         )
     ).mappings().first()

@@ -29,7 +29,7 @@ from evals.checks._knowledge_support import (  # noqa: E402
 INSERTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "concepts": (
         "INSERT INTO concepts (id, tenant_id, name, normalized_name) "
-        "VALUES ($2, $1, 'Rls concept', 'rls concept ' || $2::text)",
+        "VALUES ($2, $1, 'Rls concept', 'rls concept ' || CAST($2 AS uuid)::text)",
         ("tenant", "fresh"),
     ),
     "claims": (

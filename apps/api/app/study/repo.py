@@ -54,7 +54,7 @@ class SqlStudyRepo:
 
     async def get_profile(self, user_id: UUID) -> dict[str, Any] | None:
         return await self._one(
-            f"SELECT {PROFILE_COLUMNS} FROM study_profiles WHERE user_id = :u", {"u": user_id})
+            f"SELECT {PROFILE_COLUMNS} FROM study_profiles WHERE user_id = :u", {"u": user_id})  # nosec B608 - constant column list; all values are bound parameters
 
     async def save_profile(self, user_id: UUID, data: dict[str, Any]) -> dict[str, Any]:
         params = {**data, "u": user_id, "t": self.tenant_id, "reminder": _json(data["reminder"]),
@@ -72,7 +72,7 @@ class SqlStudyRepo:
                 weekend_minutes = EXCLUDED.weekend_minutes,
                 timezone = EXCLUDED.timezone, reminder = EXCLUDED.reminder
             RETURNING {PROFILE_COLUMNS}
-            """,
+            """,  # nosec B608 - constant column list; all values are bound parameters
             params,
         )
         assert row is not None
@@ -123,7 +123,7 @@ class SqlStudyRepo:
         return await self._all(
             CHUNK_SELECT + """ AND c.source_id = :s AND NOT EXISTS (
                 SELECT 1 FROM cards k WHERE k.source_chunk_id = c.id AND k.user_id = :u)
-              ORDER BY c.chunk_no LIMIT :n""",
+              ORDER BY c.chunk_no LIMIT :n""",  # nosec B608 - constant column list; all values are bound parameters
             {"u": user_id, "s": source_id, "n": limit})
 
     async def insert_card(self, user_id: UUID, card: dict[str, Any]) -> dict[str, Any]:
@@ -135,7 +135,7 @@ class SqlStudyRepo:
                 :curriculum_code, :topic, :front, :back, :origin,
                 CAST(:citation AS jsonb), :due_at)
             RETURNING {CARD_COLUMNS}
-            """,
+            """,  # nosec B608 - constant column list; all values are bound parameters
             {**card, "u": user_id, "t": self.tenant_id, "citation": _json(card["citation"])},
         )
         assert row is not None
@@ -143,21 +143,21 @@ class SqlStudyRepo:
 
     async def get_card(self, user_id: UUID, card_id: UUID) -> dict[str, Any] | None:
         return await self._one(
-            f"SELECT {CARD_COLUMNS} FROM cards WHERE id = :c AND user_id = :u",
+            f"SELECT {CARD_COLUMNS} FROM cards WHERE id = :c AND user_id = :u",  # nosec B608 - constant column list; all values are bound parameters
             {"c": card_id, "u": user_id})
 
     async def due_cards(
         self, user_id: UUID, now: datetime, limit: int, new_limit: int
     ) -> list[dict[str, Any]]:
         due = await self._all(
-            f"SELECT {CARD_COLUMNS} FROM cards WHERE user_id = :u AND state <> 'new' "
+            f"SELECT {CARD_COLUMNS} FROM cards WHERE user_id = :u AND state <> 'new' "  # nosec B608 - constant column list; all values are bound parameters
             "AND due_at <= :now ORDER BY due_at, id LIMIT :n",
             {"u": user_id, "now": now, "n": limit})
         room = min(new_limit, limit - len(due))
         if room <= 0:
             return due
         fresh = await self._all(
-            f"SELECT {CARD_COLUMNS} FROM cards WHERE user_id = :u AND state = 'new' "
+            f"SELECT {CARD_COLUMNS} FROM cards WHERE user_id = :u AND state = 'new' "  # nosec B608 - constant column list; all values are bound parameters
             "ORDER BY created_at, id LIMIT :n", {"u": user_id, "n": room})
         return due + fresh
 
@@ -190,7 +190,7 @@ class SqlStudyRepo:
                 lapses = :lapses
             WHERE id = :id AND user_id = :u
             RETURNING {CARD_COLUMNS}
-            """,
+            """,  # nosec B608 - constant column list; all values are bound parameters
             {**card, "u": user_id},
         )
         assert row is not None
