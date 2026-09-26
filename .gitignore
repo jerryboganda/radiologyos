@@ -32,3 +32,6 @@ Radiology Images/
 
 # Generated API types
 apps/web/src/lib/api/generated/
+
+# Agent worktrees
+.claude/worktrees/
