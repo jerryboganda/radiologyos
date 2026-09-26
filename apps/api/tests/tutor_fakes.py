@@ -171,7 +171,10 @@ def tutor_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any]]:
 
     monkeypatch.setattr(search, "hybrid_search", fake_search)
     monkeypatch.setattr(search, "search_figures", fake_figures)
-    monkeypatch.setattr(tutor_api, "query_vector", lambda _q: None)
+    async def no_vector(_tenant: Any, _query: str) -> None:
+        return None
+
+    monkeypatch.setattr(tutor_api, "query_vector", no_vector)
     monkeypatch.setattr(tutor_api, "set_database_tenant", fake_set_tenant)
     for name in ("get_thread", "create_thread", "add_exchange", "recent_history",
                  "thread_messages", "list_threads"):

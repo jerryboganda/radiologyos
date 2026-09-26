@@ -39,3 +39,16 @@ embedder image only.
   arguments that were removed in 5.9.
 - Locally the embedder is behind the `embedder` compose profile, so CI's runtime job does not
   download torch and the model. Production always runs it.
+
+**Owner override (2026-09-26, later the same day).**
+- Do not use the free local model for now. **Every embedding uses the paid best model,
+  `voyage-4-large`, inside the free quota:** documents, figures, search and tutor queries,
+  question topics and question-stem dedupe.
+- Query-time calls go through `apps/api/app/library/metered_embedding.py`. It checks the
+  same 195M hard cap before each call and records its tokens in the same ledger. Past the
+  cap it sends nothing, raises the red alert, and search falls back to keyword-only.
+- The `embedder` (voyage-4-nano) service and client code are kept but switched off: the
+  service is behind a compose profile. To re-enable it, set `query.backend: local` in
+  `models.yaml` and start the `embedder` profile.
+- Queries are tiny (about 10–30 tokens each), so even heavy daily use adds well under 0.1%
+  of the cap per month.

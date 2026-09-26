@@ -157,7 +157,7 @@ async def _prepare(session: AsyncSession, principal: Principal, body: AskRequest
         if await repo.get_thread(session, principal.user_id, body.thread_id) is None:
             raise HTTPException(status_code=404, detail="thread not found")
         history = await repo.recent_history(session, body.thread_id)
-    vector = await run_in_threadpool(query_vector, body.question)
+    vector = await query_vector(principal.tenant_id, body.question)
     query = lexical_query(body.question)
     hits = await search.hybrid_search(session, principal.user_id, query, vector, RETRIEVE)
     figures = await search.search_figures(session, principal.user_id, query, FIGURE_CANDIDATES,

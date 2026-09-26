@@ -35,20 +35,21 @@ class DedupeOutcome:
     method: str = "trigram"
 
 
-def embed_stems(stems: Sequence[str]) -> tuple[list[list[float]] | None, str | None]:
-    """Stem embeddings from the free local voyage-4-nano service (ADR 0019).
+async def embed_stems(
+    tenant_id: UUID, stems: Sequence[str]
+) -> tuple[list[list[float]] | None, str | None]:
+    """Stem embeddings with the configured model, metered against the 195M cap.
 
-    Returns (None, None) when the local service is unavailable; dedupe then
-    falls back to trigram similarity. No paid Voyage call is made here.
+    Returns (None, None) when unavailable or past the cap; dedupe then falls
+    back to trigram similarity (ADR 0019).
     """
-    from packages.models.embeddings import LocalEmbedder
+    from apps.api.app.library.metered_embedding import embed_metered
     from packages.models.gateway import routing_config
 
     config = routing_config().embeddings
     if config is None or not stems:
         return None, None
-    vectors = LocalEmbedder(config.query, config.dimensions, timeout_s=20.0).embed(
-        list(stems), "document")
+    vectors = await embed_metered(tenant_id, list(stems), "document")
     return (vectors, config.query.model) if vectors else (None, None)
 
 

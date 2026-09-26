@@ -5,8 +5,11 @@
 | Work | Where it runs | Cost |
 | --- | --- | --- |
 | Embedding document chunks and figure descriptions | Voyage API, `voyage-4-large` | Free inside 200M tokens per account |
-| Search, tutor and question-topic queries | Local `voyage-4-nano` (`embedder` container) | $0 |
-| Question-stem duplicate checks | Local `voyage-4-nano` | $0 |
+| Search, tutor and question-topic queries | Voyage API, `voyage-4-large` (metered) | About 10–30 tokens each, free inside the quota |
+| Question-stem duplicate checks | Voyage API, `voyage-4-large` (metered) | Tiny, free inside the quota |
+
+The owner chose the paid best model for everything (ADR 0019 override). The local
+`voyage-4-nano` embedder is kept but switched off.
 
 **Estimate for the owner's library, measured in production (September 2026):**
 - A real 12-chunk slide deck cost 378 tokens, about 2.3 characters per token. Slide
@@ -15,7 +18,7 @@
 - That is roughly **3–4.5M tokens**, plus up to about 1M for figure descriptions.
 - Total: **about 5M tokens once at most**. That is about **2.5% of the 195M cap**, or about
   $0.60 at list price.
-- **Billed: $0.00**, inside the free tier. Queries are never billed.
+- **Billed: $0.00**, inside the free tier. Queries add well under 0.1% of the cap per month.
 
 ## Why tokens are only paid once
 
@@ -47,12 +50,17 @@
 - **150M: amber alert.** Admins get a push notification and a banner. Nothing stops.
 - **195M: red alert.** No further Voyage request is sent. New sources stay
   keyword-searchable, and their `embed_index` step reads `skipped` /
-  `embedding_budget_exhausted`. Queries keep working, because they run locally.
+  `embedding_budget_exhausted`. Search and the tutor fall back to keyword-only.
 - **Acknowledging an alert** hides its banner. It does not raise the cap.
 - **Raising the cap** is deliberate: edit `packages/models/models.yaml` (`budget:`), amend
   ADR 0019, deploy, then run `--reprocess`.
 
-## The local embedder
+## The local embedder (switched off)
+
+To use it again: in `models.yaml` set `query: {backend: local, model: voyage-4-nano,
+base_url: http://radbrain-embedder:8080}`, deploy, then start it with
+`docker compose --env-file app.env -f platform.yml --profile embedder up -d embedder`.
+
 
 - **Health:** `docker exec radiologyos-api-1 python -c "import urllib.request as u;
   print(u.urlopen('http://radbrain-embedder:8080/health').read())"`

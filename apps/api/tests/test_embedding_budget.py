@@ -140,8 +140,8 @@ def test_config_rules() -> None:
         EmbeddingBudget(hard_cap_tokens=100, warn_tokens=100)
     with pytest.raises(ValidationError):
         EmbeddingBudget(hard_cap_tokens=250_000_000, warn_tokens=1)
-    with pytest.raises(ValidationError, match="queries must not use the paid API"):
-        EmbeddingConfig(dimensions=1024, document=VOYAGE, query=VOYAGE, budget=BUDGET)
+    paid = EmbeddingConfig(dimensions=1024, document=VOYAGE, query=VOYAGE, budget=BUDGET)
+    assert paid.query.model == "voyage-4-large"  # owner override: best model everywhere
 
 
 def test_alert_payloads_carry_numbers_only() -> None:
@@ -199,7 +199,7 @@ def test_admin_usage_is_admin_only_and_reports_zero_bill() -> None:
         body = client.get("/v1/admin/embedding-usage", headers=_headers("org_admin")).json()
         assert body["status"] == "ok" and body["billed_estimate_usd"] == 0.0
         assert body["document_model"] == "voyage-4-large"
-        assert body["query_model"] == "voyage-4-nano"
+        assert body["query_model"] == "voyage-4-large"
         assert body["tokens_used"] == 3_300_000
     finally:
         app.dependency_overrides.clear()

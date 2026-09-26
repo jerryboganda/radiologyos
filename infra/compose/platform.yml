@@ -110,6 +110,10 @@ services:
     mem_limit: 3g
 
   embedder:
+    # Switched off by the owner (2026-09-26): all embeddings use voyage-4-large
+    # inside the free quota (ADR 0019). Kept for later; start it with
+    # `--profile embedder` and set models.yaml query.backend back to local.
+    profiles: [embedder]
     <<: *restricted
     image: ${RADBRAIN_EMBEDDER_IMAGE:?RADBRAIN_EMBEDDER_IMAGE is required}
     environment:

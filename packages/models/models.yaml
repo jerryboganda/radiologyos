@@ -42,10 +42,11 @@ routes:
     fallbacks: []
     timeout_ms: 600000
     max_retries: 2
-# ADR 0019: documents and figures are embedded once via the Voyage API
-# (voyage-4-large, inside the 200M free tokens); every query is embedded free
-# on our own server with the open-weight voyage-4-nano (same embedding space).
-# Voyage calls stop hard at 195M lifetime tokens and the admin gets a red alert.
+# ADR 0019 (owner override 2026-09-26): everything uses the paid best model,
+# voyage-4-large, inside the 200M free tokens. Every call (documents, figures,
+# queries, question stems) is metered; Voyage calls stop hard at 195M lifetime
+# tokens and the admin gets a red alert. The local voyage-4-nano embedder is
+# kept but switched off (set query.backend: local to use it again).
 embeddings:
   dimensions: 1024
   document:
@@ -54,9 +55,10 @@ embeddings:
     api_key_env: VOYAGE_API_KEY
     base_url: https://api.voyageai.com/v1
   query:
-    backend: local
-    model: voyage-4-nano
-    base_url: http://radbrain-embedder:8080
+    backend: voyage
+    model: voyage-4-large
+    api_key_env: VOYAGE_API_KEY
+    base_url: https://api.voyageai.com/v1
   budget:
     hard_cap_tokens: 195000000
     warn_tokens: 150000000

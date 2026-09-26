@@ -181,9 +181,10 @@ def test_model_routes_follow_adr_0010() -> None:
     embeddings = config.embeddings
     assert embeddings is not None
     assert embeddings.dimensions == 1024
-    # ADR 0019: paid API for documents only; queries run on the free local model.
+    # ADR 0019: every embedding uses voyage-4-large inside the free quota.
     assert (embeddings.document.backend, embeddings.document.model) == ("voyage", "voyage-4-large")
-    assert (embeddings.query.backend, embeddings.query.model) == ("local", "voyage-4-nano")
+    # Owner override (2026-09-26): queries also use the paid best model, metered.
+    assert (embeddings.query.backend, embeddings.query.model) == ("voyage", "voyage-4-large")
     assert embeddings.budget.hard_cap_tokens == 195_000_000
     assert embeddings.budget.warn_tokens == 150_000_000
 

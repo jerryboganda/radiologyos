@@ -83,7 +83,7 @@ async def _pay_batch(
     tokens = result.tokens or estimate
     async with tenant_tx(engine, tenant_id) as session:
         await _save_cache(session, tenant_id, embedder, shas, result.vectors)
-        await _add_usage(session, tenant_id, embedder.model, tokens)
+        await add_usage(session, tenant_id, embedder.model, tokens)
         await _fill_from_cache(session, source_id, embedder)
     for level in crossed(used, used + tokens, budget):
         await record_alert(engine, tenant_id, level, used + tokens, budget)
@@ -178,7 +178,7 @@ async def _save_cache(
     )
 
 
-async def _add_usage(session: AsyncSession, tenant_id: UUID, model: str, tokens: int) -> None:
+async def add_usage(session: AsyncSession, tenant_id: UUID, model: str, tokens: int) -> None:
     await session.execute(
         text(
             "INSERT INTO embedding_usage (tenant_id, day, model, tokens, requests) "

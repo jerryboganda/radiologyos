@@ -132,7 +132,10 @@ def test_generate_rejects_near_duplicates(
         return None
 
     monkeypatch.setattr(retrieval, "gather_excerpts", gather)
-    monkeypatch.setattr(dedupe, "embed_stems", lambda stems: (None, None))
+    async def no_stems(_tenant: Any, _stems: Any) -> tuple[None, None]:
+        return None, None
+
+    monkeypatch.setattr(dedupe, "embed_stems", no_stems)
     monkeypatch.setattr(dedupe, "nearest_by_trigram", nearest)
     monkeypatch.setattr(question_store, "insert_question", insert_question)
     monkeypatch.setattr(question_store, "get_questions", get_questions)

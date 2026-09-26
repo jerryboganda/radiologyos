@@ -95,7 +95,7 @@ async def generate_questions(
     body: GenerateRequest, principal: PrincipalDep, session: SessionDep, transport: TransportDep
 ) -> GenerateResponse:
     _require_model(transport)
-    vector = await run_in_threadpool(query_vector, body.topic) if body.topic else None
+    vector = await query_vector(principal.tenant_id, body.topic) if body.topic else None
     excerpts = await retrieval.gather_excerpts(
         session, principal.user_id, body.topic, body.source_ids, vector,
         with_figure=body.type in ("image_case", "viva"))
@@ -111,7 +111,7 @@ async def generate_questions(
     except ModelCallError as exc:
         raise _model_error(exc) from exc
     stems = [values["stem"] for values in outcome.items]
-    vectors, embed_model = await run_in_threadpool(dedupe.embed_stems, stems)
+    vectors, embed_model = await dedupe.embed_stems(principal.tenant_id, stems)
     await set_database_tenant(session, principal.tenant_id)
     stored = await dedupe.insert_unique(
         session, principal.tenant_id, principal.user_id,

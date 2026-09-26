@@ -65,11 +65,10 @@ class EmbeddingBudget(BaseModel):
 
 
 class EmbeddingConfig(BaseModel):
-    """Documents via the paid API, queries via the free local model (ADR 0019).
+    """Document and query embedding targets plus the lifetime budget (ADR 0019).
 
-    Both models are in the Voyage 4 shared embedding space, so a query vector
-    from voyage-4-nano is directly comparable with document vectors from
-    voyage-4-large.
+    Both targets are in the Voyage 4 shared embedding space. Every paid call,
+    document or query, is metered against ``budget``.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -78,12 +77,6 @@ class EmbeddingConfig(BaseModel):
     document: EmbeddingTarget
     query: EmbeddingTarget
     budget: EmbeddingBudget
-
-    @model_validator(mode="after")
-    def paid_documents_need_a_budget(self) -> EmbeddingConfig:
-        if self.query.backend == "voyage":
-            raise ValueError("queries must not use the paid API (ADR 0019)")
-        return self
 
 
 class ModelRoute(BaseModel):

@@ -15,7 +15,6 @@ from apps.api.app.security.context import (
 )
 from apps.api.app.security.principal import Principal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 from packages.library.formats import UnsupportedUpload
 from packages.library.storage import ObjectStore, S3ObjectStore
@@ -205,7 +204,7 @@ def _image(principal: Principal, key: str | None) -> Response:
 async def search_library(
     body: SearchRequest, principal: PrincipalDep, session: SessionDep
 ) -> SearchResponse:
-    vector = await run_in_threadpool(query_vector, body.query)
+    vector = await query_vector(principal.tenant_id, body.query)
     hits = await search.hybrid_search(session, principal.user_id, body.query, vector, body.limit)
     figures = await search.search_figures(session, principal.user_id, body.query,
                                           query_vector=vector)
@@ -233,18 +232,13 @@ async def search_library(
     )
 
 
-def query_vector(query: str) -> list[float] | None:
-    """Query embedding from the free local voyage-4-nano service (ADR 0019).
+async def query_vector(tenant_id: UUID, query: str) -> list[float] | None:
+    """Query embedding with the configured model, metered against the 195M cap.
 
-    Same Voyage 4 embedding space as the voyage-4-large document vectors, so no
-    paid API call is ever made for a search, tutor question, or topic. Returns
-    None (keyword-only search) when the local service is unavailable.
+    Owner override (ADR 0019): the paid best model inside the free quota. Returns
+    None (keyword-only search) past the cap or when the provider is unavailable.
     """
-    from packages.models.embeddings import LocalEmbedder
-    from packages.models.gateway import routing_config
+    from apps.api.app.library.metered_embedding import embed_metered
 
-    config = routing_config().embeddings
-    if config is None:
-        return None
-    vectors = LocalEmbedder(config.query, config.dimensions).embed([query], "query")
+    vectors = await embed_metered(tenant_id, [query], "query")
     return vectors[0] if vectors else None
