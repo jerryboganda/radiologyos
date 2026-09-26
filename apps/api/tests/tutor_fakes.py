@@ -13,10 +13,10 @@ from uuid import UUID, uuid4
 
 import pytest
 from apps.api.app.api import tutor as tutor_api
-from apps.api.app.library import search
+from apps.api.app.library import rerank, search
 from apps.api.app.main import app
 from apps.api.app.security.principal import Principal
-from apps.api.app.tutor import images, repo, service
+from apps.api.app.tutor import graph, images, repo, service
 from packages.library.storage import MemoryObjectStore
 from packages.models.claude_code import ModelCall, ModelResult
 from packages.tutor.memory import MemoryState, MemoryUpdate
@@ -241,6 +241,12 @@ def _patch_search(monkeypatch: pytest.MonkeyPatch, state: dict[str, Any]) -> Non
     async def fake_page_figures(_s: Any, _u: UUID, _sid: UUID, _p: int, n: int) -> Any:
         return state["page_figures"][:n]
 
+    async def fake_expand(_s: Any, user_id: UUID, chunk_ids: Any, intent: str) -> Any:
+        state["graph_call"] = (user_id, list(chunk_ids), intent)
+        return state["graph"]
+
+    monkeypatch.setattr(rerank, "ready", lambda: None)  # no paid reranker in unit tests
+    monkeypatch.setattr(graph, "expand", fake_expand)
     monkeypatch.setattr(search, "hybrid_search", fake_search)
     monkeypatch.setattr(search, "search_figures", fake_figures)
     monkeypatch.setattr(search, "source_title", fake_title)
@@ -255,7 +261,7 @@ def tutor_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any]]:
     state: dict[str, Any] = {"session": session, "repo": fake_repo, "hits": [HIT],
                              "figures": [], "transport": FakeTransport(SOURCE_OK),
                              "store": store, "sources": {}, "page_hits": [],
-                             "page_figures": []}
+                             "page_figures": [], "graph": []}
     _patch_search(monkeypatch, state)
 
     async def fake_set_tenant(_s: Any, tenant_id: UUID) -> None:

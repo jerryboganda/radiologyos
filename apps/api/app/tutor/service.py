@@ -15,9 +15,8 @@ Only ids, counts, and outcomes are logged (hard rule 4).
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
@@ -27,7 +26,7 @@ from apps.api.app.db.session import set_database_tenant
 from apps.api.app.library import search
 from apps.api.app.observability import logger
 from apps.api.app.security.principal import Principal
-from apps.api.app.tutor import images, repo
+from apps.api.app.tutor import images, repo, retrieval
 from apps.api.app.tutor.contracts import AskRequest, AskResponse
 from fastapi import HTTPException
 from packages.library.parse_models import ImageCase
@@ -36,18 +35,16 @@ from packages.models.claude_code import ModelCallError
 from packages.models.gateway import Transport, load_agent
 from packages.tutor.grounding import Excerpt, FigureExcerpt, excerpts_from_hits, figures_from_hits
 from packages.tutor.image import IMAGE_AGENT, read_image, retrieval_text
+from packages.tutor.intent import Route, classify_intent
 from packages.tutor.memory import MemoryState, MemoryUpdate, fold_memory, plan_memory
 from packages.tutor.models import GroundedAnswer, JudgeStats
 from packages.tutor.orchestrator import answer_question
 from packages.tutor.prompts import Context
 from sqlalchemy.ext.asyncio import AsyncSession
 
-RETRIEVE = 8
-FIGURE_CANDIDATES = 12
-FOCUS_CHUNKS = 4
-FOCUS_FIGURES = 4
-TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-]*")
 Report = Callable[[object], None]
+QUIZ_NOTICE = ("This looks like a request for practice questions, so no answer was written. "
+               "Generate questions on this topic from your sources in Questions.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,16 +61,9 @@ class Prepared:
     fresh_reading: bool
     excerpts: list[Excerpt]
     figures: list[FigureExcerpt]
-
-
-def lexical_query(question: str) -> str:
-    """OR the question's terms so a natural-language question still matches.
-
-    ``websearch_to_tsquery`` ANDs plain words; a full question rarely matches
-    one chunk on every word. Stop words are dropped by the text search config.
-    """
-    terms = list(dict.fromkeys(t.lower() for t in TOKEN.findall(question)))[:40]
-    return " or ".join(terms) if terms else question
+    route: Route = field(default_factory=lambda: Route("explain"))
+    graph_claims: int = 0
+    reranked: bool = False
 
 
 async def load(session: AsyncSession, principal: Principal, body: AskRequest) -> Loaded:
@@ -117,36 +107,30 @@ def read_attached(
     return read_image(transport, data, key.rsplit(".", 1)[-1]), True
 
 
-def _boost(first: Sequence[dict[str, Any]], rest: Sequence[dict[str, Any]],
-           limit: int) -> list[dict[str, Any]]:
-    merged: dict[Any, dict[str, Any]] = {}
-    for row in [*first, *rest]:
-        merged.setdefault(row["id"], row)
-    return list(merged.values())[:limit]
-
-
 async def retrieve(
     session: AsyncSession, principal: Principal, body: AskRequest, loaded: Loaded,
     reading: tuple[ImageCase | None, bool],
 ) -> Prepared:
-    """Hybrid search (Reader page first when focused); ends the transaction."""
+    """Search, rerank, and graph-expand by intent (``tutor.retrieval``).
+
+    No transaction is held during the rerank call or the model calls. A quiz
+    retrieves nothing: it is handed to question generation.
+    """
+    route = classify_intent(body.question)
+    if route.intent == "quiz":
+        return Prepared(loaded, reading[0], reading[1], [], [], route)
     text_query = retrieval_text(body.question, reading[0])
     vector = await query_vector(principal.tenant_id, text_query)
-    query = lexical_query(text_query)
     user = principal.user_id
-    hits = await search.hybrid_search(session, user, query, vector, RETRIEVE)
-    figures = await search.search_figures(session, user, query, FIGURE_CANDIDATES,
-                                          query_vector=vector)
-    if body.focus is not None:
-        focus = body.focus
-        hits = _boost(await search.page_chunks(session, user, focus.source_id, focus.page_no,
-                                               FOCUS_CHUNKS), hits, RETRIEVE)
-        figures = _boost(await search.page_figures(session, user, focus.source_id,
-                                                   focus.page_no, FOCUS_FIGURES),
-                         figures, FIGURE_CANDIDATES)
+    found = await retrieval.search_phase(session, user, body, route, text_query, vector)
+    await session.rollback()  # no transaction during the rerank call
+    found = await retrieval.rank_phase(principal.tenant_id, text_query, found)
+    await set_database_tenant(session, principal.tenant_id)
+    claims = await retrieval.graph_phase(session, user, route, found.hits)
     await session.rollback()  # hold no transaction or connection during the model calls
-    return Prepared(loaded, reading[0], reading[1], excerpts_from_hits(hits),
-                    figures_from_hits(figures))
+    return Prepared(loaded, reading[0], reading[1], [*excerpts_from_hits(found.hits), *claims],
+                    figures_from_hits(found.figures, retrieval.figure_limit(route)), route,
+                    graph_claims=len(claims), reranked=found.reranked)
 
 
 def _fold(transport: Transport, memory: MemoryState, report: Report | None) -> tuple[
@@ -164,21 +148,32 @@ def _fold(transport: Transport, memory: MemoryState, report: Report | None) -> t
     return plan.verbatim, update.summary if update else plan.summary, update
 
 
+def quiz_answer(route: Route, question: str) -> GroundedAnswer:
+    """A hand-off to question generation: no model call and no tutor text."""
+    topic = route.topic or " ".join(question.split())[:120]
+    return GroundedAnswer(segments=[], grounding="none", notice=QUIZ_NOTICE,
+                          intent="quiz", quiz_topic=topic)
+
+
 def answer_work(
     transport: Transport, body: AskRequest, prepared: Prepared, drafts: bool = False,
     report: Report | None = None,
 ) -> tuple[GroundedAnswer, MemoryUpdate | None]:
     """Rolling memory, then the grounded, judged answer (drafts go to ``report``)."""
+    route = prepared.route
+    if route.intent == "quiz":
+        return quiz_answer(route, body.question), None
     history, summary, update = _fold(transport, prepared.loaded.memory, report)
     context = Context(summary=summary, image=prepared.reading,
-                      reading=prepared.loaded.reading_label)
+                      reading=prepared.loaded.reading_label, intent=route.intent,
+                      subjects=route.subjects)
     answer = answer_question(
         transport, body.question, prepared.excerpts, list(history), body.allow_web,
         figures=prepared.figures, judge=get_settings().tutor_grounding_judge,
         on_status=report, context=context,
         on_draft=report if drafts and report is not None else None,
     )
-    return answer, update
+    return answer.model_copy(update={"intent": route.intent}), update
 
 
 async def persist(
@@ -204,6 +199,8 @@ async def persist(
         dropped_segments=answer.dropped_segments, agent_version=answer.agent_version,
         excerpts_considered=len(prepared.excerpts), figures_considered=len(prepared.figures),
         judge=answer.judge, image_id=body.image_id, image_reading=prepared.reading,
+        intent=prepared.route.intent, quiz_topic=answer.quiz_topic,
+        graph_claims=prepared.graph_claims, reranked=prepared.reranked,
     )
 
 
@@ -217,5 +214,6 @@ def _log(thread_id: UUID, message_id: UUID, answer: GroundedAnswer, prepared: Pr
         "figures": len(prepared.figures), "judge_status": judge.status,
         "judge_partial": judge.partial, "judge_unsupported": judge.unsupported,
         "image": prepared.reading is not None, "focus": bool(prepared.loaded.reading_label),
-        "memory_folded": memory is not None,
+        "memory_folded": memory is not None, "intent": prepared.route.intent,
+        "graph_claims": prepared.graph_claims, "reranked": prepared.reranked,
     })

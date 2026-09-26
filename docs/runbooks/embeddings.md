@@ -1,4 +1,4 @@
-# Embeddings runbook — cost, usage, and the 195M hard stop (ADR 0019)
+# Embeddings runbook — cost, usage, and the 195M hard stops (ADR 0019, ADR 0028)
 
 ## What costs money
 
@@ -7,6 +7,7 @@
 | Embedding document chunks and figure descriptions | Voyage API, `voyage-4-large` | Free inside 200M tokens per account |
 | Search, tutor and question-topic queries | Voyage API, `voyage-4-large` (metered) | About 10–30 tokens each, free inside the quota |
 | Question-stem duplicate checks | Voyage API, `voyage-4-large` (metered) | Tiny, free inside the quota |
+| Reranking search, tutor and question retrieval | Voyage API, `rerank-2.5` (metered, own cap) | About 10–20K tokens per search, free inside its own 200M quota |
 
 The owner chose the paid best model for everything (ADR 0019 override). The local
 `voyage-4-nano` embedder is kept but switched off.
@@ -54,6 +55,29 @@ The owner chose the paid best model for everything (ADR 0019 override). The loca
 - **Acknowledging an alert** hides its banner. It does not raise the cap.
 - **Raising the cap** is deliberate: edit `packages/models/models.yaml` (`budget:`), amend
   ADR 0019, deploy, then run `--reprocess`.
+
+## Reranking
+
+ADR 0028 adds Voyage `rerank-2.5` after RRF fusion (config: `rerank:` in
+`packages/models/models.yaml`: `top_k` 8, `candidates` 24, `min_score` 0.2, budget
+195M hard / 150M warn). Voyage's free tier is 200M tokens **per model**, so:
+
+- Rerank tokens are recorded in the same `embedding_usage` ledger under the model
+  name `rerank-2.5`. The rerank cap reads `app.voyage_model_tokens_total('rerank-2.5')`;
+  the embedding cap reads `app.embedding_tokens_total()`, which excludes `rerank*`
+  models (migration `20260926_0101`).
+- A request costs about (query tokens × documents) + document tokens; documents are
+  clipped to 4,000 characters, so a 24-candidate search is typically 10–20K tokens
+  and about 10,000 searches fit before the cap.
+- **At 150M / 195M** the same amber/red push and banner fire with the alert kind
+  `rerank_budget`. Past the cap nothing is sent and results keep their fused (RRF)
+  order: search, the tutor, and question generation keep working.
+- **Watching:** Settings → **AI usage** shows a second, "Reranking" meter;
+  `GET /v1/admin/embedding-usage` returns it as `rerank`. API logs carry
+  `reranked` (candidates, kept, tokens) and `rerank_skipped` (error type only).
+- **Switching it off:** remove the `rerank:` block and deploy (search uses RRF order);
+  unsetting `VOYAGE_API_KEY` would also stop embeddings.
+- **Raising the cap** needs a `models.yaml` change and an amendment to ADR 0028.
 
 ## The local embedder (switched off)
 

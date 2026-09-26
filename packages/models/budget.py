@@ -15,7 +15,8 @@ from packages.models.routing import FREE_TIER_TOKENS, EmbeddingBudget
 
 Level = Literal["ok", "amber", "red"]
 # List prices per million tokens (docs.voyageai.com, September 2026).
-LIST_PRICE_PER_M = {"voyage-4-large": 0.12, "voyage-4": 0.06, "voyage-4-lite": 0.02}
+LIST_PRICE_PER_M = {"voyage-4-large": 0.12, "voyage-4": 0.06, "voyage-4-lite": 0.02,
+                    "rerank-2.5": 0.05, "rerank-2.5-lite": 0.02}
 
 
 class EmbeddingBudgetExhausted(RuntimeError):

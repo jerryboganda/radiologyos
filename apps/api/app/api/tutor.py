@@ -39,7 +39,7 @@ from apps.api.app.tutor.contracts import (
     ThreadMessage,
     ThreadSummary,
 )
-from apps.api.app.tutor.service import lexical_query
+from apps.api.app.tutor.retrieval import lexical_query
 from apps.api.app.tutor.stream import (
     SSE_HEADERS,
     Finished,
@@ -217,6 +217,7 @@ async def list_threads(principal: PrincipalDep, session: SessionDep) -> list[Thr
 
 def _message(row: dict[str, Any]) -> ThreadMessage:
     segments, judge = repo.stored_answer(row["citations"])
+    intent, quiz_topic = repo.stored_intent(row["citations"])
     return ThreadMessage(
         id=row["id"], role=row["role"], content=row["content"], grounding=row["grounding"],
         segments=[Segment.model_validate(s) for s in segments],
@@ -224,6 +225,7 @@ def _message(row: dict[str, Any]) -> ThreadMessage:
         judge=JudgeStats.model_validate(judge) if judge else None,
         image_id=row.get("image_id"),
         image_reading=images.stored_reading(row.get("image_reading")),
+        intent=intent, quiz_topic=quiz_topic,
     )
 
 

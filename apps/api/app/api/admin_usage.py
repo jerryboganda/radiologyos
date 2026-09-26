@@ -1,4 +1,4 @@
-"""Admin view of the Voyage embedding budget and its alerts (ADR 0019)."""
+"""Admin view of the Voyage embedding and rerank budgets and their alerts (ADR 0019, 0028)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
+from apps.api.app.library.rerank import model_tokens
 from apps.api.app.security.context import (
     build_shared_dependencies,
     build_tenant_db_session_dependency,
@@ -33,6 +34,21 @@ class BudgetAlert(BaseModel):
     acknowledged_at: datetime | None
 
 
+class RerankUsage(BaseModel):
+    """The reranker's own ledger: its free tier and cap are separate (ADR 0028)."""
+
+    model: str
+    tokens_used: int
+    hard_cap_tokens: int
+    warn_tokens: int
+    free_tier_tokens: int
+    free_tier_remaining: int
+    status: Literal["ok", "amber", "red"]
+    list_price_usd_equivalent: float
+    billed_estimate_usd: float
+    alerts: list[BudgetAlert]
+
+
 class EmbeddingUsage(BaseModel):
     document_model: str
     query_model: str
@@ -45,6 +61,34 @@ class EmbeddingUsage(BaseModel):
     list_price_usd_equivalent: float
     billed_estimate_usd: float
     alerts: list[BudgetAlert]
+    rerank: RerankUsage | None = None
+
+
+async def _alerts(session: AsyncSession, kind: str) -> list[BudgetAlert]:
+    rows = await session.execute(
+        text("SELECT id, level, created_at, acknowledged_at FROM ops_alerts "
+             "WHERE kind = :k ORDER BY created_at DESC"),
+        {"k": kind},
+    )
+    return [BudgetAlert(**dict(row)) for row in rows.mappings()]
+
+
+async def _rerank_usage(session: AsyncSession) -> RerankUsage | None:
+    from packages.models.gateway import routing_config
+
+    config = routing_config().rerank
+    if config is None:
+        return None
+    used = await model_tokens(session, config.model)
+    state = BudgetState(used, config.budget)
+    return RerankUsage(
+        model=config.model, tokens_used=used,
+        hard_cap_tokens=config.budget.hard_cap_tokens, warn_tokens=config.budget.warn_tokens,
+        free_tier_tokens=FREE_TIER_TOKENS, free_tier_remaining=state.free_tier_remaining,
+        status=state.level, list_price_usd_equivalent=list_price_usd(used, config.model),
+        billed_estimate_usd=billed_estimate_usd(used, config.model),
+        alerts=await _alerts(session, "rerank_budget"),
+    )
 
 
 @router.get("/embedding-usage", response_model=EmbeddingUsage)
@@ -56,10 +100,6 @@ async def embedding_usage(principal: PrincipalDep, session: SessionDep) -> Embed
     if config is None:
         raise HTTPException(status_code=404, detail="embeddings are not configured")
     used = int((await session.execute(text("SELECT app.embedding_tokens_total()"))).scalar_one())
-    rows = await session.execute(
-        text("SELECT id, level, created_at, acknowledged_at FROM ops_alerts "
-             "WHERE kind = 'embedding_budget' ORDER BY created_at DESC")
-    )
     state = BudgetState(used, config.budget)
     model = config.document.model
     return EmbeddingUsage(
@@ -73,7 +113,8 @@ async def embedding_usage(principal: PrincipalDep, session: SessionDep) -> Embed
         status=state.level,
         list_price_usd_equivalent=list_price_usd(used, model),
         billed_estimate_usd=billed_estimate_usd(used, model),
-        alerts=[BudgetAlert(**dict(row)) for row in rows.mappings()],
+        alerts=await _alerts(session, "embedding_budget"),
+        rerank=await _rerank_usage(session),
     )
 
 

@@ -27,6 +27,7 @@ from packages.tutor.models import (
     GroundedAnswer,
     Grounding,
     JudgeStats,
+    LayoutAnswer,
     Segment,
     SourceAnswer,
     WebAnswer,
@@ -149,8 +150,18 @@ def _clean_text(text: str) -> str:
     return " ".join(text.split())
 
 
+def _layout(segment: object) -> dict[str, str]:
+    """v4 layout fields (heading, table cell), trimmed; a cell needs row and column."""
+    fields = {k: " ".join(str(getattr(segment, k, None) or "").split())[:80]
+              for k in ("section", "row", "column")}
+    if not (fields["row"] and fields["column"]):
+        fields["row"] = fields["column"] = ""
+    return {k: v for k, v in fields.items() if v}
+
+
 def ground_sources(
-    answer: SourceAnswer, excerpts: Sequence[Excerpt], figures: Sequence[FigureExcerpt] = ()
+    answer: SourceAnswer | LayoutAnswer, excerpts: Sequence[Excerpt],
+    figures: Sequence[FigureExcerpt] = (),
 ) -> tuple[list[Segment], int]:
     """Keep segments whose labels resolve to retrieved excerpts or figures."""
     items: list[Citable] = [*excerpts, *figures]
@@ -168,7 +179,8 @@ def ground_sources(
             dropped += 1
             continue
         kept.append(Segment(text=text, origin="sources",
-                            citations=[e.citation() for e in seen.values()]))
+                            citations=[e.citation() for e in seen.values()],
+                            **_layout(segment)))
     return kept, dropped
 
 

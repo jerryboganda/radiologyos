@@ -39,7 +39,13 @@ from packages.tutor.grounding import (
     page_summaries,
 )
 from packages.tutor.judge import JUDGE_AGENT, StatusCallback, judge_segments
-from packages.tutor.models import GroundedAnswer, Segment, SourceAnswer, WebAnswer
+from packages.tutor.models import (
+    GroundedAnswer,
+    LayoutAnswer,
+    Segment,
+    SourceAnswer,
+    WebAnswer,
+)
 from packages.tutor.prompts import Context, Turn, source_prompt, web_prompt
 
 __all__ = ["Context", "Turn", "answer_question", "source_prompt", "web_prompt"]
@@ -78,8 +84,8 @@ def _ask_sources(
     transport: Transport, ask: _Ask, on_draft: DraftCallback | None
 ) -> tuple[list[Segment], int, str]:
     prompt = source_prompt(ask.question, ask.excerpts, ask.history, ask.figures, ask.context)
-    answer = cast(SourceAnswer, _run_drafted(transport, SOURCE_AGENT, prompt, "sources",
-                                             on_draft))
+    answer = cast(SourceAnswer | LayoutAnswer,
+                  _run_drafted(transport, SOURCE_AGENT, prompt, "sources", on_draft))
     segments, dropped = ground_sources(answer, ask.excerpts, ask.figures)
     return segments, dropped, answer.coverage if segments else "none"
 

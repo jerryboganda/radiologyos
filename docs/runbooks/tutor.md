@@ -2,36 +2,57 @@
 
 - Status: current (personal-first, ADR 0011)
 - Scope: `/v1/tutor/*`, `packages/tutor/`, `packages/models/claude_stream.py`, prompts
-  `tutor_answer/v3`, `tutor_web/v3`, `tutor_memory/v1`, `grounding_judge/v1`,
+  `tutor_answer/v4` (v3 kept), `tutor_web/v3`, `tutor_memory/v1`, `grounding_judge/v1`,
   `image_case/v1`; web `/tutor`, `POST /tutor/stream`, `POST /tutor/image`,
   `/media/tutor-images/{id}`, the Reader's "Ask about this page", and figure-card
   "Similar figures" / "Quiz me"
-- Gates: `apps/api/tests/test_tutor_*.py`, `test_model_streaming.py`,
-  `test_figure_actions.py` (local); `evals/checks/test_tutor_live.py` and
-  `test_tutor_depth_live.py` (GitHub Actions `migrations` job, runtime role); eval
-  fixtures `evals/fixtures/tutor_v1.json`, `tutor_v2.json`, `tutor_v3.json`
-  (synthetic, review required)
+- Gates: `apps/api/tests/test_tutor_*.py`, `test_rerank.py`, `test_model_streaming.py`,
+  `test_figure_actions.py` (local); `evals/checks/test_tutor_live.py`,
+  `test_tutor_depth_live.py`, and `test_rerank_budget_live.py` (GitHub Actions
+  `migrations` job, runtime role); eval fixtures `evals/fixtures/tutor_v1.json` ..
+  `tutor_v4.json` (synthetic, review required)
 - Related: [ADR 0013](../decisions/0013-grounded-tutor.md),
-  [ADR 0025](../decisions/0025-tutor-depth.md), [web UI](web-ui.md)
+  [ADR 0025](../decisions/0025-tutor-depth.md),
+  [ADR 0028](../decisions/0028-retrieval-quality.md), [web UI](web-ui.md)
 
 ## How a question is answered
 
 0. **Attached image** (`reading_image`, only with `image_id` and no cached reading):
    `image_case/v1` (vision route, Read tool) reads the owner's image once; the
    reading is cached on the `tutor_images` row.
-1. **Retrieve** (`status: retrieving`): the top 8 hybrid-search excerpts (`S1`..`S8`)
-   and up to 4 described figures (`F1`..`F4`, from `search_figures`; figures with
-   no AI description are skipped) from the caller's own library. The query is the
-   question plus the image reading's impression, differentials, topics, and
-   findings. With `focus` (Reader page), up to 4 chunks and the figures of that
-   page come first.
-1b. **Memory** (`remembering`, only when needed): when the rolling summary plus the
+1. **Route** (code, ADR 0028): a keyword/regex classifier picks the intent —
+   `explain`, `compare` ("A vs B", "difference between A and B"), `ddx`
+   ("differentials", "45-year-old with ..."), `show_me` ("show me", "what does X look
+   like"), `report` ("how do I report", "structured report"), or `quiz` ("quiz me",
+   "MCQs on"). A **quiz** stops here: no retrieval and no model call; the reply is a
+   hand-off notice with a "Generate questions on …" link (`/questions?topic=`).
+1a. **Retrieve** (`status: retrieving`): hybrid (RRF) search over a pool of 24 fused
+   hits when the reranker can run (else 8), plus one keyword search per compared
+   subject; then, with no transaction open, Voyage `rerank-2.5` reorders the pool,
+   keeps the top 8 (`S1`..`S8`) and drops hits scoring under 0.2. A comparison keeps
+   at least one hit per subject. Past the rerank cap, without a key, or on any
+   error the RRF order is used (fail-open, log line `rerank_skipped`). Up to 4
+   described figures (`F1`..; 6 for `show_me`; undescribed ones are skipped). The
+   query is the question plus the image reading's impression, differentials,
+   topics, and findings. With `focus` (Reader page), up to 4 chunks and the figures
+   of that page come first.
+1b. **Graph expansion**: concepts whose active claims came from the top 4 chunks,
+   plus their 1-hop `concept_edges` neighbours (differentials first for a DDx),
+   contribute up to 6 claims (8 for compare/DDx; 2 per concept) as excerpts
+   `K1`..: the text is the claim's verbatim evidence span, the citation its chunk,
+   pages, and blocks. Claims without that evidence reference are never offered.
+1c. **Memory** (`remembering`, only when needed): when the rolling summary plus the
    uncovered messages exceed ~3,000 tokens, all but the newest 6 messages are
    folded into `tutor_threads.memory_summary` by `tutor_memory/v1`. A failed fold
    keeps the old summary and retries next turn.
-2. **Answer** (`answering`): `tutor_answer/v3` (reason route, no tools) answers only
-   from those excerpts and figure descriptions and reports coverage. The thread
-   summary, image reading, and Reader page ride along as non-citable context blocks.
+2. **Answer** (`answering`): `tutor_answer/v4` (reason route, no tools) answers only
+   from those excerpts (S and K) and figure descriptions and reports coverage. The
+   intent, thread summary, image reading, and Reader page ride along as non-citable
+   context blocks. The intent shapes the answer: a comparison is a table (segments
+   with `row` = feature, `column` = entity), a DDx a list of diagnoses with
+   discriminating features (`row` = diagnosis), show-me leads with figures, and a
+   report follows Technique / Findings / Impression / Recommendation `section`s.
+   Every cell and item is still a cited segment.
 3. **Web research** (`web_research`, only when coverage is not full and the request
    allows it): `tutor_web/v3` (WebSearch/WebFetch only) never sees excerpt text, the
    thread summary, or text transcribed from an image; it may receive the image's
@@ -49,8 +70,10 @@
    - web segments without a page summary are not judged and stay labelled
      **From the web**.
 6. The exchange is stored; the assistant message's `citations` jsonb array holds
-   the segments followed by one `{"kind": "judge_stats", "judge": {...},
-   "dropped_segments": n}` element (older rows have no such element and still read).
+   the segments, then (for any intent other than `explain`) one `{"kind": "intent",
+   "intent": ..., "quiz_topic": ...}` element, then one `{"kind": "judge_stats",
+   "judge": {...}, "dropped_segments": n}` element (older rows have neither and
+   still read).
 
 ## Routes
 
@@ -93,7 +116,9 @@
 ## Cost and latency
 
 A covered question makes two model calls (answer + judge); an uncovered one up
-to three (answer, web, judge). Add one `vision` call the first time an image is
+to three (answer, web, judge); a quiz request none. Each question also makes one
+metered Voyage rerank call (about 10–20K rerank tokens; see the
+[embeddings runbook](embeddings.md#reranking)). Add one `vision` call the first time an image is
 asked about, and one `extract` call whenever memory folds. A streamed answer that
 is not one valid JSON object costs one extra, schema-enforced call. The judge uses the `classify` route (300 s timeout).
 The nginx proxy's 300 s read timeout is kept open by the keep-alive comments;
@@ -124,5 +149,11 @@ answer is neither delivered nor stored).
 - **Follow-ups lose context in long threads.** Check `tutor_threads.memory_covered`
   and `memory_version`; `tutor_memory_failed` warnings mean folds are failing
   (usage window) and only the newest turns are sent.
-- Logs carry ids, counts, and `judge_status` only — never question, excerpt,
+- **Answers ignore the knowledge graph.** `graph_claims` in the response is 0
+  when no claims were extracted from the top chunks (run the knowledge pipeline) or
+  all their claims sit on chunks already retrieved.
+- **A question was routed oddly** (e.g. a table for a simple question): the
+  classifier is keyword-based (`packages/tutor/intent.py`); the answer stays
+  grounded. Rephrase, or add a case to `test_tutor_intent.py` and the regex.
+- Logs carry ids, counts, `judge_status`, `intent`, `graph_claims`, and `reranked` only — never question, excerpt,
   page-summary, draft, image, or answer text (hard rule 4).

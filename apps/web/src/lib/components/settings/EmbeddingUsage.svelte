@@ -4,6 +4,7 @@
   import { percentFine } from '$lib/format';
   import type { EmbeddingUsage } from '$lib/types/admin';
   import LoadIssue from '../LoadIssue.svelte';
+  import RerankUsage from './RerankUsage.svelte';
   import UsageAlerts from './UsageAlerts.svelte';
 
   let { usage, problem }: { usage: EmbeddingUsage | null; problem: LoadProblem | null } = $props();
@@ -84,6 +85,7 @@
   </dl>
 
   <UsageAlerts alerts={usage.alerts} />
+  {#if usage.rerank}<RerankUsage usage={usage.rerank} />{/if}
 {:else if problem}
   <LoadIssue compact {problem} title="AI usage is unreachable" icon="signal" />
 {/if}

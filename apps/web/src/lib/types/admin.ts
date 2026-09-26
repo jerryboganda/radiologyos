@@ -29,10 +29,28 @@ export interface EmbeddingUsage {
   /** What Voyage would actually bill beyond the free tier (normally 0). */
   billed_estimate_usd: number;
   alerts: UsageAlert[];
+  /** The reranker's own ledger (ADR 0028); absent when no reranker is configured. */
+  rerank?: RerankUsage | null;
+}
+
+/** Voyage rerank usage: its free tier and hard cap are separate from embeddings. */
+export interface RerankUsage {
+  model: string;
+  tokens_used: number;
+  hard_cap_tokens: number;
+  warn_tokens: number;
+  free_tier_tokens: number;
+  free_tier_remaining: number;
+  status: UsageStatus;
+  list_price_usd_equivalent: number;
+  billed_estimate_usd: number;
+  alerts: UsageAlert[];
 }
 
 /** The app-shell banner: the level shown and every unacknowledged alert it covers. */
 export interface AdminBanner {
+  /** Which budget the banner is about; embedding when absent. */
+  kind?: 'embedding' | 'rerank';
   level: AlertLevel;
   alertIds: string[];
   hardCapTokens: number;

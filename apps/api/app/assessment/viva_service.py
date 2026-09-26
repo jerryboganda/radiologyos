@@ -92,7 +92,8 @@ async def create_session(
     query = viva_evidence.search_query(body.topic, figure)
     vector = await vector_for(query) if query else None
     excerpts = await viva_evidence.gather(db, principal.user_id, body.topic, figure, vector,
-                                          body.kind == "image_case")
+                                          body.kind == "image_case",
+                                          tenant_id=principal.tenant_id)
     if not viva_evidence.has_text(excerpts):
         raise VivaRefused(422, "no_source_material")
     figure_id = next((e.figure_id for e in excerpts if e.figure_id), None)

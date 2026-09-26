@@ -13,6 +13,10 @@ migration 0005 constrains to an array): the segments in order, then — since AD
 Since ADR 0025 a user message may name the image it asked about (``image_id``),
 and a thread keeps a rolling summary of its older messages (``memory_*``
 columns, migration 0017); the summary is context only, never a citation.
+
+Since ADR 0028 an answer routed to a non-default intent also stores one
+``{"kind": "intent", "intent": ..., "quiz_topic": ...}`` element before the
+judge element; ``stored_answer`` skips it and ``stored_intent`` reads it.
 """
 
 from __future__ import annotations
@@ -35,11 +39,14 @@ MEMORY_CHARS = 4000
 
 
 JUDGE_STATS = "judge_stats"
+INTENT = "intent"
 
 
 def stored_citations(answer: GroundedAnswer) -> list[dict[str, Any]]:
     """The jsonb array for an answer: segments, then its judge stats element."""
     stored: list[dict[str, Any]] = [s.model_dump(mode="json") for s in answer.segments]
+    if answer.intent not in (None, "explain"):
+        stored.append({"kind": INTENT, "intent": answer.intent, "quiz_topic": answer.quiz_topic})
     if answer.judge is not None:
         stored.append({"kind": JUDGE_STATS, "judge": answer.judge.model_dump(mode="json"),
                        "dropped_segments": answer.dropped_segments})
@@ -53,9 +60,20 @@ def stored_answer(citations: Any) -> tuple[list[Any], Any]:
     for item in citations or []:
         if isinstance(item, dict) and item.get("kind") == JUDGE_STATS:
             judge = item.get("judge")
+        elif isinstance(item, dict) and item.get("kind") == INTENT:
+            continue
         else:
             segments.append(item)
     return segments, judge
+
+
+def stored_intent(citations: Any) -> tuple[str | None, str | None]:
+    """(intent, quiz topic) from a stored ``citations`` array; (None, None) if absent."""
+    for item in citations or []:
+        if isinstance(item, dict) and item.get("kind") == INTENT:
+            topic = item.get("quiz_topic")
+            return str(item.get("intent") or "") or None, str(topic) if topic else None
+    return None, None
 
 
 def thread_title(question: str) -> str:

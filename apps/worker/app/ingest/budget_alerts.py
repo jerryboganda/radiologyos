@@ -1,4 +1,7 @@
-"""Amber/red embedding-budget alerts to the tenant's admins (ADR 0019).
+"""Amber/red Voyage budget alerts to the tenant's admins (ADR 0019, ADR 0028).
+
+``kind`` is ``embedding_budget`` or ``rerank_budget`` (each model has its own
+free allowance and cap).
 
 Each level is recorded once per tenant (``ops_alerts`` is unique on tenant,
 kind, level); the first time it is recorded, every org_admin/superadmin push
@@ -11,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from typing import Literal
 from uuid import UUID
 
 from apps.worker.app.ingest.db import tenant_tx
@@ -22,9 +26,16 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 log = logging.getLogger("radbrain.budget")
 
 
-def alert_payload(level: str, used: int, budget: EmbeddingBudget) -> dict[str, str]:
+AlertKind = Literal["embedding_budget", "rerank_budget"]
+
+
+def alert_payload(
+    level: str, used: int, budget: EmbeddingBudget, kind: AlertKind = "embedding_budget"
+) -> dict[str, str]:
     used_m = used / 1_000_000
     cap_m = budget.hard_cap_tokens / 1_000_000
+    if kind == "rerank_budget":
+        return _rerank_payload(level, used_m, cap_m)
     if level == "red":
         return {
             "title": "radbrain — embedding budget exhausted",
@@ -39,8 +50,25 @@ def alert_payload(level: str, used: int, budget: EmbeddingBudget) -> dict[str, s
     }
 
 
+def _rerank_payload(level: str, used_m: float, cap_m: float) -> dict[str, str]:
+    """ADR 0028: past the rerank cap, search keeps its fused (RRF) order."""
+    if level == "red":
+        return {
+            "title": "radbrain — rerank budget exhausted",
+            "body": f"Voyage reranking stopped at {used_m:.1f}M of the {cap_m:.0f}M-token cap. "
+                    "Search and the tutor keep working in fused order.",
+            "url": "/settings", "tag": "rerank-budget",
+        }
+    return {
+        "title": "radbrain — rerank usage warning",
+        "body": f"Voyage reranking has used {used_m:.1f}M of the {cap_m:.0f}M-token cap.",
+        "url": "/settings", "tag": "rerank-budget",
+    }
+
+
 async def record_alert(
-    engine: AsyncEngine, tenant_id: UUID, level: str, used: int, budget: EmbeddingBudget
+    engine: AsyncEngine, tenant_id: UUID, level: str, used: int, budget: EmbeddingBudget,
+    kind: AlertKind = "embedding_budget",
 ) -> bool:
     """Record an alert level once and notify admins; returns True when new."""
     detail = {"tokens_used": used, "hard_cap_tokens": budget.hard_cap_tokens,
@@ -50,10 +78,10 @@ async def record_alert(
             await session.execute(
                 text(
                     "INSERT INTO ops_alerts (tenant_id, kind, level, detail) "
-                    "VALUES (:t, 'embedding_budget', :l, CAST(:d AS jsonb)) "
+                    "VALUES (:t, :k, :l, CAST(:d AS jsonb)) "
                     "ON CONFLICT (tenant_id, kind, level) DO NOTHING RETURNING id"
                 ),
-                {"t": tenant_id, "l": level, "d": json.dumps(detail)},
+                {"t": tenant_id, "k": kind, "l": level, "d": json.dumps(detail)},
             )
         ).scalar_one_or_none()
         if created is None:
@@ -68,9 +96,9 @@ async def record_alert(
                 )
             )
         ).all()
-    log.warning("embedding_budget_alert tenant=%s level=%s used=%s cap=%s",
-                tenant_id, level, used, budget.hard_cap_tokens)
-    _notify(subs, alert_payload(level, used, budget))
+    log.warning("%s_alert tenant=%s level=%s used=%s cap=%s",
+                kind, tenant_id, level, used, budget.hard_cap_tokens)
+    _notify(subs, alert_payload(level, used, budget, kind))
     return True
 
 

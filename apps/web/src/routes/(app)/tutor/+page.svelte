@@ -120,7 +120,13 @@
         <ImageReading imageId={message.image_id} reading={message.image_reading ?? null} />
         <p class="self-end rounded-2xl rounded-br-md bg-surface-2 px-4 py-2.5 text-[0.9375rem] text-ink">{message.content}</p>
       {:else}
-        <AnswerView segments={message.segments} grounding={message.grounding} fallback={message.content} judge={message.judge ?? null} />
+        <AnswerView
+          segments={message.segments}
+          grounding={message.grounding}
+          fallback={message.content}
+          judge={message.judge ?? null}
+          quizTopic={message.intent === 'quiz' ? (message.quiz_topic ?? null) : null}
+        />
       {/if}
     {/each}
 

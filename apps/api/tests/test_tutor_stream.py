@@ -51,8 +51,9 @@ def test_stream_reports_progress_then_answer_and_done(env: dict[str, Any]) -> No
     assert answer["segments"][0]["support"] == "supported"
     assert dict(parsed)["done"]["message_id"] == answer["message_id"]
     assert UUID(answer["thread_id"]) in env["repo"].threads
-    assert env["session"].events == ["rollback", f"tenant:{env['session'].events[1][7:]}",
-                                     "commit"]
+    tenant = f"tenant:{env['session'].events[1][7:]}"
+    # rollback before the rerank call, graph read, rollback before the model calls
+    assert env["session"].events == ["rollback", tenant, "rollback", tenant, "commit"]
 
 
 def test_stream_reports_web_research_when_coverage_is_partial(env: dict[str, Any]) -> None:
