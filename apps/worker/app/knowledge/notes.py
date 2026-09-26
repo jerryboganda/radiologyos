@@ -18,6 +18,7 @@ from packages.knowledge.curriculum import mapping_status, prompt_listing
 from packages.knowledge.evidence import FilteredExtraction, filter_extraction, locate_blocks
 from packages.knowledge.models import KnowledgeExtraction, TopicClassification
 from packages.knowledge.text import normalize_name, word_count
+from packages.library.quality import extraction_problem
 
 log = logging.getLogger("radbrain.knowledge")
 EXTRACT = "knowledge_extract/v1"
@@ -38,6 +39,11 @@ def _classify_prompt(chunk: dict[str, Any], concepts: list[str]) -> str:
         f"Heading path: {chunk['heading'] or '(none)'}\n"
         f"Extracted concepts: {', '.join(concepts) or '(none)'}\n\nChunk text:\n{chunk['text']}"
     )
+
+
+def _evidence_problem(extraction: Any, chunk_text: str) -> str | None:
+    kept = filter_extraction(extraction, chunk_text)
+    return extraction_problem(kept.rejected_claims, len(kept.claims))
 
 
 UNITS_PER_RUN = 20
@@ -78,7 +84,8 @@ async def _chunk(
     async with tenant_tx(deps.engine, tenant_id) as session:
         if await db.run_done(session, source["id"], unit, EXTRACT, version):
             return {}
-    extraction = call_agent(deps, "knowledge_extract", _extract_prompt(source, chunk))
+    extraction = call_agent(deps, "knowledge_extract", _extract_prompt(source, chunk),
+                            accept=lambda e: _evidence_problem(e, chunk["text"]))
     if extraction is None:
         async with tenant_tx(deps.engine, tenant_id) as session:
             await db.record_run(session, tenant_id, source["id"], unit, EXTRACT, version,

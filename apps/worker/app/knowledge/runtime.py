@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from packages.library.storage import ObjectStore
 from packages.models.claude_code import ModelCallError, UsageLimitError
-from packages.models.gateway import Transport, run_agent
+from packages.models.gateway import Accept, Transport, run_agent
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -27,7 +27,8 @@ class Deferred(Exception):
 
 
 def call_agent(
-    deps: KnowledgeDeps, name: str, prompt: str, files: Sequence[tuple[str, bytes]] = ()
+    deps: KnowledgeDeps, name: str, prompt: str, files: Sequence[tuple[str, bytes]] = (),
+    accept: Accept | None = None,
 ) -> BaseModel | None:
     """Run a named agent; None on a model/schema error, Deferred on usage limits.
 
@@ -36,7 +37,7 @@ def call_agent(
     if deps.transport is None:
         return None
     try:
-        parsed, _ = run_agent(deps.transport, name, prompt, files=files)
+        parsed, _ = run_agent(deps.transport, name, prompt, files=files, accept=accept)
     except UsageLimitError as exc:
         raise Deferred from exc
     except ModelCallError:

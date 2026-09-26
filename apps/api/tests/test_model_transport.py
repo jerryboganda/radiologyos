@@ -81,8 +81,8 @@ def test_page_parse_agent_uses_low_effort_and_generated_schema() -> None:
     calls = build_calls(agent, "prompt")
     # ADR 0027: free Mistral first, Claude Opus 5.5 at low effort as fallback.
     assert [(c.backend, c.model) for c in calls] == [
-        ("mistral", "mistral-large-2512"), ("claude_code", "claude-opus-5-5")]
-    assert {c.effort for c in calls} == {"low"}
+        ("mistral", "mistral-medium-2604"), ("claude_code", "claude-opus-5-5")]
+    assert [c.effort for c in calls] == ["low", "medium"]  # hard pages reach Claude
     assert all(c.tools == ("Read",) for c in calls)
 
 

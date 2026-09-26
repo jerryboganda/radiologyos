@@ -23,6 +23,7 @@ from packages.library import storage
 from packages.library.chunking import BlockInput, build_chunks, looks_like_heading
 from packages.library.formats import SourceKind
 from packages.library.parse_models import ImageCase, PageParse
+from packages.library.quality import bbox_ok, page_parse_problem
 from packages.library.render import RenderError, crop_png, iter_pages
 from packages.library.text_first import text_only_pages
 from packages.models.budget import EmbeddingBudgetExhausted
@@ -251,7 +252,8 @@ async def _parse_page(
     )
     try:
         parsed, _ = run_agent(deps.transport, "page_parse", prompt,  # type: ignore[arg-type]
-                              files=[(f"page-{page_no:05d}.png", png)])
+                              files=[(f"page-{page_no:05d}.png", png)],
+                              accept=lambda p: page_parse_problem(p, page["native_text"]))
     except UsageLimitError as exc:
         raise Deferred from exc
     except ModelCallError:
@@ -260,10 +262,13 @@ async def _parse_page(
             await db_content.set_vision_status(session, source_id, page_no, "failed")
         return
     assert isinstance(parsed, PageParse)
+    # A box that is still invalid never reaches provenance or a crop: blocks
+    # fall back to a whole-page box, figures without a valid box are dropped.
     figures = [await _figure(deps, job, page_no, png, n, fig.model_dump())
-               for n, fig in enumerate(parsed.figures)]
+               for n, fig in enumerate(f for f in parsed.figures if bbox_ok(f.bbox))]
     blocks = [
-        {"block_no": n, "kind": b.kind, "text": b.text, "bbox": b.bbox, "origin": "vision"}
+        {"block_no": n, "kind": b.kind, "text": b.text, "origin": "vision",
+         "bbox": b.bbox if bbox_ok(b.bbox) else [0.0, 0.0, 1.0, 1.0]}
         for n, b in enumerate(parsed.blocks) if b.text.strip()
     ]
     async with db.tenant_tx(deps.engine, tenant_id) as session:

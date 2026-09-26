@@ -49,19 +49,21 @@ routes:
 agents:
   page_parse:
     targets:
-      - {backend: mistral, model: mistral-large-2512, api_key_env: MISTRAL_API_KEY, base_url: "https://api.mistral.ai/v1"}
-      - {backend: claude_code, model: claude-opus-5-5}
+      - {backend: mistral, model: mistral-medium-2604, api_key_env: MISTRAL_API_KEY, base_url: "https://api.mistral.ai/v1"}
+      # Pages that reach Claude are the hard ones (the free reading failed the
+      # quality gate), so the fallback reads them at medium effort.
+      - {backend: claude_code, model: claude-opus-5-5, effort: medium}
   paper_topics:
     targets:
-      - {backend: mistral, model: mistral-large-2512, api_key_env: MISTRAL_API_KEY, base_url: "https://api.mistral.ai/v1"}
+      - {backend: mistral, model: mistral-medium-2604, api_key_env: MISTRAL_API_KEY, base_url: "https://api.mistral.ai/v1"}
       - {backend: claude_code, model: claude-opus-5-5}
   knowledge_extract:
     targets:
-      - {backend: mistral, model: mistral-large-2512, api_key_env: MISTRAL_API_KEY, base_url: "https://api.mistral.ai/v1"}
+      - {backend: mistral, model: mistral-medium-2604, api_key_env: MISTRAL_API_KEY, base_url: "https://api.mistral.ai/v1"}
       - {backend: claude_code, model: claude-opus-5-5}
   topic_classify:
     targets:
-      - {backend: mistral, model: mistral-large-2512, api_key_env: MISTRAL_API_KEY, base_url: "https://api.mistral.ai/v1"}
+      - {backend: mistral, model: mistral-medium-2604, api_key_env: MISTRAL_API_KEY, base_url: "https://api.mistral.ai/v1"}
       - {backend: claude_code, model: claude-opus-5-5}
 # ADR 0019 (owner override 2026-09-26): everything uses the paid best model,
 # voyage-4-large, inside the 200M free tokens. Every call (documents, figures,

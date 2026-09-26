@@ -25,7 +25,7 @@ residency and training use are not a concern: quality and zero cost are.
    full-text pages.
 2. **Mistral first, Claude fallback.** A new top-level `agents:` map in
    `models.yaml` gives `page_parse`, `paper_topics`, `knowledge_extract`, and
-   `topic_classify` the order Mistral `mistral-large-2512`, then Claude Opus 5.5.
+   `topic_classify` the order Mistral `mistral-medium-2604` (Mistral Medium 3.5; Large is not offered on this account), then Claude Opus 5.5.
    The gateway tries each target the transport serves. A failure, a usage limit,
    or schema-invalid output moves on to the next target. The Mistral transport
    (`packages/models/mistral.py`) runs on the owner's free Experiment plan,
