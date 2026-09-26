@@ -1,18 +1,20 @@
 <script lang="ts">
-  import type { Answers } from '$lib/types/assessment';
+  import { isAnswered } from '$lib/exam-session';
+  import type { Answers, TextAnswers } from '$lib/types/assessment';
 
   let {
     ids,
     answers,
+    textAnswers = {},
     current,
     onselect
-  }: { ids: string[]; answers: Answers; current: number; onselect: (index: number) => void } = $props();
+  }: { ids: string[]; answers: Answers; textAnswers?: TextAnswers; current: number; onselect: (index: number) => void } = $props();
 </script>
 
 <nav aria-label="Question navigator">
   <ol class="grid grid-cols-8 gap-1.5 sm:grid-cols-10 lg:grid-cols-5">
     {#each ids as id, i (id)}
-      {@const answered = typeof answers[id] === 'number'}
+      {@const answered = isAnswered(id, answers, textAnswers)}
       <li>
         <button
           type="button"

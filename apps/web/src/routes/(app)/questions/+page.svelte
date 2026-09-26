@@ -3,6 +3,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import QuestionCard from '$lib/components/QuestionCard.svelte';
   import GenerateQuestions from '$lib/components/questions/GenerateQuestions.svelte';
+  import QuestionTabs from '$lib/components/questions/QuestionTabs.svelte';
   import { QUESTION_TYPES } from '$lib/types/assessment';
   import { EXAM_TARGETS } from '$lib/types/study';
   import type { ActionData, PageData } from './$types';
@@ -12,7 +13,8 @@
   let summary = $derived(
     generated
       ? `Created ${generated.created} question${generated.created === 1 ? '' : 's'} from ${generated.excerpts} excerpts` +
-          (generated.drafts ? `; ${generated.drafts} kept as drafts after checking` : '') +
+          (generated.drafts ? `; ${generated.drafts} kept as drafts for review` : '') +
+          (generated.duplicates ? `; ${generated.duplicates} skipped as near-duplicates of your bank` : '') +
           (generated.rejected ? `; ${generated.rejected} rejected by the checker` : '') +
           '.'
       : null
@@ -26,6 +28,8 @@
   title="Practice questions"
   description="SBA, SEQ, image cases, and viva prompts generated from and cited to your sources. SBAs are marked instantly; written answers are graded against a fixed marking scheme."
 />
+
+<QuestionTabs current="bank" />
 
 <div class="flex flex-col gap-6">
   <GenerateQuestions sources={data.sources} error={form && 'generateError' in form ? form.generateError : null} {summary} />

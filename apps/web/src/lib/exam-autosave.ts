@@ -1,7 +1,7 @@
 // Exam autosave with revision compare-and-set. Framework-free so node --test
 // can drive it with a fake transport; the exam screen mirrors its snapshot.
 import { pendingChanges, rebase, saveOutcome, type Changes } from './exam-session.ts';
-import type { Answers, AutosaveOut, ExamView } from './types/assessment.ts';
+import type { Answers, AutosaveOut, ExamView, TextAnswers } from './types/assessment.ts';
 
 export interface HttpReply {
   status: number;
@@ -9,7 +9,7 @@ export interface HttpReply {
 }
 
 export interface AutosaveTransport {
-  save(revision: number, answers: Changes): Promise<HttpReply>;
+  save(revision: number, answers: Changes, textAnswers: Changes<string>): Promise<HttpReply>;
   load(): Promise<HttpReply>;
 }
 
@@ -17,6 +17,7 @@ export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'retrying' | 'cl
 
 export interface AutosaveSnapshot {
   answers: Answers;
+  textAnswers: TextAnswers;
   revision: number;
   state: SaveState;
   message: string;
@@ -32,6 +33,8 @@ function detailOf(body: unknown): string | null {
 export class ExamAutosave {
   private saved: Answers;
   private local: Answers;
+  private savedText: TextAnswers;
+  private localText: TextAnswers;
   private revision: number;
   private state: SaveState = 'idle';
   private message = '';
@@ -41,7 +44,7 @@ export class ExamAutosave {
 
   // No parameter properties: node --experimental-strip-types only erases types.
   constructor(
-    initial: { answers: Answers; revision: number },
+    initial: { answers: Answers; revision: number; textAnswers?: TextAnswers },
     transport: AutosaveTransport,
     onChange: (snapshot: AutosaveSnapshot) => void = () => {}
   ) {
@@ -49,11 +52,19 @@ export class ExamAutosave {
     this.onChange = onChange;
     this.saved = { ...initial.answers };
     this.local = { ...initial.answers };
+    this.savedText = { ...(initial.textAnswers ?? {}) };
+    this.localText = { ...(initial.textAnswers ?? {}) };
     this.revision = initial.revision;
   }
 
   snapshot(): AutosaveSnapshot {
-    return { answers: { ...this.local }, revision: this.revision, state: this.state, message: this.message };
+    return {
+      answers: { ...this.local },
+      textAnswers: { ...this.localText },
+      revision: this.revision,
+      state: this.state,
+      message: this.message
+    };
   }
 
   /** Record a choice locally (null clears it); the caller schedules `flush`. */
@@ -64,8 +75,20 @@ export class ExamAutosave {
     this.update('dirty', '');
   }
 
+  /** Record a written answer locally (blank or null clears it); the caller schedules `flush`. */
+  setText(questionId: string, text: string | null): void {
+    if (this.state === 'closed') return;
+    if (text === null || text.trim() === '') delete this.localText[questionId];
+    else this.localText[questionId] = text;
+    this.update('dirty', '');
+  }
+
   hasPending(): boolean {
-    return Object.keys(pendingChanges(this.saved, this.local)).length > 0;
+    return this.count(pendingChanges(this.saved, this.local)) + this.count(pendingChanges(this.savedText, this.localText)) > 0;
+  }
+
+  private count(changes: Record<string, unknown>): number {
+    return Object.keys(changes).length;
   }
 
   /** Save everything pending. Calls are serialised; resolves true when fully saved. */
@@ -78,12 +101,13 @@ export class ExamAutosave {
     for (let round = 0; round < MAX_ROUNDS; round += 1) {
       if (this.state === 'closed') return false;
       const changes = pendingChanges(this.saved, this.local);
-      if (Object.keys(changes).length === 0) {
+      const textChanges = pendingChanges(this.savedText, this.localText);
+      if (this.count(changes) + this.count(textChanges) === 0) {
         this.update('saved', 'All answers saved.');
         return true;
       }
       this.update('saving', 'Saving…');
-      const reply = await this.transport.save(this.revision, changes);
+      const reply = await this.transport.save(this.revision, changes, textChanges);
       const outcome = saveOutcome(reply.status, detailOf(reply.body));
       if (outcome === 'saved') this.accept(reply.body as AutosaveOut);
       else if (outcome === 'stale') {
@@ -97,6 +121,7 @@ export class ExamAutosave {
 
   private accept(out: AutosaveOut): void {
     this.saved = { ...out.answers };
+    this.savedText = { ...(out.text_answers ?? this.savedText) };
     this.revision = out.revision;
   }
 
@@ -110,6 +135,9 @@ export class ExamAutosave {
     if (exam.status !== 'active') return this.fail('closed', 'This exam is closed; showing results.');
     this.local = rebase(exam.answers, this.saved, this.local);
     this.saved = { ...exam.answers };
+    const serverText = exam.text_answers ?? {};
+    this.localText = rebase(serverText, this.savedText, this.localText);
+    this.savedText = { ...serverText };
     this.revision = exam.revision;
     return true;
   }

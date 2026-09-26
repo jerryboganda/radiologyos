@@ -14,20 +14,31 @@ function reply(result: ApiResult<unknown>): Response {
   return Response.json({ detail: result.detail }, { status: result.status });
 }
 
+const MAX_TEXT = 8000;
+
+function entriesOf(value: unknown): [string, unknown][] | null {
+  if (value === undefined) return [];
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const entries = Object.entries(value as Record<string, unknown>);
+  return entries.length <= 300 && entries.every(([id]) => isUuid(id)) ? entries : null;
+}
+
+const isOption = (v: unknown) => v === null || (Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 4);
+const isText = (v: unknown) => v === null || (typeof v === 'string' && v.length <= MAX_TEXT);
+
 function toAutosave(value: unknown): AutosaveIn | null {
   if (!value || typeof value !== 'object') return null;
-  const { revision, answers } = value as { revision?: unknown; answers?: unknown };
-  if (!Number.isInteger(revision) || (revision as number) < 0) return null;
-  if (!answers || typeof answers !== 'object' || Array.isArray(answers)) return null;
-  const entries = Object.entries(answers as Record<string, unknown>);
-  if (entries.length > 300) return null;
-  const clean: AutosaveIn['answers'] = {};
-  for (const [id, option] of entries) {
-    if (!isUuid(id)) return null;
-    if (option !== null && !(Number.isInteger(option) && (option as number) >= 0 && (option as number) <= 4)) return null;
-    clean[id] = option as number | null;
-  }
-  return { revision: revision as number, answers: clean };
+  const body = value as { revision?: unknown; answers?: unknown; text_answers?: unknown };
+  if (!Number.isInteger(body.revision) || (body.revision as number) < 0) return null;
+  const options = entriesOf(body.answers ?? {});
+  const texts = entriesOf(body.text_answers);
+  if (!options || !texts) return null;
+  if (!options.every(([, v]) => isOption(v)) || !texts.every(([, v]) => isText(v))) return null;
+  return {
+    revision: body.revision as number,
+    answers: Object.fromEntries(options) as AutosaveIn['answers'],
+    text_answers: Object.fromEntries(texts) as NonNullable<AutosaveIn['text_answers']>
+  };
 }
 
 const badId = () => Response.json({ detail: 'Unknown exam.' }, { status: 400 });

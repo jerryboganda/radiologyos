@@ -86,3 +86,34 @@ test('concurrent flushes are serialised', async () => {
   assert.ok(server.calls.every((call, i) => call.revision === i), 'each save used the latest revision');
   assert.deepEqual(server.exam.answers, { [A]: 1, [B]: 2 });
 });
+
+test('written answers autosave with the same revision and clear when blanked', async () => {
+  const sent: { revision: number; answers: Record<string, number | null>; text: Record<string, string | null> }[] = [];
+  let text: Record<string, string> = {};
+  let revision = 0;
+  const transport: AutosaveTransport = {
+    async save(rev, answers, textAnswers): Promise<HttpReply> {
+      sent.push({ revision: rev, answers, text: textAnswers });
+      for (const [id, value] of Object.entries(textAnswers)) {
+        if (value === null) {
+          const { [id]: _removed, ...rest } = text;
+          text = rest;
+        } else text = { ...text, [id]: value };
+      }
+      revision += 1;
+      return { status: 200, body: { exam_id: 'e', revision, deadline_at: null, answers: {}, text_answers: { ...text } } };
+    },
+    async load(): Promise<HttpReply> {
+      return { status: 200, body: { status: 'active', revision, answers: {}, text_answers: { ...text } } };
+    }
+  };
+  const autosave = new ExamAutosave({ answers: {}, revision: 0 }, transport);
+  autosave.setText(A, 'Crazy paving');
+  assert.equal(await autosave.flush(), true);
+  assert.deepEqual(sent[0], { revision: 0, answers: {}, text: { [A]: 'Crazy paving' } });
+  autosave.setText(A, '   ');
+  assert.equal(await autosave.flush(), true);
+  assert.deepEqual(sent[1].text, { [A]: null });
+  assert.deepEqual(autosave.snapshot().textAnswers, {});
+  assert.equal(autosave.snapshot().revision, 2);
+});

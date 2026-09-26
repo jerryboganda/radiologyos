@@ -12,6 +12,7 @@ celery_app = Celery(
         "apps.worker.app.tasks",
         "apps.worker.app.reminders",
         "apps.worker.app.knowledge.tasks",
+        "apps.worker.app.assessment.tasks",
     ],
 )
 celery_app.conf.update(

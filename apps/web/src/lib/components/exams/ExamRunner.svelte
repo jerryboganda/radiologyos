@@ -4,7 +4,7 @@
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import Notice from '$lib/components/Notice.svelte';
   import { ExamAutosave, type AutosaveSnapshot, type HttpReply } from '$lib/exam-autosave';
-  import { answeredCount, clockOffset, formatClock, remainingMs, retryDelay } from '$lib/exam-session';
+  import { answeredCount, clockOffset, formatClock, isWritten, remainingMs, retryDelay } from '$lib/exam-session';
   import type { ExamView } from '$lib/types/assessment';
   import ExamNavigator from './ExamNavigator.svelte';
   import ExamQuestion from './ExamQuestion.svelte';
@@ -28,10 +28,20 @@
     }
   }
 
-  let snap = $state<AutosaveSnapshot>({ answers: { ...initial.answers }, revision: initial.revision, state: 'idle', message: '' });
+  const initialText = initial.text_answers ?? {};
+  let snap = $state<AutosaveSnapshot>({
+    answers: { ...initial.answers },
+    textAnswers: { ...initialText },
+    revision: initial.revision,
+    state: 'idle',
+    message: ''
+  });
   const autosave = new ExamAutosave(
-    { answers: initial.answers, revision: initial.revision },
-    { save: (revision, answers) => call('PUT', { revision, answers }), load: () => call('GET') },
+    { answers: initial.answers, revision: initial.revision, textAnswers: initialText },
+    {
+      save: (revision, answers, text_answers) => call('PUT', { revision, answers, text_answers }),
+      load: () => call('GET')
+    },
     (next) => (snap = next)
   );
 
@@ -44,8 +54,9 @@
   let retries = 0;
 
   let remaining = $derived(remainingMs(initial.deadline_at, offset, now));
-  let answered = $derived(answeredCount(ids, snap.answers));
+  let answered = $derived(answeredCount(ids, snap.answers, snap.textAnswers));
   let question = $derived(initial.questions[current]);
+  const hasWritten = initial.questions.some((q) => isWritten(q.type));
 
   function schedule(delay: number) {
     clearTimeout(timer);
@@ -63,6 +74,12 @@
     if (!question) return;
     autosave.set(question.id, option);
     schedule(DEBOUNCE_MS);
+  }
+
+  function write(text: string) {
+    if (!question) return;
+    autosave.setText(question.id, text);
+    schedule(DEBOUNCE_MS * 2);
   }
 
   async function submit() {
@@ -116,7 +133,15 @@
 <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_15rem]">
   <div class="flex min-w-0 flex-col gap-4">
     {#if question}
-      <ExamQuestion {question} number={current + 1} selected={snap.answers[question.id]} disabled={submitting} onchoose={choose} />
+      <ExamQuestion
+        {question}
+        number={current + 1}
+        selected={snap.answers[question.id]}
+        text={snap.textAnswers[question.id] ?? ''}
+        disabled={submitting}
+        onchoose={choose}
+        ontext={write}
+      />
     {/if}
     <div class="flex justify-between gap-2">
       <button type="button" class="btn btn-ghost" disabled={current === 0} onclick={() => (current -= 1)}>Previous</button>
@@ -125,12 +150,13 @@
   </div>
   <aside class="lg:sticky lg:top-24 lg:self-start">
     <h2 class="label mb-2">Questions</h2>
-    <ExamNavigator {ids} answers={snap.answers} {current} onselect={(i) => (current = i)} />
+    <ExamNavigator {ids} answers={snap.answers} textAnswers={snap.textAnswers} {current} onselect={(i) => (current = i)} />
   </aside>
 </div>
 
 <ConfirmDialog bind:open={confirming} title="Submit this exam?" confirmLabel="Submit" onconfirm={submit}>
   <p>
     You have answered {answered} of {ids.length} questions.{answered < ids.length ? ' Unanswered questions score zero.' : ''} You cannot change answers after submitting.
+    {#if hasWritten}Written answers are marked against their schemes after you submit; results fill in as each is graded.{/if}
   </p>
 </ConfirmDialog>

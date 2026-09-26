@@ -11,6 +11,7 @@ import json
 from typing import Any
 from uuid import UUID
 
+from packages.assessment.duplicates import normalize_stem
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,10 +31,12 @@ async def insert_question(
     row = await session.execute(
         text(
             "INSERT INTO questions (tenant_id, user_id, type, exam_tags, topic, stem, options, "
-            "answer, explanation, citations, figure_id, status, quality, agent_version) VALUES "
+            "answer, explanation, citations, figure_id, status, quality, agent_version, "
+            "stem_norm, embedding, embed_model) VALUES "
             "(:t, :u, :type, CAST(:tags AS text[]), :topic, :stem, CAST(:options AS jsonb), "
             "CAST(:answer AS jsonb), :explanation, CAST(:citations AS jsonb), :figure, :status, "
-            "CAST(:quality AS jsonb), :agent) RETURNING id"
+            "CAST(:quality AS jsonb), :agent, :norm, CAST(:embedding AS vector), :embed_model) "
+            "RETURNING id"
         ),
         {
             "t": tenant_id, "u": user_id, "type": values["type"], "tags": values["exam_tags"],
@@ -42,6 +45,8 @@ async def insert_question(
             "explanation": values["explanation"], "citations": dumps(values["citations"]),
             "figure": values["figure_id"], "status": values["status"],
             "quality": dumps(values["quality"]), "agent": values["agent_version"],
+            "norm": normalize_stem(values["stem"]), "embedding": values.get("embedding"),
+            "embed_model": values.get("embed_model"),
         },
     )
     question_id: UUID = row.scalar_one()
@@ -101,16 +106,19 @@ async def list_questions(
 
 
 async def pick_exam_questions(
-    session: AsyncSession, user_id: UUID, exam_target: str | None, topic: str | None, count: int
-) -> list[UUID]:
-    """Random active SBA items matching the filters (exam mode grades SBA only)."""
-    where, params = _where(user_id, {"type": "sba", "status": "active",
-                                     "exam_target": exam_target, "topic": topic})
+    session: AsyncSession, user_id: UUID, filters: dict[str, Any], count: int
+) -> list[tuple[UUID, str]]:
+    """Random active items of the requested types matching the filters: (id, type)."""
+    where, params = _where(user_id, {"status": "active", "exam_target": filters.get("exam_target"),
+                                     "topic": filters.get("topic")})
     rows = await session.execute(
-        text(f"SELECT id FROM questions WHERE {where} ORDER BY random() LIMIT :n"),  # nosec B608 - constant column list; all values are bound parameters
-        {**params, "n": count},
+        text(
+            f"SELECT id, type FROM questions WHERE {where} AND type = ANY(:types) "  # nosec B608 - constant column list; all values are bound parameters
+            "ORDER BY random() LIMIT :n"
+        ),
+        {**params, "types": list(filters.get("types") or ["sba"]), "n": count},
     )
-    return [row[0] for row in rows]
+    return [(row[0], row[1]) for row in rows]
 
 
 async def in_open_exam(session: AsyncSession, user_id: UUID, question_id: UUID) -> bool:

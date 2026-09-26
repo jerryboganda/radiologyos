@@ -1,4 +1,8 @@
-"""Assessment API: question generation, bank, attempts, and timed exams.
+"""Assessment API: question generation (duplicate-checked), bank, and attempts.
+
+Exam routes live in ``apps.api.app.api.exams`` and the review queue and item
+statistics in ``apps.api.app.api.question_review``; both share this module's
+principal, session, and transport dependencies so test overrides apply to all.
 
 Model calls (generation, checking, free-text grading) run in a worker thread
 with the database transaction committed first, so no connection sits idle in a
@@ -13,22 +17,16 @@ from typing import Annotated, Any, Protocol
 from uuid import UUID
 
 from apps.api.app.api.library import query_vector
-from apps.api.app.assessment import exams, generation, retrieval, store
+from apps.api.app.assessment import dedupe, exams, generation, retrieval, store
 from apps.api.app.assessment.contracts import (
     AttemptRequest,
     AttemptResponse,
-    AutosaveRequest,
-    AutosaveResponse,
-    ExamCreate,
-    ExamSummary,
-    ExamView,
     GenerateRequest,
     GenerateResponse,
     QuestionPublic,
     RejectedItem,
     public_question,
 )
-from apps.api.app.core.time import now_utc
 from apps.api.app.db.session import set_database_tenant
 from apps.api.app.security.context import (
     build_shared_dependencies,
@@ -42,7 +40,6 @@ from packages.assessment.grading import (
     ExamError,
     InvalidAnswer,
     apply_seq_grade,
-    exam_status,
     grade_sba,
 )
 from packages.models.claude_code import (
@@ -113,15 +110,24 @@ async def generate_questions(
             body.count, body.topic)
     except ModelCallError as exc:
         raise _model_error(exc) from exc
+    stems = [values["stem"] for values in outcome.items]
+    vectors, embed_model = await run_in_threadpool(dedupe.embed_stems, stems)
     await set_database_tenant(session, principal.tenant_id)
-    ids = [await store.insert_question(session, principal.tenant_id, principal.user_id, values)
-           for values in outcome.items]
-    rows = await store.get_questions(session, principal.user_id, ids)
+    stored = await dedupe.insert_unique(
+        session, principal.tenant_id, principal.user_id,
+        list(zip(outcome.indexes, outcome.items, strict=True)), vectors, embed_model)
+    rows = await store.get_questions(session, principal.user_id, stored.created)
     await session.commit()
+    duplicates = [
+        RejectedItem(index=index, reasons=["duplicate_of_existing"], duplicate_of=hit.question_id,
+                     similarity=hit.similarity)
+        for index, hit in stored.duplicates
+    ]
     return GenerateResponse(
-        created=[public_question(rows[str(qid)]) for qid in ids],
-        rejected=[RejectedItem(**r) for r in outcome.rejected],
+        created=[public_question(rows[str(qid)]) for qid in stored.created],
+        rejected=[RejectedItem(**r) for r in outcome.rejected] + duplicates,
         excerpt_count=len(excerpts),
+        duplicate_method="embedding" if stored.method == "embedding" else "trigram",
     )
 
 
@@ -218,87 +224,3 @@ async def attempt_question(
     if question["type"] == "rapid_recall":
         raise HTTPException(status_code=422, detail="rapid recall is graded by review")
     return await _attempt_free_text(session, principal, question, body.answer_text, transport)
-
-
-async def _exam_view(session: AsyncSession, principal: Principal,
-                     row: dict[str, Any]) -> ExamView:
-    ids = list(row["question_ids"])
-    found = await store.get_questions(session, principal.user_id, ids)
-    now = now_utc()
-    return ExamView(
-        id=row["id"], mode=row["mode"], status=exam_status(exams.state_of(row), now),
-        config=row["config"], started_at=row["started_at"], deadline_at=row["deadline_at"],
-        submitted_at=row["submitted_at"], server_time=now, revision=row["revision"],
-        answers=dict(row["answers"] or {}),
-        questions=[public_question(found[str(q)]) for q in ids if str(q) in found],
-        result=row["result"],
-    )
-
-
-@router.post("/exams", response_model=ExamView, status_code=status.HTTP_201_CREATED)
-async def create_exam(body: ExamCreate, principal: PrincipalDep, session: SessionDep) -> ExamView:
-    try:
-        exam_id = await exams.create_exam(
-            session, principal.tenant_id, principal.user_id, body.model_dump())
-    except exams.NotEnoughQuestions as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    row = await exams.load_exam(session, principal.user_id, exam_id)
-    if row is None:
-        raise HTTPException(status_code=500, detail="exam was not stored")
-    view = await _exam_view(session, principal, row)
-    await session.commit()
-    return view
-
-
-@router.put("/exams/{exam_id}/answers", response_model=AutosaveResponse)
-async def autosave_exam(
-    exam_id: UUID, body: AutosaveRequest, principal: PrincipalDep, session: SessionDep
-) -> AutosaveResponse:
-    try:
-        saved = await exams.save_answers(
-            session, principal.user_id, exam_id, body.revision, body.answers)
-    except ExamError as exc:
-        raise _exam_error(exc) from exc
-    if saved is None:
-        raise HTTPException(status_code=404, detail="exam not found")
-    await session.commit()
-    return AutosaveResponse(exam_id=exam_id, revision=saved["revision"],
-                            deadline_at=saved["deadline_at"], answers=saved["answers"])
-
-
-@router.post("/exams/{exam_id}/submit", response_model=ExamView)
-async def submit_exam(exam_id: UUID, principal: PrincipalDep, session: SessionDep) -> ExamView:
-    row = await exams.submit(session, principal.tenant_id, principal.user_id, exam_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="exam not found")
-    view = await _exam_view(session, principal, row)
-    await session.commit()
-    return view
-
-
-@router.get("/exams", response_model=list[ExamSummary])
-async def list_exams(
-    principal: PrincipalDep, session: SessionDep, limit: int = 50
-) -> list[ExamSummary]:
-    now = now_utc()
-    rows = await exams.list_exams(session, principal.user_id, max(1, min(limit, 200)))
-    return [
-        ExamSummary(
-            id=row["id"], mode=row["mode"], status=exam_status(exams.state_of(row), now),
-            started_at=row["started_at"], deadline_at=row["deadline_at"],
-            submitted_at=row["submitted_at"], question_count=len(row["question_ids"] or []),
-            answered=len(row["answers"] or {}),
-            score_percent=(row["result"] or {}).get("percent"),
-        )
-        for row in rows
-    ]
-
-
-@router.get("/exams/{exam_id}", response_model=ExamView)
-async def get_exam(exam_id: UUID, principal: PrincipalDep, session: SessionDep) -> ExamView:
-    row = await exams.read_exam(session, principal.tenant_id, principal.user_id, exam_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="exam not found")
-    view = await _exam_view(session, principal, row)
-    await session.commit()
-    return view

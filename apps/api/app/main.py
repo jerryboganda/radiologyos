@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from apps.api.app.api.assessment import router as assessment_router
 from apps.api.app.api.billing import router as billing_router
+from apps.api.app.api.exams import router as exams_router
 from apps.api.app.api.knowledge import router as knowledge_router
 from apps.api.app.api.library import router as library_router
 from apps.api.app.api.notifications import router as notifications_router
@@ -14,6 +15,7 @@ from apps.api.app.api.preview_assessment import router as preview_assessment_rou
 from apps.api.app.api.preview_knowledge import router as preview_knowledge_router
 from apps.api.app.api.preview_learning import router as preview_learning_router
 from apps.api.app.api.preview_operations import router as preview_operations_router
+from apps.api.app.api.question_review import router as question_review_router
 from apps.api.app.api.study import router as study_router
 from apps.api.app.api.tutor import router as tutor_router
 from apps.api.app.core.config import get_settings
@@ -50,7 +52,9 @@ oidc_verifier = OIDCVerifier(settings)
 app.include_router(library_router)
 app.include_router(notifications_router)
 app.include_router(tutor_router)
+app.include_router(question_review_router)
 app.include_router(assessment_router)
+app.include_router(exams_router)
 app.include_router(study_router)
 app.include_router(knowledge_router)
 app.include_router(preview_router)
