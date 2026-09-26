@@ -81,8 +81,10 @@ async def _seed(admin: Any) -> dict[str, UUID]:
                 f"agent_version) VALUES ($1,$2,$3,'seq','Discuss.','{{}}','{CITE}','test/v1')",
                 ids[q], ids[t], ids[u])
             await admin.execute(
-                "INSERT INTO exams (id, tenant_id, user_id, mode, question_ids) "
-                "VALUES ($1,$2,$3,'practice',ARRAY[$4]::uuid[])", ids[e], ids[t], ids[u], ids[q])
+                "INSERT INTO exams (id, tenant_id, user_id, mode, question_ids, config) "
+                "VALUES ($1,$2,$3,'practice',ARRAY[$4]::uuid[],"
+                " jsonb_build_object('free_text_ids', jsonb_build_array($5::text)))",
+                ids[e], ids[t], ids[u], ids[q], str(ids[q]))
     return ids
 
 

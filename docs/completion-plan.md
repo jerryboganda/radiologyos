@@ -1,7 +1,46 @@
 # Completion plan — radbrain to 100%
 
-Status: **proposed, awaiting owner review** · Written: 2026-09-26 · Baseline SHA: `0a18f2c`
+Status: **approved by the owner and in execution** · Written: 2026-09-26 · Baseline SHA: `0a18f2c`
 Supersedes the status tables in [`remaining-work.md`](remaining-work.md), which are stale.
+
+## Progress (2026-09-26, `main` at `8f82b4e`)
+
+- **Phase 0:**
+  - **Done:**
+    - preview off in production;
+    - branch protection on `main`;
+    - Dependabot alerts and security fixes on;
+    - CodeQL on;
+    - Claude token installed.
+  - **Open:**
+    - the load check (the dispatch was blocked by a permission rule);
+    - the library reprocess (owner's timing).
+- **Code merged on `main`** (not yet deployed):
+
+  | Package | Gaps | ADR | Migration |
+  | --- | --- | --- | --- |
+  | A | G28–G31, G34 | 0022 | none |
+  | B | G2, G3 | 0023 | 0015 |
+  | C | G4, G5, G10, G12 | 0024 | 0016 |
+  | D | G7, G8, G15 (ask about page), G17 | 0025 | 0017 |
+  | E | G6 | 0026 | 0018 |
+  | F | G13 | 0028 | 0101 |
+  | G | G9, G11, G16 | 0029 | 0102 |
+  | H | G14, G15 | 0030 | 0103 |
+  | I | G18, G19, G26, G27 | 0031 | none |
+  | J | G20–G25, G35 | 0032 | 0104 |
+
+  - Migration chain: 0014 → 0018 → 0016 → 0015 → 0017 → 0101 → 0102 → 0104 → 0103.
+  - Tests: 1,153 pass locally. CI's real-database RLS proofs cover every new table.
+- **Still needs the owner:**
+  - Deploy. Dispatching the deploy workflow is blocked by a permission rule.
+  - Approve the curriculum at `/knowledge/curriculum` and the blueprints at `/exams/blueprints`.
+  - Decide whether to turn on tutor draft streaming (`TUTOR_STREAM_DRAFTS`, off: uncited text).
+  - MFA enrolment. Run `keycloak-mfa.sh` only after `verify-oidc.py` can pass MFA.
+  - Timing of the one-time library reprocess.
+- **After deploy:**
+  - the M0 evidence record (`scripts/evidence_record.py`) and the restore drill on the new head;
+  - Phase 8: per-milestone demos and evidence, and golden-set evals with real model runs.
 
 ## What "100% complete" means here
 
