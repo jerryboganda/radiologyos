@@ -12,6 +12,7 @@ celery_app = Celery(
         "apps.worker.app.tasks",
         "apps.worker.app.reminders",
         "apps.worker.app.knowledge.tasks",
+        "apps.worker.app.datarights.tasks",
     ],
 )
 celery_app.conf.update(
@@ -26,5 +27,6 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     beat_schedule={
         "study-reminders": {"task": "radbrain.send_due_reminders", "schedule": 300.0},
+        "expire-data-exports": {"task": "radbrain.expire_data_exports", "schedule": 3600.0},
     },
 )

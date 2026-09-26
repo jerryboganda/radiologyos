@@ -1,22 +1,33 @@
 {
   "id": "/",
-  "name": "radbrain",
+  "name": "radbrain — radiology study",
   "short_name": "radbrain",
   "description": "A private, provenance-first radiology study workspace.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#0b0e11",
-  "theme_color": "#0b0e11",
+  "lang": "en",
+  "dir": "ltr",
+  "background_color": "#f5f3ee",
+  "theme_color": "#f5f3ee",
+  "user_preferences": {
+    "color_scheme_dark": {
+      "background_color": "#0b0e11",
+      "theme_color": "#0b0e11"
+    }
+  },
   "categories": ["education", "medical"],
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ],
   "shortcuts": [
-    { "name": "Today", "url": "/" },
-    { "name": "Library", "url": "/library" },
-    { "name": "Search", "url": "/search" }
+    { "name": "Today", "url": "/", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Library", "url": "/library", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Search", "url": "/search", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

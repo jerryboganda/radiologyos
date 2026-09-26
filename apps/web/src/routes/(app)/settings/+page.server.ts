@@ -1,21 +1,31 @@
 import { env } from '$env/dynamic/private';
 import { fail } from '@sveltejs/kit';
 import { dataOr, loadProblem } from '$lib/api-state';
+import { parseDeleteForm } from '$lib/data-rights';
 import { parseReminderForm } from '$lib/push';
 import { failureMessage } from '$lib/server/client';
+import { deleteAccount, listExports, requestExport } from '$lib/server/data-rights';
 import { getSettings, getVapidKey, saveSettings } from '$lib/server/notifications';
 import { getProfile, saveProfile } from '$lib/server/study';
 import { parseProfileForm } from '$lib/study';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
-  const [profile, settings, vapid] = await Promise.all([getProfile(event), getSettings(event), getVapidKey(event)]);
+  event.depends('app:exports');
+  const [profile, settings, vapid, exports] = await Promise.all([
+    getProfile(event),
+    getSettings(event),
+    getVapidKey(event),
+    listExports(event)
+  ]);
   return {
     profile: dataOr(profile, null),
     settings: dataOr(settings, null),
     settingsProblem: loadProblem(settings),
     vapidKey: vapid.state === 'ok' ? vapid.data.public_key : null,
     pushEnabled: vapid.state === 'ok' && vapid.data.enabled,
+    exports: dataOr(exports, []),
+    exportsProblem: loadProblem(exports),
     previewEnabled: env.PREVIEW_ENABLED === 'true'
   };
 };
@@ -36,5 +46,17 @@ export const actions: Actions = {
     const result = await saveSettings(event, parsed.settings);
     if (result.state !== 'ok') return fail(400, { section: 'reminders', error: failureMessage(result) });
     return { section: 'reminders', saved: true };
+  },
+  export: async (event) => {
+    const result = await requestExport(event);
+    if (result.state !== 'ok') return fail(400, { section: 'export', error: failureMessage(result) });
+    return { section: 'export', message: 'Export queued. It appears below when it is ready to download.' };
+  },
+  deleteAccount: async (event) => {
+    const parsed = parseDeleteForm(await event.request.formData());
+    if (!parsed.ok) return fail(400, { section: 'delete', error: parsed.error });
+    const result = await deleteAccount(event, parsed.value.confirmation);
+    if (result.state !== 'ok') return fail(400, { section: 'delete', error: failureMessage(result) });
+    return { section: 'delete', deletionQueued: true };
   }
 };

@@ -3,6 +3,9 @@
   import Notice from '$lib/components/Notice.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import PushSetup from '$lib/components/settings/PushSetup.svelte';
+  import DataExport from '$lib/components/settings/DataExport.svelte';
+  import DeleteAccount from '$lib/components/settings/DeleteAccount.svelte';
+  import InstallApp from '$lib/components/settings/InstallApp.svelte';
   import ReminderForm from '$lib/components/settings/ReminderForm.svelte';
   import ThemeToggle from '$lib/components/shell/ThemeToggle.svelte';
   import LoadIssue from '$lib/components/LoadIssue.svelte';
@@ -19,12 +22,14 @@
 
 <svelte:head><title>Settings · radbrain</title></svelte:head>
 
-<PageHeader eyebrow="Settings" title="Settings" description="Appearance, your exam, and reminders. Everything here is private to your account." />
+<PageHeader eyebrow="Settings" title="Settings" description="Appearance, your exam, reminders, and your data. Everything here is private to your account." />
 
 {#snippet feedback(section: string)}
   {#if form?.section === section}
     <div class="mt-4">
-      {#if 'error' in form && form.error}<Notice tone="warn">{form.error}</Notice>{:else}<Notice tone="ok">Saved.</Notice>{/if}
+      {#if 'error' in form && form.error}<Notice tone="warn">{form.error}</Notice>{:else if 'message' in form && form.message}<Notice tone="ok"
+          >{form.message}</Notice
+        >{:else}<Notice tone="ok">Saved.</Notice>{/if}
     </div>
   {/if}
 {/snippet}
@@ -82,6 +87,17 @@
     <PushSetup vapidKey={data.vapidKey} pushEnabled={data.pushEnabled} />
   </section>
 
+  <section class="panel p-5 sm:p-6" aria-labelledby="install-heading">
+    <h2 id="install-heading" class="text-xl font-semibold text-ink">Install the app</h2>
+    <InstallApp />
+  </section>
+
+  <section class="panel p-5 sm:p-6" aria-labelledby="export-heading">
+    <h2 id="export-heading" class="text-xl font-semibold text-ink">Export my data</h2>
+    <DataExport exports={data.exports} problem={data.exportsProblem} />
+    {@render feedback('export')}
+  </section>
+
   <section class="panel p-5 sm:p-6" aria-labelledby="account-heading">
     <h2 id="account-heading" class="text-xl font-semibold text-ink">Account</h2>
     {#if data.user}
@@ -93,5 +109,13 @@
         <a class="btn btn-ghost" href="/preview" data-sveltekit-reload>Open non-release preview</a>
       {/if}
     </div>
+  </section>
+
+  <section class="panel border-danger/40 p-5 sm:p-6" aria-labelledby="danger-heading">
+    <h2 id="danger-heading" class="text-xl font-semibold text-danger">Delete my account</h2>
+    <DeleteAccount
+      error={form?.section === 'delete' && 'error' in form ? (form.error ?? null) : null}
+      queued={form?.section === 'delete' && 'deletionQueued' in form && form.deletionQueued === true}
+    />
   </section>
 </div>

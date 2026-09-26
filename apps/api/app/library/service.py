@@ -166,19 +166,63 @@ async def get_source(
     return {**dict(row), "steps": [dict(s) for s in steps.mappings()]}
 
 
+class SourceOnHold(PermissionError):
+    """The source is under legal hold and must not be deleted."""
+
+
+async def purge_source_rows(session: AsyncSession, source_id: UUID) -> None:
+    """Delete one source and everything derived from it (no commit).
+
+    Pages, blocks, figures, chunks (with embeddings), claims, mappings, cards,
+    and knowledge runs cascade from ``sources``; jobs are keyed by entity, and
+    concepts left with no claim and no edge are removed with the source. Shared
+    by the per-source delete and the account-deletion job (ADR 0018).
+    """
+    concepts = (
+        await session.execute(
+            text(
+                "SELECT concept_id FROM claims WHERE source_id = :id UNION "
+                "SELECT from_concept FROM concept_edges WHERE source_id = :id UNION "
+                "SELECT to_concept FROM concept_edges WHERE source_id = :id"
+            ),
+            {"id": source_id},
+        )
+    ).scalars().all()
+    await session.execute(text("DELETE FROM jobs WHERE entity_id = :id"), {"id": source_id})
+    await session.execute(text("DELETE FROM sources WHERE id = :id"), {"id": source_id})
+    if concepts:
+        await session.execute(
+            text(
+                "DELETE FROM concepts k WHERE k.id = ANY(:ids) "
+                "AND NOT EXISTS (SELECT 1 FROM claims c WHERE c.concept_id = k.id) "
+                "AND NOT EXISTS (SELECT 1 FROM concept_edges e "
+                "WHERE k.id IN (e.from_concept, e.to_concept))"
+            ),
+            {"ids": list(concepts)},
+        )
+
+
 async def delete_source(
     session: AsyncSession, store: storage.ObjectStore, principal: Principal, source_id: UUID
 ) -> bool:
     source = await get_source(session, principal, source_id)
     if source is None:
         return False
-    await session.execute(text("DELETE FROM jobs WHERE entity_id = :id"), {"id": source_id})
-    await session.execute(text("DELETE FROM sources WHERE id = :id"), {"id": source_id})
+    held = (
+        await session.execute(
+            text("SELECT legal_hold FROM sources WHERE id = :id"), {"id": source_id}
+        )
+    ).scalar_one()
+    if held:
+        raise SourceOnHold("source is under legal hold")
+    # Objects first: a crash after this leaves rows that a retry deletes again,
+    # never unreachable orphan objects.
+    store.delete_prefix(storage.source_prefix(principal.tenant_id, source_id) + "/")
+    await purge_source_rows(session, source_id)
     await audit(session, principal, "source.deleted", "source", str(source_id))
     await session.commit()
-    store.delete_prefix(storage.source_prefix(principal.tenant_id, source_id) + "/")
     return True
 
 
-__all__ = ["UnsupportedUpload", "UploadTooLarge", "create_source", "delete_source",
-           "get_source", "list_sources"]
+__all__ = ["SourceOnHold", "UnsupportedUpload", "UploadTooLarge", "create_source",
+           "delete_source", "get_source", "list_sources", "purge_source_rows"]

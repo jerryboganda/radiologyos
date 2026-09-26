@@ -72,9 +72,10 @@ The preview billing route returns `preview_only` mock status and creates no
 Stripe customer, checkout, portal, or charge. Real billing is blocked on a
 provider decision.
 
-Release routes for `POST /v1/me/export` and `DELETE /v1/me` return `501` until
-durable jobs, audit, and purge evidence exist. Never present a preview Markdown
-export as account export or a soft-deleted preview source as account deletion.
+`POST /v1/me/export` and `DELETE /v1/me` are durable, audited jobs (ADR 0018;
+procedure in [data handling](data-handling.md) section 6). Never present a preview
+Markdown export as account export or a soft-deleted preview source as account
+deletion; only `data_jobs` results and the live proof count as evidence.
 
 Preview source delete *is* a full purge of derived artifacts: pages, blocks,
 figures, chunks, jobs, and extracted claims are removed, the idempotency key is

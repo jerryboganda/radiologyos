@@ -258,19 +258,17 @@ def test_billing_is_tenant_scoped() -> None:
 # --------------------------------------------------------------- slice V
 
 
-def test_release_data_rights_refuse_explicitly() -> None:
-    """Release boundaries return 501 rather than a fake job or a fake payload."""
-    export = client.post("/v1/me/export", headers=BASE)
-    assert export.status_code == 501
-    assert "not available in preview mode" in export.json()["detail"]
-
-    delete = client.delete("/v1/me", headers=BASE)
-    assert delete.status_code == 501
-    assert "not available in preview mode" in delete.json()["detail"]
+def test_release_data_rights_are_durable_jobs_not_placeholders() -> None:
+    """Export/delete are real queued jobs (ADR 0018), no longer 501 boundaries."""
+    paths = app.openapi()["paths"]
+    for path, method in (("/v1/me/export", "post"), ("/v1/me", "delete"),
+                         ("/v1/me/exports", "get"), ("/v1/me/exports/{job_id}/download", "get")):
+        assert method in paths[path], (path, method)
+        assert "501" not in paths[path][method]["responses"]
 
 
 def test_release_data_rights_require_authentication() -> None:
-    """Unauthenticated callers must be rejected before the 501 boundary."""
+    """Unauthenticated callers must be rejected before any job is queued."""
     for method, path in (("post", "/v1/me/export"), ("delete", "/v1/me")):
         assert getattr(client, method)(path).status_code in {401, 403}
 

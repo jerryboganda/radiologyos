@@ -18,6 +18,10 @@
   description="Concepts and cited claims extracted from your library, places where sources disagree, and the topic weights that shape your plan."
 />
 
+<p class="-mt-2 mb-6 text-sm">
+  <a class="text-ink-2 underline underline-offset-2 hover:text-ink" href="/knowledge/review">Review low-confidence curriculum mappings →</a>
+</p>
+
 {#snippet feedback(section: string)}
   {#if form?.section === section}
     <div class="mb-3">

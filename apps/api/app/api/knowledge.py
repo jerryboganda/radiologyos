@@ -1,4 +1,4 @@
-"""Knowledge API: concepts, cited claims, conflicts, topic weights, extraction."""
+"""Knowledge API: concepts, cited claims, conflicts, topic weights, mappings, extraction."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from apps.api.app.knowledge import service, weights
+from apps.api.app.knowledge import mappings, service, weights
 from apps.api.app.security.context import (
     build_shared_dependencies,
     build_tenant_db_session_dependency,
@@ -136,6 +136,32 @@ class ExtractResponse(BaseModel):
     mode: str
 
 
+class MappingOut(BaseModel):
+    id: UUID
+    source_id: UUID
+    source_title: str
+    page_from: int
+    page_to: int
+    curriculum_code: str
+    topic: str
+    confidence: float
+    status: Literal["accepted", "review", "rejected"]
+    agent_version: str
+    created_at: datetime
+    excerpt: str
+
+
+class MappingDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["accept", "reject", "code"]
+    curriculum_code: str | None = Field(default=None, min_length=1, max_length=60)
+
+
+class CurriculumSystem(BaseModel):
+    code: str
+    title: str
+
+
 def enqueue_knowledge(tenant_id: UUID, source_id: UUID, body: ExtractRequest) -> None:
     from apps.worker.app.celery_app import celery_app
 
@@ -236,3 +262,38 @@ async def extract_source(
         raise HTTPException(status_code=404, detail="source not found")
     enqueue_knowledge(principal.tenant_id, source_id, request)
     return ExtractResponse(source_id=source_id, job_id=job_id, mode=request.mode)
+
+
+@router.get("/curriculum/systems", response_model=list[CurriculumSystem])
+async def list_curriculum_systems(principal: PrincipalDep) -> list[CurriculumSystem]:
+    return [CurriculumSystem(**row) for row in mappings.curriculum_systems()]
+
+
+@router.get("/mappings", response_model=list[MappingOut])
+async def list_mappings(
+    principal: PrincipalDep, session: SessionDep,
+    status_filter: Annotated[
+        Literal["review", "accepted", "rejected"], Query(alias="status")
+    ] = "review",
+    limit: Annotated[int, Query(ge=1, le=500)] = 200,
+) -> list[MappingOut]:
+    rows = await mappings.list_mappings(session, principal.user_id, status_filter, limit)
+    return [MappingOut(**row) for row in rows]
+
+
+@router.post("/mappings/{mapping_id}/decide", response_model=MappingOut)
+async def decide_mapping(
+    mapping_id: UUID, body: MappingDecision, principal: PrincipalDep, session: SessionDep
+) -> MappingOut:
+    """Accept, reject, or re-code one curriculum mapping (audited)."""
+    if body.decision == "code" and not body.curriculum_code:
+        raise HTTPException(status_code=422, detail="curriculum_code is required to re-code")
+    try:
+        row = await mappings.decide(
+            session, principal, mapping_id, body.decision, body.curriculum_code
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if row is None:
+        raise HTTPException(status_code=404, detail="mapping not found")
+    return MappingOut(**row)

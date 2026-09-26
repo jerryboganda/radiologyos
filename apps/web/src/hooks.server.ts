@@ -5,7 +5,7 @@ import { parseThemePref, THEME_COOKIE, themeClass } from '$lib/theme';
 // Page routes are guarded in (app)/+layout.server.ts (redirects serialise
 // correctly for client navigations there). Media and upload endpoints refuse
 // here; apiFetch also refuses without a session.
-const ENDPOINTS = ['/media/', '/library/upload'];
+const ENDPOINTS = ['/media/', '/library/upload', '/settings/exports/'];
 
 export const handle: Handle = async ({ event, resolve }) => {
   event.locals.user = await readSession(event.cookies);
