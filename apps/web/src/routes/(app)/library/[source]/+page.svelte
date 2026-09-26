@@ -12,17 +12,22 @@
   import { isProcessing } from '$lib/pipeline';
   import { pollWhile } from '$lib/poll.svelte';
   import { mediaUrl, parseBlock } from '$lib/viewer';
-  import type { PageData } from './$types';
+  import { enhance } from '$app/forms';
+  import Notice from '$lib/components/Notice.svelte';
+  import TableList from '$lib/components/reader/TableList.svelte';
+  import type { ActionData, PageData } from './$types';
 
-  let { data }: { data: PageData } = $props();
+  let { data, form }: { data: PageData; form: ActionData } = $props();
 
   let selected = $state<number | null>(null);
   let showBlocks = $state(false);
-  let tab = $state<'text' | 'figures'>('text');
+  let tab = $state<'text' | 'figures' | 'tables'>('text');
   let copied = $state(false);
+  let requeueing = $state(false);
 
   let source = $derived(data.source);
   let reader = $derived(data.page);
+  let tables = $derived(reader?.tables ?? []);
   let pageCount = $derived(reader?.page_count ?? source.page_count ?? 0);
   let processing = $derived(isProcessing(source.status, source.steps));
   let imageUrl = $derived(mediaUrl(reader?.image_path));
@@ -71,9 +76,37 @@
     >
       <Icon name="tutor" size={16} /> Ask about this page
     </a>
+    <form
+      method="POST"
+      action="?/reprocess"
+      use:enhance={() => {
+        requeueing = true;
+        return async ({ update }) => {
+          await update({ reset: false });
+          requeueing = false;
+        };
+      }}
+    >
+      <button
+        type="submit"
+        class="btn btn-ghost min-h-9 px-2.5 py-1.5 text-sm"
+        disabled={requeueing || processing}
+        title="Re-run this source's pipeline: failed pages are read again; finished work and unchanged text are not paid for twice"
+      >
+        {requeueing ? 'Queuing…' : 'Re-process'}
+      </button>
+    </form>
     <PageNav sourceId={source.id} pageNo={data.pageNo} {pageCount} />
   </div>
 </div>
+
+{#if form}
+  <div class="mb-5">
+    {#if 'error' in form && form.error}<Notice tone="warn">{form.error}</Notice>{:else if 'message' in form && form.message}<Notice tone="ok"
+        >{form.message}</Notice
+      >{/if}
+  </div>
+{/if}
 
 {#if processing && source.steps.length}
   <div class="panel mb-5 p-4"><StepTrack steps={source.steps} /></div>
@@ -104,13 +137,13 @@
 
   <aside class="panel flex min-h-0 flex-col xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)]">
     <div class="flex items-center gap-1 border-b border-line p-2" role="tablist" aria-label="Page details">
-      {#each [['text', `Text · ${reader?.blocks.length ?? 0}`], ['figures', `Figures · ${reader?.figures.length ?? 0}`]] as [id, label] (id)}
+      {#each [['text', `Text · ${reader?.blocks.length ?? 0}`], ['figures', `Figures · ${reader?.figures.length ?? 0}`], ['tables', `Tables · ${tables.length}`]] as [id, label] (id)}
         <button
           type="button"
           role="tab"
           aria-selected={tab === id}
           class="rounded-lg px-3 py-1.5 text-sm font-medium {tab === id ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'}"
-          onclick={() => (tab = id as 'text' | 'figures')}>{label}</button
+          onclick={() => (tab = id as 'text' | 'figures' | 'tables')}>{label}</button
         >
       {/each}
       <button type="button" class="ml-auto rounded-lg px-2.5 py-1.5 text-xs text-muted hover:text-accent" onclick={copyLink}>
@@ -122,6 +155,8 @@
         <p class="px-1 py-6 text-center text-sm text-muted">Nothing to show yet.</p>
       {:else if tab === 'text'}
         <BlockList blocks={reader.blocks} {selected} onselect={select} />
+      {:else if tab === 'tables'}
+        <TableList {tables} {selected} onselect={select} />
       {:else}
         <FigurePanel figures={reader.figures} visionStatus={reader.vision_status} />
       {/if}

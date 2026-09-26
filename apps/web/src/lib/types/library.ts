@@ -66,6 +66,32 @@ export interface ReaderPage {
   image_path: string | null;
   blocks: PageBlock[];
   figures: PageFigure[];
+  /** Structured table blocks of this page (ADR 0030). */
+  tables?: PageTable[];
+}
+
+export interface PageTable {
+  id: string;
+  block_no: number;
+  bbox: number[];
+  n_rows: number;
+  n_cols: number;
+  header: boolean;
+  cells: string[][];
+}
+
+export interface TableHit extends Omit<PageTable, 'id'> {
+  table_id: string;
+  source_id: string;
+  source_title: string;
+  page_no: number;
+  score: number;
+}
+
+export interface ReprocessResponse {
+  source_id: string;
+  job_id: string;
+  retried_pages: number;
 }
 
 export interface UploadResponse {
@@ -99,6 +125,7 @@ export interface SearchResponse {
   hits: SearchHit[];
   figures: FigureHit[];
   dense: boolean;
+  tables?: TableHit[];
 }
 
 /** A source row in the library list, with steps when it is still processing. */

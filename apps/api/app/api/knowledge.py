@@ -79,6 +79,13 @@ class ConflictOut(BaseModel):
     created_at: datetime
     claim_a: ConflictSide
     claim_b: ConflictSide
+    # Conflict agent verdict and the owner's trust decision (ADR 0030).
+    ai_label: Literal["conflict", "context", "same"] | None = None
+    ai_confidence: float | None = None
+    ai_rationale: str | None = None
+    ai_context: str | None = None
+    ai_cites: list[str] | None = None
+    trust: Literal["a", "b", "both"] | None = None
 
 
 class ConceptDetail(BaseModel):

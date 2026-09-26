@@ -176,7 +176,8 @@ async def purge_source_rows(session: AsyncSession, source_id: UUID) -> None:
 
     Pages, blocks, figures, chunks (with embeddings), claims, mappings, cards,
     and knowledge runs cascade from ``sources``; jobs are keyed by entity, and
-    concepts left with no claim and no edge are removed with the source. Shared
+    concepts left with no claim and no edge are removed with the source (with
+    any concept merged into them, ADR 0030). Shared
     by the per-source delete and the account-deletion job (ADR 0018).
     """
     concepts: Sequence[Any] = (
@@ -184,7 +185,9 @@ async def purge_source_rows(session: AsyncSession, source_id: UUID) -> None:
             text(
                 "SELECT concept_id FROM claims WHERE source_id = :id UNION "
                 "SELECT from_concept FROM concept_edges WHERE source_id = :id UNION "
-                "SELECT to_concept FROM concept_edges WHERE source_id = :id"
+                "SELECT to_concept FROM concept_edges WHERE source_id = :id UNION "
+                "SELECT k.id FROM concepts k JOIN claims c ON c.concept_id = k.merged_into "
+                "WHERE c.source_id = :id"
             ),
             {"id": source_id},
         )
@@ -213,10 +216,13 @@ async def purge_source_rows(session: AsyncSession, source_id: UUID) -> None:
             ),
             {"h": list(hashes)},
         )
-    if concepts:
+    # Twice: deleting an orphaned survivor clears ``merged_into`` on concepts
+    # merged into it, which are then orphans too; a merged concept whose
+    # survivor lives on is kept so the merge stays reversible (ADR 0030).
+    for _ in range(2 if concepts else 0):
         await session.execute(
             text(
-                "DELETE FROM concepts k WHERE k.id = ANY(:ids) "
+                "DELETE FROM concepts k WHERE k.id = ANY(:ids) AND k.merged_into IS NULL "
                 "AND NOT EXISTS (SELECT 1 FROM claims c WHERE c.concept_id = k.id) "
                 "AND NOT EXISTS (SELECT 1 FROM concept_edges e "
                 "WHERE k.id IN (e.from_concept, e.to_concept))"

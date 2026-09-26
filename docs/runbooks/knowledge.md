@@ -73,6 +73,45 @@ validates the hierarchy, code prefixes, and tag subsets
 Weights are separate. Approve them per exam on `/knowledge` once past papers
 have been read. Since `paper_topics/v3`, topic-level weights use tree node ids.
 
+## Knowledge depth: notes, duplicates, conflict verdicts (ADR 0030)
+
+After `knowledge_extraction` succeeds in notes mode, the worker queues
+`radbrain.knowledge_depth` for the source. Set `KNOWLEDGE_DEPTH_AUTO=0` on the worker
+to turn the automatic pass off.
+
+- **Status:** `GET /v1/library/sources/{id}` → `steps[knowledge_depth]`
+  (`output_ref` like `conflicts:2,pairs:1,notes:5`). A run makes at most 20 model
+  calls, then re-queues itself (`pending`/`continuing`). A usage limit sets
+  `pending`/`usage_limit` and resumes after `INGEST_DEFER_SECONDS`. Units already
+  done are skipped; each is a `knowledge_runs` row with unit `conflict:<id>`,
+  `pair:<a>:<b>` or `note:<concept>:<hash>`. A unit whose model call failed is
+  recorded as `skipped` with `model_error` and is not retried automatically.
+- **Order:** conflict verdicts, then duplicate resolution, then notes.
+- **Notes:** these are written automatically only for concepts with three or more
+  of the owner's claims. On any concept page, **Write the note** or **Regenerate
+  from claims** (`POST /v1/knowledge/concepts/{id}/note/synthesize`) queues
+  `radbrain.concept_note`. That task does nothing when the claims are unchanged. A
+  note is `current` while its claims hash matches, and `stale` once claims change.
+  **Mark verified** (`POST .../note/verify {"note_id": ...}`) accepts only the
+  current draft on a concept with no open conflict; anything else returns 409. It
+  is audited as `knowledge.note_verified`.
+- **Duplicates:** `/knowledge/review` → *Possible duplicate concepts*
+  (`GET /v1/knowledge/merges?status=review`). **Merge them** or **Keep separate**
+  (`POST /v1/knowledge/merges/{id}/decide`). *Recent merges* has **Undo merge**
+  (`POST /v1/knowledge/merges/{id}/undo`). Undo moves the claims, edges and
+  conflicts back and removes only the names the merge added. It returns 409 if the
+  survivor was merged again later; undo that merge first. Opening a merged concept
+  redirects to its survivor.
+- **Conflicts:** each card shows the model verdict (true conflict, both valid in
+  context, or same fact), its confidence, and the claims it relied on. A confident
+  *context* or *same* verdict closes the conflict with both claims kept. Otherwise
+  choose **Trust source A**, **Trust source B** or **Both valid in context**
+  (`POST /v1/knowledge/conflicts/{id}/trust {"trust": "a"|"b"|"both", "note": ""}`),
+  audited as `knowledge.conflict_trusted`.
+- **Models:** all three agents use their route's targets (Claude, medium effort).
+  To run Synthesis Mistral-first like bulk ingest, add an `agents:` entry in
+  `models.yaml`. That needs the owner's OK.
+
 ## Logging
 
 Workers log source ids, unit hashes, agent names, and counts only; never chunk

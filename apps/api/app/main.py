@@ -11,6 +11,7 @@ from apps.api.app.api.curriculum import router as curriculum_router
 from apps.api.app.api.data_rights import router as data_rights_router
 from apps.api.app.api.exams import router as exams_router
 from apps.api.app.api.knowledge import router as knowledge_router
+from apps.api.app.api.knowledge_depth import router as knowledge_depth_router
 from apps.api.app.api.library import router as library_router
 from apps.api.app.api.notifications import router as notifications_router
 from apps.api.app.api.preview import router as preview_router
@@ -68,6 +69,7 @@ app.include_router(viva_router)
 app.include_router(study_router)
 app.include_router(study_sessions_router)
 app.include_router(knowledge_router)
+app.include_router(knowledge_depth_router)
 app.include_router(data_rights_router)
 app.include_router(preview_router)
 app.include_router(billing_router)

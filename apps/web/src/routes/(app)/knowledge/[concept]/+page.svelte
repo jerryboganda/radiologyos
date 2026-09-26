@@ -1,22 +1,56 @@
 <script lang="ts">
   import CitationChip from '$lib/components/CitationChip.svelte';
   import CitationList from '$lib/components/CitationList.svelte';
+  import FigureHitCard from '$lib/components/FigureHitCard.svelte';
+  import ConceptGraph from '$lib/components/knowledge/ConceptGraph.svelte';
+  import ConceptNote from '$lib/components/knowledge/ConceptNote.svelte';
   import ConflictCard from '$lib/components/knowledge/ConflictCard.svelte';
+  import DdxTree from '$lib/components/knowledge/DdxTree.svelte';
+  import LoadIssue from '$lib/components/LoadIssue.svelte';
   import Notice from '$lib/components/Notice.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
+  import { ddxTree, footnotes } from '$lib/concept-note';
   import { percent } from '$lib/format';
+  import { EXAM_TARGETS } from '$lib/types/study';
   import type { ActionData, PageData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
   let c = $derived(data.concept);
   let claims = $derived([...c.claims].sort((a, b) => b.importance - a.importance));
+  let body = $derived(data.note?.note?.body ?? null);
+  let numbers = $derived(body ? footnotes(body, c.claims).numbers : new Map<string, number>());
+  let branches = $derived(ddxTree(body, c.edges));
 </script>
 
 <svelte:head><title>{c.name} · Knowledge · radbrain</title></svelte:head>
 
+{#snippet feedback(section: string)}
+  {#if form?.section === section}
+    <div class="mb-3">
+      {#if 'error' in form && form.error}<Notice tone="warn">{form.error}</Notice>{:else if 'message' in form && form.message}<Notice tone="ok"
+          >{form.message}</Notice
+        >{:else}<Notice tone="ok">Saved.</Notice>{/if}
+    </div>
+  {/if}
+{/snippet}
+
 <PageHeader eyebrow="Concept · {c.concept_type}" title={c.name} description={c.summary}>
-  {#snippet actions()}<a href="/knowledge" class="btn btn-ghost">All concepts</a>{/snippet}
+  {#snippet actions()}
+    <form method="POST" action="/questions?/generate" class="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="type" value="sba" />
+      <input type="hidden" name="count" value="5" />
+      <input type="hidden" name="topic" value={c.name} />
+      <label class="sr-only" for="quiz-exam">Exam</label>
+      <select id="quiz-exam" name="exam_target" class="field min-h-9 w-auto py-1.5 text-sm">
+        {#each EXAM_TARGETS as target (target.value)}<option value={target.value}>{target.label}</option>{/each}
+      </select>
+      <button class="btn btn-primary min-h-9 px-3 py-1.5 text-sm" type="submit" title="Five cited single-best-answer questions on this concept">
+        Quiz me
+      </button>
+    </form>
+    <a href="/knowledge" class="btn btn-ghost">All concepts</a>
+  {/snippet}
 </PageHeader>
 
 <div class="flex flex-col gap-8">
@@ -28,6 +62,35 @@
     {/if}
     {#each c.aliases as alias (alias)}<span class="rounded-lg bg-surface-2 px-2.5 py-1">{alias}</span>{/each}
   </p>
+
+  <section aria-labelledby="note-heading">
+    <h2 id="note-heading" class="mb-3 text-xl font-semibold text-ink">Concept note</h2>
+    {@render feedback('note')}
+    {#if data.noteProblem}
+      <LoadIssue compact problem={data.noteProblem} title="The note is unreachable" icon="knowledge" />
+    {:else}
+      <ConceptNote info={data.note} claims={c.claims} />
+    {/if}
+  </section>
+
+  <section aria-labelledby="ddx-heading">
+    <h2 id="ddx-heading" class="mb-3 text-xl font-semibold text-ink">Differential tree</h2>
+    <DdxTree name={c.name} {branches} {numbers} />
+  </section>
+
+  <section aria-labelledby="graph-heading">
+    <h2 id="graph-heading" class="mb-3 text-xl font-semibold text-ink">Concept map</h2>
+    {#if data.graph}<ConceptGraph graph={data.graph} />{:else}<p class="text-sm text-muted">The concept map is unavailable.</p>{/if}
+  </section>
+
+  {#if data.figures.length}
+    <section aria-labelledby="figures-heading">
+      <h2 id="figures-heading" class="mb-3 text-xl font-semibold text-ink">Related figures</h2>
+      <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {#each data.figures as figure (figure.figure_id)}<FigureHitCard {figure} actions={false} />{/each}
+      </ul>
+    </section>
+  {/if}
 
   <section aria-labelledby="claims-heading">
     <h2 id="claims-heading" class="mb-3 text-xl font-semibold text-ink">Claims ({claims.length})</h2>
@@ -71,11 +134,7 @@
 
   <section aria-labelledby="conflicts-heading">
     <h2 id="conflicts-heading" class="mb-3 text-xl font-semibold text-ink">Source conflicts</h2>
-    {#if form?.section === 'resolve'}
-      <div class="mb-3">
-        {#if 'error' in form && form.error}<Notice tone="warn">{form.error}</Notice>{:else}<Notice tone="ok">Resolution saved.</Notice>{/if}
-      </div>
-    {/if}
+    {@render feedback('resolve')}
     {#if c.conflicts.length === 0}
       <p class="text-sm text-muted">Your sources agree on this concept.</p>
     {:else}

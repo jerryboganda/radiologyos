@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+from apps.api.app.library.tables import page_tables
 from packages.library import storage
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,6 +51,7 @@ async def read_page(
         ),
         {"s": source_id, "p": page_no},
     )
+    tables = await page_tables(session, source_id, page_no)
     return {
         "source_id": source_id,
         "title": page["title"],
@@ -62,6 +64,7 @@ async def read_page(
         "image_path": f"/v1/library/sources/{source_id}/pages/{page_no}/image"
         if page["image_key"] else None,
         "blocks": [dict(b) for b in blocks.mappings()],
+        "tables": tables,
         "figures": [
             {**{k: v for k, v in dict(f).items() if k != "image_key"},
              "image_path": f"/v1/library/figures/{f['id']}/image" if f["image_key"] else None}

@@ -14,6 +14,7 @@ RUNTIME = "RADBRAIN_RLS_RUNTIME_DATABASE_URL"
 # Children first, so the admin cleanup never trips a foreign key.
 ALL_TABLES = (
     "embedding_cache", "data_jobs", "curriculum_reviews", "exam_blueprints",
+    "concept_notes", "concept_merges", "source_tables",
     "viva_turns", "viva_sessions",
     "study_session_steps", "study_sessions", "weakness_events", "grading_jobs",
     "item_stats", "baseline_tests", "weekly_reports",
@@ -140,6 +141,24 @@ async def _knowledge(conn: Any, t: UUID, u: UUID, s: UUID, chunk: UUID) -> None:
     await conn.execute(
         "INSERT INTO topic_weights (tenant_id, user_id, exam_target, curriculum_code, weight, "
         "basis) VALUES ($1,$2,'imm','CHEST',0.5,'{}'::jsonb)", t, u)
+    await _depth(conn, t, u, s, concepts)
+
+
+async def _depth(conn: Any, t: UUID, u: UUID, s: UUID, concepts: list[UUID]) -> None:
+    """ADR 0030 rows: a cited note, a Resolver decision, and a structured table."""
+    await conn.execute(
+        "INSERT INTO concept_notes (tenant_id, user_id, concept_id, version, claims_hash, body, "
+        "sentences, agent_version) VALUES ($1,$2,$3,1,repeat('b', 64),'{}'::jsonb,1,'t')",
+        t, u, concepts[0])
+    low, high = sorted(concepts)
+    await conn.execute(
+        "INSERT INTO concept_merges (tenant_id, user_id, concept_a, concept_b, similarity, "
+        "decision, confidence, rationale, status, agent_version) VALUES "
+        "($1,$2,$3,$4,0.85,'distinct',0.9,'Synthetic','distinct','t')", t, u, low, high)
+    await conn.execute(
+        "INSERT INTO source_tables (tenant_id, source_id, page_no, block_no, bbox, n_rows, "
+        "n_cols, cells, csv, html, plain) VALUES ($1,$2,1,0,'{0,0,1,1}',1,2,"
+        "'[[\"a\",\"b\"]]','a,b','<table></table>','a b')", t, s)
 
 
 async def _study(conn: Any, t: UUID, u: UUID, s: UUID, chunk: UUID) -> None:

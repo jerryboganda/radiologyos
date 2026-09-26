@@ -57,6 +57,21 @@ export interface ConflictOut {
   created_at: string;
   claim_a: ConflictSide;
   claim_b: ConflictSide;
+  /** Conflict agent verdict (ADR 0030); null until the depth pass has run. */
+  ai_label?: 'conflict' | 'context' | 'same' | null;
+  ai_confidence?: number | null;
+  ai_rationale?: string | null;
+  ai_context?: string | null;
+  ai_cites?: string[] | null;
+  /** The owner's "trust source" decision, when that is how it was resolved. */
+  trust?: TrustChoice | null;
+}
+
+export type TrustChoice = 'a' | 'b' | 'both';
+
+export interface TrustRequest {
+  trust: TrustChoice;
+  note?: string;
 }
 
 export interface ConceptDetail {
@@ -208,4 +223,79 @@ export interface NodeCandidate {
   path: string;
   label: string;
   level: CurriculumLevel;
+}
+
+// Knowledge depth (apps/api/app/api/knowledge_depth.py, ADR 0030).
+export interface NoteSentence {
+  text: string;
+  claim_ids: string[];
+}
+
+export interface NoteBody {
+  definition: NoteSentence[];
+  imaging: { modality: string; sentences: NoteSentence[] }[];
+  differentials: { name: string; concept_id: string | null; discriminators: NoteSentence[] }[];
+  pearls: NoteSentence[];
+  pitfalls: NoteSentence[];
+}
+
+export interface ConceptNoteOut {
+  id: string;
+  version: number;
+  status: 'draft' | 'verified' | 'superseded';
+  body: NoteBody;
+  sentences: number;
+  dropped: number;
+  agent_version: string;
+  verified_at: string | null;
+  created_at: string;
+}
+
+export interface NoteState {
+  concept_id: string;
+  state: 'missing' | 'current' | 'stale';
+  open_conflicts: number;
+  verifiable: boolean;
+  note: ConceptNoteOut | null;
+}
+
+export interface GraphOut {
+  center: string;
+  depth: number;
+  nodes: { id: string; name: string; concept_type: string; depth: number }[];
+  edges: { source: string; target: string; relation: string }[];
+}
+
+export interface RelatedFigure {
+  figure_id: string;
+  source_id: string;
+  source_title: string;
+  page_no: number;
+  caption: string;
+  description: string;
+  modality: string;
+  anatomy: string;
+  image_path: string | null;
+}
+
+export type MergeStatus = 'review' | 'applied' | 'distinct' | 'undone';
+
+export interface MergeOut {
+  id: string;
+  concept_a: string;
+  a_name: string;
+  concept_b: string;
+  b_name: string;
+  similarity: number;
+  decision: string;
+  confidence: number;
+  rationale: string;
+  status: MergeStatus;
+  survivor: string | null;
+  merged: string | null;
+  moved_claims: number;
+  agent_version: string;
+  created_at: string;
+  applied_at: string | null;
+  undone_at: string | null;
 }

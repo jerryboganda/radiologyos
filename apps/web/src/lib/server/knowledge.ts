@@ -13,12 +13,18 @@ import type {
   CurriculumSystem,
   ExtractRequest,
   ExtractResponse,
+  GraphOut,
   MappingDecision,
   MappingOut,
   MappingStatus,
+  MergeOut,
+  MergeStatus,
   NodeCandidate,
+  NoteState,
+  RelatedFigure,
   ResolveRequest,
   TopicWeightOut,
+  TrustRequest,
   WeightTarget
 } from '$lib/types/knowledge';
 import { getJson, query, sendJson } from './client';
@@ -69,3 +75,34 @@ export const listNodeCandidates = (event: RequestEvent) =>
 
 export const extractSource =(event: RequestEvent, sourceId: string, body: ExtractRequest) =>
   sendJson<ExtractResponse>(event, `${K}/sources/${encodeURIComponent(sourceId)}/extract`, 'POST', body);
+
+// Knowledge depth (ADR 0030).
+const concept = (id: string) => `${K}/concepts/${encodeURIComponent(id)}`;
+
+export const getNote = (event: RequestEvent, id: string) => getJson<NoteState>(event, `${concept(id)}/note`);
+
+/** Queue the Synthesis agent; a no-op in the worker when the claims are unchanged. */
+export const synthesizeNote = (event: RequestEvent, id: string) =>
+  sendJson<{ concept_id: string; queued: boolean }>(event, `${concept(id)}/note/synthesize`, 'POST');
+
+export const verifyNote = (event: RequestEvent, id: string, noteId: string) =>
+  sendJson<NoteState>(event, `${concept(id)}/note/verify`, 'POST', { note_id: noteId });
+
+export const getGraph = (event: RequestEvent, id: string, depth = 2) =>
+  getJson<GraphOut>(event, `${concept(id)}/graph${query({ depth })}`);
+
+export const getConceptFigures = (event: RequestEvent, id: string) =>
+  getJson<RelatedFigure[]>(event, `${concept(id)}/figures`);
+
+/** Trust source A, source B, or both in context (audited by the API). */
+export const trustConflict = (event: RequestEvent, id: string, body: TrustRequest) =>
+  sendJson<ConflictOut>(event, `${K}/conflicts/${encodeURIComponent(id)}/trust`, 'POST', body);
+
+export const listMerges = (event: RequestEvent, status: MergeStatus | null = 'review') =>
+  getJson<MergeOut[]>(event, `${K}/merges${query({ status })}`);
+
+export const decideMerge = (event: RequestEvent, id: string, decision: 'merge' | 'distinct') =>
+  sendJson<MergeOut>(event, `${K}/merges/${encodeURIComponent(id)}/decide`, 'POST', { decision });
+
+export const undoMerge = (event: RequestEvent, id: string) =>
+  sendJson<MergeOut>(event, `${K}/merges/${encodeURIComponent(id)}/undo`, 'POST');

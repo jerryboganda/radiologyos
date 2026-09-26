@@ -6,6 +6,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import SearchHitCard from '$lib/components/SearchHitCard.svelte';
   import { navigating } from '$app/state';
+  import { readerHref } from '$lib/citations';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -47,10 +48,10 @@
 {:else if data.result}
   {@const result = data.result}
   <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-    <p class="label">{result.hits.length} passages · {result.figures.length} figures</p>
+    <p class="label">{result.hits.length} passages · {result.figures.length} figures · {result.tables?.length ?? 0} tables</p>
     <p class="label">{result.dense ? 'keyword + semantic' : 'keyword only (embeddings off)'}</p>
   </div>
-  {#if result.hits.length === 0 && result.figures.length === 0}
+  {#if result.hits.length === 0 && result.figures.length === 0 && !result.tables?.length}
     <div class="panel px-6 py-12 text-center">
       <p class="font-display text-xl text-ink">No cited passages for “{data.query}”.</p>
       <p class="mt-2 text-sm text-muted">Try a synonym, a shorter phrase, or upload the source that covers it.</p>
@@ -61,6 +62,31 @@
       <h2 id="fig-heading" class="mb-3 text-xl font-semibold text-ink">Figures</h2>
       <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {#each result.figures as figure (figure.figure_id)}<FigureHitCard {figure} />{/each}
+      </ul>
+    </section>
+  {/if}
+  {#if result.tables?.length}
+    <section class="mb-8" aria-labelledby="tables-heading">
+      <h2 id="tables-heading" class="mb-3 text-xl font-semibold text-ink">Tables</h2>
+      <ul class="flex flex-col gap-3">
+        {#each result.tables as table (table.table_id)}
+          <li class="panel p-4">
+            <a class="label hover:text-accent" href={readerHref(table.source_id, table.page_no, table.block_no)}>
+              {table.source_title} · p. {table.page_no} · {table.n_rows} × {table.n_cols}
+            </a>
+            <div class="mt-2 overflow-x-auto">
+              <table class="w-full border-collapse text-left text-xs">
+                <tbody>
+                  {#each table.cells.slice(0, 6) as row, r (r)}
+                    <tr>
+                      {#each row as cell, c (c)}<td class="border-b border-line px-2 py-1 align-top {r === 0 && table.header ? 'font-semibold text-ink' : 'text-ink-2'}">{cell}</td>{/each}
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          </li>
+        {/each}
       </ul>
     </section>
   {/if}

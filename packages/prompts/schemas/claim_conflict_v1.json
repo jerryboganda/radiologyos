@@ -1,0 +1,50 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "cites": {
+      "description": "Which statements the rationale relies on.",
+      "items": {
+        "enum": [
+          "A",
+          "B"
+        ],
+        "type": "string"
+      },
+      "maxItems": 2,
+      "minItems": 1,
+      "type": "array"
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "context": {
+      "description": "For 'context': the condition under which each holds; '' otherwise.",
+      "maxLength": 300,
+      "type": "string"
+    },
+    "label": {
+      "enum": [
+        "conflict",
+        "context",
+        "same"
+      ],
+      "type": "string"
+    },
+    "rationale": {
+      "description": "Why, referring to the statements as [A] and [B].",
+      "maxLength": 1000,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "label",
+    "confidence",
+    "rationale",
+    "cites",
+    "context"
+  ],
+  "type": "object"
+}

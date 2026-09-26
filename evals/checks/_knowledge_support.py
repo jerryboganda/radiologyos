@@ -15,11 +15,11 @@ from packages.models.gateway import load_agent
 ADMIN = "RADBRAIN_RLS_ADMIN_DATABASE_URL"
 RUNTIME = "RADBRAIN_RLS_RUNTIME_DATABASE_URL"
 KNOWLEDGE_TABLES = (
-    "knowledge_conflicts", "concept_edges", "claims", "curriculum_mappings",
-    "topic_frequencies", "topic_weights", "knowledge_runs", "concepts",
+    "concept_notes", "concept_merges", "knowledge_conflicts", "concept_edges", "claims",
+    "curriculum_mappings", "topic_frequencies", "topic_weights", "knowledge_runs", "concepts",
 )
-LIBRARY_TABLES = ("chunks", "figures", "source_blocks", "source_pages", "job_steps", "jobs",
-                  "audit_log", "sources")
+LIBRARY_TABLES = ("source_tables", "chunks", "figures", "source_blocks", "source_pages",
+                  "job_steps", "jobs", "audit_log", "sources")
 
 
 def require_env() -> tuple[str, str]:

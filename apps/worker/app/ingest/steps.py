@@ -19,6 +19,7 @@ from uuid import UUID
 
 from apps.worker.app.ingest import db, db_content
 from apps.worker.app.ingest.embedding import embed_pending
+from apps.worker.app.ingest.tables import extract_tables
 from packages.library import storage
 from packages.library.chunking import BlockInput, build_chunks, looks_like_heading
 from packages.library.formats import SourceKind
@@ -150,7 +151,9 @@ async def _chunk(deps: Deps, job: dict[str, Any]) -> None:
         chunks = build_chunks(BlockInput(**row) for row in rows)
         total = await db_content.replace_chunks(session, tenant_id, source_id, chunks)
         await db.mark_step(session, job, "chunk", "succeeded", output_ref=f"chunks:{total}")
-        await db.mark_step(session, job, "extract_tables", "skipped", "tables_are_blocks")
+        tables = await extract_tables(session, tenant_id, source_id)
+        await db.mark_step(session, job, "extract_tables", "succeeded",
+                           output_ref=f"tables:{tables}")
 
 
 async def _awaiting_vision(deps: Deps, job: dict[str, Any]) -> bool:

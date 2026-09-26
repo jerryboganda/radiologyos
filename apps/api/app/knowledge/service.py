@@ -35,7 +35,7 @@ async def search_concepts(
                    (SELECT count(*) FROM knowledge_conflicts x WHERE x.concept_id = k.id
                       AND x.status = 'open') AS open_conflicts
             FROM concepts k
-            WHERE {_VISIBLE}
+            WHERE {_VISIBLE} AND k.merged_into IS NULL
               AND (:key = '' OR strpos(k.normalized_name, :key) > 0
                    OR :key = ANY(k.alias_keys) OR similarity(k.normalized_name, :key) >= 0.4)
             ORDER BY CASE WHEN :key = '' THEN 0 ELSE similarity(k.normalized_name, :key) END DESC,
@@ -48,9 +48,22 @@ async def search_concepts(
     return [dict(row) for row in rows.mappings()]
 
 
+async def live_concept_id(session: AsyncSession, concept_id: UUID) -> UUID:
+    """Follow ``merged_into`` redirects (ADR 0030) to the surviving concept."""
+    for _ in range(5):
+        target = (await session.execute(
+            text("SELECT merged_into FROM concepts WHERE id = :id"), {"id": concept_id}
+        )).scalar_one_or_none()
+        if target is None:
+            break
+        concept_id = UUID(str(target))
+    return concept_id
+
+
 async def concept_detail(
     session: AsyncSession, user_id: UUID, concept_id: UUID
 ) -> dict[str, Any] | None:
+    concept_id = await live_concept_id(session, concept_id)
     concept = (
         await session.execute(
             text(
@@ -106,7 +119,8 @@ async def list_conflicts(
                    a.id AS a_id, a.statement AS a_statement, a.evidence_span AS a_span,
                    a.citation AS a_citation,
                    b.id AS b_id, b.statement AS b_statement, b.evidence_span AS b_span,
-                   b.citation AS b_citation
+                   b.citation AS b_citation, x.ai_label, x.ai_confidence, x.ai_rationale,
+                   x.ai_context, x.ai_cites, x.trust
             FROM knowledge_conflicts x
             JOIN concepts k ON k.id = x.concept_id
             JOIN claims a ON a.id = x.claim_a

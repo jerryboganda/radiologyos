@@ -28,7 +28,10 @@ MY_EMBEDDED_TEXT = (
 MY_CONCEPTS = (
     f"SELECT concept_id FROM claims WHERE source_id IN ({MY_SOURCES}) "  # nosec B608
     f"UNION SELECT from_concept FROM concept_edges WHERE source_id IN ({MY_SOURCES}) "
-    f"UNION SELECT to_concept FROM concept_edges WHERE source_id IN ({MY_SOURCES})"
+    f"UNION SELECT to_concept FROM concept_edges WHERE source_id IN ({MY_SOURCES}) "
+    # Concepts merged into one of these keep their names (ADR 0030).
+    f"UNION SELECT k.id FROM concepts k JOIN claims c ON c.concept_id = k.merged_into "
+    f"WHERE c.source_id IN ({MY_SOURCES})"
 )
 
 
@@ -50,6 +53,8 @@ OWNED: tuple[Owned, ...] = (
     Owned("source_blocks", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
     Owned("figures", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
     Owned("chunks", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
+    # Structured rows of this user's table blocks (ADR 0030).
+    Owned("source_tables", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
     # Cached vectors of this user's texts; purge_source_rows garbage-collects
     # cache rows no chunk or figure of the tenant still uses (ADR 0019).
     Owned("embedding_cache", MY_EMBEDDED_TEXT, "source_cascade"),
@@ -61,6 +66,9 @@ OWNED: tuple[Owned, ...] = (
     Owned("curriculum_mappings", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
     Owned("knowledge_runs", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
     Owned("topic_frequencies", "t.user_id = :u", "direct"),
+    # Synthesis notes and Resolver decisions recorded for this user (ADR 0030).
+    Owned("concept_notes", "t.user_id = :u", "direct"),
+    Owned("concept_merges", "t.user_id = :u", "direct"),
     Owned("topic_weights", "t.user_id = :u", "direct"),
     Owned("tutor_threads", "t.user_id = :u", "direct"),
     Owned("tutor_messages", "t.thread_id IN (SELECT id FROM tutor_threads WHERE user_id = :u)",
@@ -104,6 +112,7 @@ EXEMPT: dict[str, str] = {
 # Children before parents, so no foreign key blocks a delete. Rows of held
 # sources' cascades stay; the user's own study rows never do.
 DIRECT_DELETE_ORDER: tuple[str, ...] = (
+    "concept_notes", "concept_merges",
     "viva_turns", "viva_sessions",
     "study_session_steps", "study_sessions", "weakness_events",
     "grading_jobs", "item_stats", "baseline_tests", "weekly_reports",

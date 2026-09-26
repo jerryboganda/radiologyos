@@ -25,9 +25,9 @@ async def _candidates(session: AsyncSession, keys: list[str]) -> list[dict[str, 
         text(
             """
             SELECT id, name, normalized_name, aliases, alias_keys FROM concepts
-            WHERE normalized_name = ANY(CAST(:keys AS text[]))
+            WHERE merged_into IS NULL AND (normalized_name = ANY(CAST(:keys AS text[]))
                OR alias_keys && CAST(:keys AS text[])
-               OR similarity(normalized_name, :key) >= :floor
+               OR similarity(normalized_name, :key) >= :floor)
             ORDER BY similarity(normalized_name, :key) DESC
             LIMIT 8
             """
@@ -40,7 +40,11 @@ async def _candidates(session: AsyncSession, keys: list[str]) -> list[dict[str, 
 async def resolve_concept(
     session: AsyncSession, tenant_id: UUID, concept: ExtractedConcept
 ) -> UUID:
-    """Merge into an existing concept (alias/near-exact) or create a new one."""
+    """Merge into an existing concept (alias/near-exact) or create a new one.
+
+    Concepts merged away by the Resolver (ADR 0030) are never candidates; their
+    names and keys live on the survivor, so new mentions resolve there.
+    """
     keys = alias_keys(concept.name, concept.aliases)
     rows = await _candidates(session, keys)
     decision = decide(keys, [
@@ -64,7 +68,7 @@ async def resolve_concept(
                                   alias_keys)
             VALUES (:t, :name, :key, :type, :aliases, :keys)
             ON CONFLICT (tenant_id, normalized_name) DO UPDATE SET name = concepts.name
-            RETURNING id
+            RETURNING coalesce(merged_into, id)
             """
         ),
         {"t": tenant_id, "name": concept.name.strip()[:300], "key": keys[0][:300],

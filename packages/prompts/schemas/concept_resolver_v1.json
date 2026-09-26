@@ -1,0 +1,39 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "decision": {
+      "enum": [
+        "merge",
+        "distinct",
+        "parent_child"
+      ],
+      "type": "string"
+    },
+    "parent": {
+      "description": "For parent_child, which concept is the broader one; '' otherwise.",
+      "enum": [
+        "A",
+        "B",
+        ""
+      ],
+      "type": "string"
+    },
+    "rationale": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "decision",
+    "parent",
+    "confidence",
+    "rationale"
+  ],
+  "type": "object"
+}
