@@ -869,6 +869,324 @@
         }
       }
     },
+    "/v1/tutor/ask": {
+      "post": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Ask",
+        "operationId": "ask_v1_tutor_ask_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tutor/threads": {
+      "get": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "List Threads",
+        "operationId": "list_threads_v1_tutor_threads_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ThreadSummary"
+                  },
+                  "title": "Response List Threads V1 Tutor Threads Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tutor/threads/{thread_id}": {
+      "get": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Get Thread",
+        "operationId": "get_thread_v1_tutor_threads__thread_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/preview/sources": {
       "post": {
         "tags": [
@@ -6917,6 +7235,105 @@
   },
   "components": {
     "schemas": {
+      "AskRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Question"
+          },
+          "thread_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thread Id"
+          },
+          "allow_web": {
+            "type": "boolean",
+            "title": "Allow Web",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "AskRequest"
+      },
+      "AskResponse": {
+        "properties": {
+          "thread_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Thread Id"
+          },
+          "message_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Message Id"
+          },
+          "grounding": {
+            "type": "string",
+            "enum": [
+              "sources",
+              "web",
+              "mixed",
+              "none"
+            ],
+            "title": "Grounding"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/Segment"
+            },
+            "type": "array",
+            "title": "Segments"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notice"
+          },
+          "dropped_segments": {
+            "type": "integer",
+            "title": "Dropped Segments"
+          },
+          "agent_version": {
+            "type": "string",
+            "title": "Agent Version"
+          },
+          "excerpts_considered": {
+            "type": "integer",
+            "title": "Excerpts Considered"
+          }
+        },
+        "type": "object",
+        "required": [
+          "thread_id",
+          "message_id",
+          "grounding",
+          "segments",
+          "notice",
+          "dropped_segments",
+          "agent_version",
+          "excerpts_considered"
+        ],
+        "title": "AskResponse"
+      },
       "BillingResultResponse": {
         "properties": {
           "status": {
@@ -8659,6 +9076,38 @@
         ],
         "title": "SearchResponse"
       },
+      "Segment": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "sources",
+              "web"
+            ],
+            "title": "Origin"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/packages__tutor__models__Citation"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Citations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "origin",
+          "citations"
+        ],
+        "title": "Segment"
+      },
       "SessionResponse": {
         "properties": {
           "id": {
@@ -8969,6 +9418,142 @@
         ],
         "title": "TenantResponse"
       },
+      "ThreadDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadMessage"
+            },
+            "type": "array",
+            "title": "Messages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "created_at",
+          "updated_at",
+          "messages"
+        ],
+        "title": "ThreadDetail"
+      },
+      "ThreadMessage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "grounding": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "sources",
+                  "web",
+                  "mixed",
+                  "none"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grounding"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/Segment"
+            },
+            "type": "array",
+            "title": "Segments"
+          },
+          "agent_version": {
+            "type": "string",
+            "title": "Agent Version"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "content",
+          "grounding",
+          "segments",
+          "agent_version",
+          "created_at"
+        ],
+        "title": "ThreadMessage"
+      },
+      "ThreadSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "message_count": {
+            "type": "integer",
+            "title": "Message Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "created_at",
+          "updated_at",
+          "message_count"
+        ],
+        "title": "ThreadSummary"
+      },
       "UploadResponse": {
         "properties": {
           "source_id": {
@@ -9126,6 +9711,114 @@
           "bbox"
         ],
         "title": "Citation"
+      },
+      "packages__tutor__models__Citation": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "source",
+              "web"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "chunk_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Id"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "source_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Title"
+          },
+          "page_from": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page From"
+          },
+          "page_to": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page To"
+          },
+          "block_refs": {
+            "items": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Block Refs"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "Citation",
+        "description": "A verified citation: an excerpt the retriever returned, or an allowed URL."
       }
     },
     "securitySchemes": {
