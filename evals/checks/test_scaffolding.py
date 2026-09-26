@@ -4,6 +4,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+import yaml
 from apps.worker.app.job_id import IngestStep, JobId
 from evals.contracts import load_eval_fixtures
 from packages.curriculum.contracts import load_curriculum_pack
@@ -262,3 +263,25 @@ def test_production_uses_unique_internal_hostnames() -> None:
     assert "http://api:" not in platform
     assert "http://keycloak:" not in platform
     assert "API_INTERNAL_URL: http://radbrain-api:8000" in platform
+
+
+def test_embedder_is_private_to_the_project_network() -> None:
+    """ADR 0019: reachable only by a unique alias on the project network, never ingress."""
+    workflows = ROOT / ".github" / "workflows"
+    platform_file = ROOT / "infra" / "compose" / "platform.yml"
+    alias = {"default": {"aliases": ["radbrain-embedder"]}}
+    for compose_file in (platform_file, COMPOSE):
+        services = yaml.safe_load(compose_file.read_text(encoding="utf-8"))["services"]
+        embedder = services["embedder"]
+        assert embedder["networks"] == alias
+        assert embedder["cpus"] and embedder["mem_limit"]
+        assert "ports" not in embedder
+        assert services["api"]["environment"]["EMBEDDER_URL"] == "http://radbrain-embedder:8080"
+        # Optional dependency: the API must start (lexical search) without it.
+        assert "embedder" not in services["api"].get("depends_on", {})
+        if compose_file == platform_file:
+            assert embedder["image"].startswith("${RADBRAIN_EMBEDDER_IMAGE:?")
+    assert "radiologyos-embedder" in (workflows / "build-images.yml").read_text(encoding="utf-8")
+    deploy = (workflows / "deploy-production.yml").read_text(encoding="utf-8")
+    assert "RADBRAIN_EMBEDDER_IMAGE=%s" in deploy
+    assert "/^RADBRAIN_EMBEDDER_IMAGE=/d" in deploy

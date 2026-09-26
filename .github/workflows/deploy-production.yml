@@ -84,6 +84,7 @@ jobs:
             echo "tag=$tag"
             echo "python=ghcr.io/${ns}/radiologyos-python:${tag}"
             echo "web=ghcr.io/${ns}/radiologyos-web:${tag}"
+            echo "embedder=ghcr.io/${ns}/radiologyos-embedder:${tag}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Configure SSH
@@ -118,6 +119,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PYTHON_IMAGE: ${{ steps.refs.outputs.python }}
           WEB_IMAGE: ${{ steps.refs.outputs.web }}
+          EMBEDDER_IMAGE: ${{ steps.refs.outputs.embedder }}
         run: |
           set -euo pipefail
           SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@${VPS_SSH_HOST}"
@@ -127,7 +129,7 @@ jobs:
           printf '%s' "$GH_TOKEN" \
             | $SSH 'umask 077; cat > /root/.ghtok; echo token-staged'
 
-          $SSH "env GH_ACTOR=${GH_ACTOR} PYTHON_IMAGE=${PYTHON_IMAGE} WEB_IMAGE=${WEB_IMAGE} bash -s" <<'REMOTE'
+          $SSH "env GH_ACTOR=${GH_ACTOR} PYTHON_IMAGE=${PYTHON_IMAGE} WEB_IMAGE=${WEB_IMAGE} EMBEDDER_IMAGE=${EMBEDDER_IMAGE} bash -s" <<'REMOTE'
           set -euo pipefail
           cd /opt/radiologyos
           cleanup() {
@@ -139,15 +141,19 @@ jobs:
           # GHCR packages are private; authenticate for the pull only.
           docker login ghcr.io -u "$GH_ACTOR" --password-stdin < /root/.ghtok >/dev/null
 
-          # Promote the uploaded compose only after it parses.
-          docker compose --env-file app.env -f platform.yml.new config -q
+          # Promote the uploaded compose only after it parses. The new image
+          # refs are exported so a newly required ref (e.g. the embedder on its
+          # first deploy) validates before app.env is rewritten below.
+          RADBRAIN_PYTHON_IMAGE="$PYTHON_IMAGE" RADBRAIN_WEB_IMAGE="$WEB_IMAGE" \
+            RADBRAIN_EMBEDDER_IMAGE="$EMBEDDER_IMAGE" \
+            docker compose --env-file app.env -f platform.yml.new config -q
           mv platform.yml.new platform.yml
           chmod 600 platform.yml
 
           # Refresh image refs only; leave credentials alone.
-          sed -i "/^RADBRAIN_PYTHON_IMAGE=/d;/^RADBRAIN_WEB_IMAGE=/d" app.env
-          printf 'RADBRAIN_PYTHON_IMAGE=%s\nRADBRAIN_WEB_IMAGE=%s\n' \
-            "$PYTHON_IMAGE" "$WEB_IMAGE" >> app.env
+          sed -i "/^RADBRAIN_PYTHON_IMAGE=/d;/^RADBRAIN_WEB_IMAGE=/d;/^RADBRAIN_EMBEDDER_IMAGE=/d" app.env
+          printf 'RADBRAIN_PYTHON_IMAGE=%s\nRADBRAIN_WEB_IMAGE=%s\nRADBRAIN_EMBEDDER_IMAGE=%s\n' \
+            "$PYTHON_IMAGE" "$WEB_IMAGE" "$EMBEDDER_IMAGE" >> app.env
 
           echo "--- pull ---"
           docker compose --env-file app.env -f platform.yml pull
