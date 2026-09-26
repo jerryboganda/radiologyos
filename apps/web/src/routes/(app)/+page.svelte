@@ -6,6 +6,7 @@
   import GenerateCards from '$lib/components/study/GenerateCards.svelte';
   import Onboarding from '$lib/components/study/Onboarding.svelte';
   import ReviewDeck from '$lib/components/study/ReviewDeck.svelte';
+  import SessionRunner from '$lib/components/study/session/SessionRunner.svelte';
   import TodayPlan from '$lib/components/study/TodayPlan.svelte';
   import { daysUntil, formatDate } from '$lib/format';
   import type { ActionData, PageData } from './$types';
@@ -17,6 +18,7 @@
   function errorFor(section: string): string | null {
     return form && form.section === section && 'error' in form ? (form.error ?? null) : null;
   }
+  let scheduledDays = $derived(form && 'scheduledDays' in form ? (form.scheduledDays ?? null) : null);
   let generated = $derived(
     form && 'created' in form
       ? `Created ${form.created} card${form.created === 1 ? '' : 's'} from ${form.chunksUsed} passage${form.chunksUsed === 1 ? '' : 's'}${form.rejected ? ` (${form.rejected} rejected by the checker)` : ''}.`
@@ -60,18 +62,23 @@
     {:else if data.todayProblem}
       <LoadIssue problem={data.todayProblem} title="Your study planner is unreachable" icon="today" />
     {:else}
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-        {#if data.today}<TodayPlan plan={data.today} />{/if}
+      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div class="flex min-w-0 flex-col gap-6">
-          {#if data.dueProblem}
-            <LoadIssue compact problem={data.dueProblem} title="Reviews are unreachable" icon="progress" />
+          {#if data.session}
+            <SessionRunner session={data.session} error={errorFor('session')} reviewError={errorFor('review')} {scheduledDays} />
           {:else}
-            <ReviewDeck
-              cards={data.due ?? []}
-              error={errorFor('review')}
-              scheduledDays={form && 'scheduledDays' in form ? form.scheduledDays : null}
-            />
+            {#if data.sessionProblem}
+              <LoadIssue compact problem={data.sessionProblem} title="Today’s session is unreachable" icon="today" />
+            {/if}
+            {#if data.dueProblem}
+              <LoadIssue compact problem={data.dueProblem} title="Reviews are unreachable" icon="progress" />
+            {:else}
+              <ReviewDeck cards={data.due ?? []} error={errorFor('review')} {scheduledDays} />
+            {/if}
           {/if}
+        </div>
+        <div class="flex min-w-0 flex-col gap-6">
+          {#if data.today}<TodayPlan plan={data.today} />{/if}
           <BaselineCard baseline={data.baseline} error={errorFor('baseline')} />
           <GenerateCards sources={data.sources} error={errorFor('generate')} summary={generated} />
         </div>

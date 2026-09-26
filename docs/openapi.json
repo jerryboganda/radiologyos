@@ -5136,6 +5136,697 @@
         }
       }
     },
+    "/v1/study/sessions/today": {
+      "get": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Today Session",
+        "description": "Build (once per local day) or resume today's session.",
+        "operationId": "today_session_v1_study_sessions_today_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudySessionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Set your exam date first"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/sessions/{session_id}/steps/{step_no}/start": {
+      "post": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Start Step",
+        "operationId": "start_step_v1_study_sessions__session_id__steps__step_no__start_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "step_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Step No"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudySessionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/sessions/{session_id}/steps/{step_no}/answer": {
+      "post": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Answer Step",
+        "description": "Answer one SBA item (with optional confidence 1-3) or the viva prompt.",
+        "operationId": "answer_step_v1_study_sessions__session_id__steps__step_no__answer_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "step_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Step No"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepAnswerIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudySessionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/sessions/{session_id}/steps/{step_no}/complete": {
+      "post": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Complete Step",
+        "operationId": "complete_step_v1_study_sessions__session_id__steps__step_no__complete_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "step_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Step No"
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Skip"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudySessionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/sessions/{session_id}/complete": {
+      "post": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Complete Session",
+        "description": "Finish the day: unfinished steps are skipped and the summary is frozen.",
+        "operationId": "complete_session_v1_study_sessions__session_id__complete_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudySessionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/insights": {
+      "get": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Insights",
+        "description": "Coverage heatmap, days-remaining projection and calibration bias.",
+        "operationId": "insights_v1_study_insights_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Set your exam date first"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/knowledge/concepts": {
       "get": {
         "tags": [
@@ -12793,6 +13484,20 @@
               }
             ],
             "title": "Answer Text"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence",
+            "description": "Self-rated confidence: 1 low, 2 medium, 3 high"
           }
         },
         "additionalProperties": false,
@@ -13230,6 +13935,117 @@
           "acknowledged_at"
         ],
         "title": "BudgetAlert"
+      },
+      "CalibrationLevel": {
+        "properties": {
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "stated": {
+            "type": "number",
+            "title": "Stated"
+          },
+          "answers": {
+            "type": "integer",
+            "title": "Answers"
+          },
+          "accuracy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accuracy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level",
+          "label",
+          "stated",
+          "answers",
+          "accuracy"
+        ],
+        "title": "CalibrationLevel"
+      },
+      "CalibrationOut": {
+        "properties": {
+          "rated": {
+            "type": "integer",
+            "title": "Rated"
+          },
+          "bias": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "insufficient",
+              "overconfident",
+              "underconfident",
+              "calibrated"
+            ],
+            "title": "Verdict"
+          },
+          "levels": {
+            "items": {
+              "$ref": "#/components/schemas/CalibrationLevel"
+            },
+            "type": "array",
+            "title": "Levels"
+          },
+          "wrong": {
+            "type": "integer",
+            "title": "Wrong"
+          },
+          "confident_wrong": {
+            "type": "integer",
+            "title": "Confident Wrong"
+          },
+          "confident_wrong_share": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confident Wrong Share"
+          },
+          "min_rated": {
+            "type": "integer",
+            "title": "Min Rated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rated",
+          "bias",
+          "verdict",
+          "levels",
+          "wrong",
+          "confident_wrong",
+          "confident_wrong_share",
+          "min_rated"
+        ],
+        "title": "CalibrationOut"
       },
       "CardCitation": {
         "properties": {
@@ -14690,6 +15506,149 @@
         ],
         "title": "HealthResponse"
       },
+      "HeatmapCell": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "material": {
+            "type": "integer",
+            "title": "Material"
+          },
+          "studied": {
+            "type": "integer",
+            "title": "Studied"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage"
+          },
+          "accuracy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accuracy"
+          },
+          "band": {
+            "type": "string",
+            "enum": [
+              "none",
+              "weak",
+              "learning",
+              "mastered"
+            ],
+            "title": "Band"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "material",
+          "studied",
+          "coverage",
+          "accuracy",
+          "band"
+        ],
+        "title": "HeatmapCell"
+      },
+      "HeatmapRow": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "mastery": {
+            "type": "number",
+            "title": "Mastery"
+          },
+          "band": {
+            "type": "string",
+            "title": "Band"
+          },
+          "coverage": {
+            "type": "number",
+            "title": "Coverage"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/HeatmapCell"
+            },
+            "type": "array",
+            "title": "Cells"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "mastery",
+          "band",
+          "coverage",
+          "weight",
+          "cells"
+        ],
+        "title": "HeatmapRow"
+      },
+      "InsightsOut": {
+        "properties": {
+          "heatmap": {
+            "items": {
+              "$ref": "#/components/schemas/HeatmapRow"
+            },
+            "type": "array",
+            "title": "Heatmap"
+          },
+          "projection": {
+            "$ref": "#/components/schemas/ProjectionOut"
+          },
+          "calibration": {
+            "$ref": "#/components/schemas/CalibrationOut"
+          },
+          "weight_policy": {
+            "type": "string",
+            "title": "Weight Policy"
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "heatmap",
+          "projection",
+          "calibration",
+          "weight_policy",
+          "notice"
+        ],
+        "title": "InsightsOut"
+      },
       "ItemStatOut": {
         "properties": {
           "question_id": {
@@ -14822,6 +15781,116 @@
         ],
         "title": "JudgeStats",
         "description": "What the semantic grounding judge did for one answer (persisted with it)."
+      },
+      "LearnChunk": {
+        "properties": {
+          "chunk_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chunk Id"
+          },
+          "heading": {
+            "type": "string",
+            "title": "Heading"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "citation": {
+            "$ref": "#/components/schemas/CardCitation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chunk_id",
+          "heading",
+          "text",
+          "citation"
+        ],
+        "title": "LearnChunk"
+      },
+      "LearnFigure": {
+        "properties": {
+          "figure_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Figure Id"
+          },
+          "caption": {
+            "type": "string",
+            "title": "Caption"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "modality": {
+            "type": "string",
+            "title": "Modality"
+          },
+          "image_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Path"
+          },
+          "citation": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Citation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "figure_id",
+          "caption",
+          "description",
+          "modality",
+          "image_path",
+          "citation"
+        ],
+        "title": "LearnFigure"
+      },
+      "LearnStep": {
+        "properties": {
+          "topic": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TopicRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "chunks": {
+            "items": {
+              "$ref": "#/components/schemas/LearnChunk"
+            },
+            "type": "array",
+            "title": "Chunks"
+          },
+          "figures": {
+            "items": {
+              "$ref": "#/components/schemas/LearnFigure"
+            },
+            "type": "array",
+            "title": "Figures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic",
+          "chunks",
+          "figures"
+        ],
+        "title": "LearnStep"
       },
       "ManualDecisionRequest": {
         "properties": {
@@ -16865,6 +17934,120 @@
         ],
         "title": "ProgressOut"
       },
+      "ProjectionOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "insufficient_history",
+              "on_track",
+              "behind",
+              "done"
+            ],
+            "title": "Status"
+          },
+          "days_remaining": {
+            "type": "integer",
+            "title": "Days Remaining"
+          },
+          "target_days": {
+            "type": "integer",
+            "title": "Target Days"
+          },
+          "goal": {
+            "type": "number",
+            "title": "Goal"
+          },
+          "coverage": {
+            "type": "number",
+            "title": "Coverage"
+          },
+          "remaining_weighted": {
+            "type": "number",
+            "title": "Remaining Weighted"
+          },
+          "topics_remaining": {
+            "type": "integer",
+            "title": "Topics Remaining"
+          },
+          "sessions_in_window": {
+            "type": "integer",
+            "title": "Sessions In Window"
+          },
+          "coverage_per_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage Per Day"
+          },
+          "minutes_per_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minutes Per Day"
+          },
+          "projected_coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Projected Coverage"
+          },
+          "needed_minutes_per_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Needed Minutes Per Day"
+          },
+          "needed_hours_per_day": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Needed Hours Per Day"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "days_remaining",
+          "target_days",
+          "goal",
+          "coverage",
+          "remaining_weighted",
+          "topics_remaining",
+          "sessions_in_window",
+          "coverage_per_day",
+          "minutes_per_day",
+          "projected_coverage",
+          "needed_minutes_per_day",
+          "needed_hours_per_day"
+        ],
+        "title": "ProjectionOut"
+      },
       "QuestionPublic": {
         "properties": {
           "id": {
@@ -17496,6 +18679,152 @@
         ],
         "title": "ReviewResponse"
       },
+      "ReviewStep": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "reviewed": {
+            "type": "integer",
+            "title": "Reviewed"
+          },
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/CardOut"
+            },
+            "type": "array",
+            "title": "Cards"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "reviewed",
+          "cards"
+        ],
+        "title": "ReviewStep"
+      },
+      "SbaBlockStep": {
+        "properties": {
+          "time_limit_minutes": {
+            "type": "integer",
+            "title": "Time Limit Minutes"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "answered": {
+            "type": "integer",
+            "title": "Answered"
+          },
+          "correct": {
+            "type": "integer",
+            "title": "Correct"
+          },
+          "retests": {
+            "type": "integer",
+            "title": "Retests",
+            "description": "Items re-testing an earlier wrong answer (weakness loop)"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionPublic"
+            },
+            "type": "array",
+            "title": "Questions"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SbaFeedback"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "time_limit_minutes",
+          "total",
+          "answered",
+          "correct",
+          "retests",
+          "questions",
+          "results"
+        ],
+        "title": "SbaBlockStep"
+      },
+      "SbaFeedback": {
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Question Id"
+          },
+          "selected_option": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Option"
+          },
+          "key": {
+            "type": "integer",
+            "title": "Key"
+          },
+          "correct": {
+            "type": "boolean",
+            "title": "Correct"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "option_explanations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Option Explanations"
+          },
+          "citations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Citations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question_id",
+          "selected_option",
+          "key",
+          "correct",
+          "explanation",
+          "option_explanations",
+          "citations"
+        ],
+        "title": "SbaFeedback"
+      },
       "SearchHit": {
         "properties": {
           "chunk_id": {
@@ -17645,6 +18974,24 @@
         ],
         "title": "Segment"
       },
+      "SessionProgress": {
+        "properties": {
+          "done": {
+            "type": "integer",
+            "title": "Done"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "done",
+          "total"
+        ],
+        "title": "SessionProgress"
+      },
       "SessionResponse": {
         "properties": {
           "id": {
@@ -17663,6 +19010,125 @@
           "url"
         ],
         "title": "SessionResponse"
+      },
+      "SessionStep": {
+        "properties": {
+          "step_no": {
+            "type": "integer",
+            "title": "Step No"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "review",
+              "learn",
+              "test",
+              "viva"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "active",
+              "done",
+              "skipped"
+            ],
+            "title": "Status"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "deadline_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewStep"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "learn": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LearnStep"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "test": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SbaBlockStep"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "viva": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VivaStep"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "step_no",
+          "kind",
+          "status",
+          "minutes",
+          "started_at",
+          "deadline_at",
+          "completed_at"
+        ],
+        "title": "SessionStep"
       },
       "SessionSummary": {
         "properties": {
@@ -18154,6 +19620,65 @@
         ],
         "title": "StatsRecomputeResponse"
       },
+      "StepAnswerIn": {
+        "properties": {
+          "question_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "selected_option": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 4.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Option"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence",
+            "description": "1 low, 2 medium, 3 high"
+          },
+          "answer_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 8000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "StepAnswerIn"
+      },
       "StepStatus": {
         "properties": {
           "step": {
@@ -18200,6 +19725,112 @@
           "output_ref"
         ],
         "title": "StepStatus"
+      },
+      "StudySessionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "session_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Session Date"
+          },
+          "session_version": {
+            "type": "integer",
+            "title": "Session Version"
+          },
+          "plan_version": {
+            "type": "integer",
+            "title": "Plan Version"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "completed"
+            ],
+            "title": "Status"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Server Time"
+          },
+          "current_step": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Step"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/SessionProgress"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/SessionStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "session_date",
+          "session_version",
+          "plan_version",
+          "status",
+          "summary",
+          "created_at",
+          "completed_at",
+          "server_time",
+          "current_step",
+          "progress",
+          "steps",
+          "notice"
+        ],
+        "title": "StudySessionOut"
       },
       "SubscriptionIn": {
         "properties": {
@@ -18585,6 +20216,24 @@
         ],
         "title": "TopicProgress"
       },
+      "TopicRef": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title"
+        ],
+        "title": "TopicRef"
+      },
       "TopicWeightOut": {
         "properties": {
           "id": {
@@ -18958,6 +20607,116 @@
         "additionalProperties": false,
         "type": "object",
         "title": "VivaCreate"
+      },
+      "VivaStep": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "graded",
+              "self_review"
+            ],
+            "title": "Mode"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TopicRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuestionPublic"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answer_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Text"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unanswered",
+              "pending",
+              "graded",
+              "failed",
+              "self_review"
+            ],
+            "title": "Status"
+          },
+          "citations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Citations"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode",
+          "topic",
+          "prompt",
+          "question",
+          "answer_text",
+          "status",
+          "citations",
+          "result",
+          "reference"
+        ],
+        "title": "VivaStep"
       },
       "WeeklyReportOut": {
         "properties": {

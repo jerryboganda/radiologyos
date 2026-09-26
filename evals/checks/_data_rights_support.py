@@ -13,7 +13,8 @@ ADMIN = "RADBRAIN_RLS_ADMIN_DATABASE_URL"
 RUNTIME = "RADBRAIN_RLS_RUNTIME_DATABASE_URL"
 # Children first, so the admin cleanup never trips a foreign key.
 ALL_TABLES = (
-    "embedding_cache", "data_jobs", "viva_turns", "viva_sessions", "grading_jobs",
+    "embedding_cache", "data_jobs", "viva_turns", "viva_sessions",
+    "study_session_steps", "study_sessions", "weakness_events", "grading_jobs",
     "item_stats", "baseline_tests", "weekly_reports",
     "card_reviews", "attempts", "exams", "cards", "questions", "study_plans",
     "study_profiles", "tutor_messages", "tutor_threads", "topic_weights", "topic_frequencies",

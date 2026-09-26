@@ -141,8 +141,8 @@ async def insert_attempt(
     row = await session.execute(
         text(
             "INSERT INTO attempts (tenant_id, user_id, question_id, exam_id, response, score, "
-            "max_score, feedback, graded_by) VALUES (:t, :u, :q, :e, CAST(:response AS jsonb), "
-            ":score, :max, CAST(:feedback AS jsonb), :by) "
+            "max_score, feedback, graded_by, confidence) VALUES (:t, :u, :q, :e, "
+            "CAST(:response AS jsonb), :score, :max, CAST(:feedback AS jsonb), :by, :confidence) "
             "ON CONFLICT (tenant_id, exam_id, question_id) WHERE exam_id IS NOT NULL "
             "DO NOTHING RETURNING id"
         ),
@@ -151,6 +151,7 @@ async def insert_attempt(
             "e": values.get("exam_id"), "response": dumps(values["response"]),
             "score": values["score"], "max": values["max_score"],
             "feedback": dumps(values["feedback"]), "by": values["graded_by"],
+            "confidence": values.get("confidence"),
         },
     )
     attempt_id: UUID | None = row.scalar_one_or_none()

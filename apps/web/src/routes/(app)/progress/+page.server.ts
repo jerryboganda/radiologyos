@@ -1,11 +1,12 @@
 import { dataOr, isKind, loadProblem } from '$lib/api-state';
+import { getInsights } from '$lib/server/session';
 import { getLatestReport, getProgress } from '$lib/server/study';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
-  const [result, report] = await Promise.all([getProgress(event), getLatestReport(event)]);
+  const [result, report, insights] = await Promise.all([getProgress(event), getLatestReport(event), getInsights(event)]);
   if (result.state !== 'ok') {
-    return { progress: null, report: null, onboarding: isKind(result, 'conflict'), problem: loadProblem(result) };
+    return { progress: null, report: null, insights: null, onboarding: isKind(result, 'conflict'), problem: loadProblem(result) };
   }
   // Pass through only the fields the page renders. No pass-probability is shown
   // (CLAUDE.md "Never"), even if an API response were to include one.
@@ -39,6 +40,10 @@ export const load: PageServerLoad = async (event) => {
     },
     // 404 until the first Monday-morning report; the card explains when it arrives.
     report: dataOr(report, null),
+    // Heatmap, pace projection and calibration; the page hides them if unreachable.
+    insights: insights.state === 'ok'
+      ? { heatmap: insights.data.heatmap, projection: insights.data.projection, calibration: insights.data.calibration, notice: insights.data.notice }
+      : null,
     onboarding: false,
     problem: null
   };

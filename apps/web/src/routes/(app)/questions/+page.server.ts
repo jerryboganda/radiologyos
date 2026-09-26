@@ -30,7 +30,9 @@ function attemptBody(form: FormData): AttemptIn | null {
   const choice = form.get('choice');
   if (choice !== null) {
     const selected = Number(choice);
-    return Number.isInteger(selected) && selected >= 0 && selected <= 4 ? { selected_option: selected } : null;
+    const confidence = Number(form.get('confidence') ?? 0);
+    if (!Number.isInteger(selected) || selected < 0 || selected > 4) return null;
+    return [1, 2, 3].includes(confidence) ? { selected_option: selected, confidence } : { selected_option: selected };
   }
   const text = String(form.get('answer_text') ?? '').trim();
   return text.length >= 1 && text.length <= 8000 ? { answer_text: text } : null;

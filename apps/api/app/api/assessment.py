@@ -27,12 +27,14 @@ from apps.api.app.assessment.contracts import (
     RejectedItem,
     public_question,
 )
+from apps.api.app.core.time import now_utc
 from apps.api.app.db.session import set_database_tenant
 from apps.api.app.security.context import (
     build_shared_dependencies,
     build_tenant_db_session_dependency,
 )
 from apps.api.app.security.principal import Principal
+from apps.api.app.study import weakness_sql
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.concurrency import run_in_threadpool
 from packages.assessment import agents
@@ -162,7 +164,7 @@ def _sba_response(attempt_id: UUID | None, question: dict[str, Any],
 
 
 async def _attempt_sba(session: AsyncSession, principal: Principal, question: dict[str, Any],
-                       selected: int | None) -> AttemptResponse:
+                       selected: int | None, confidence: int | None) -> AttemptResponse:
     if selected is None:
         raise HTTPException(status_code=422, detail="selected_option is required")
     graded = grade_sba(question, selected)
@@ -170,7 +172,10 @@ async def _attempt_sba(session: AsyncSession, principal: Principal, question: di
         "question_id": question["id"], "response": {"selected_option": selected},
         "score": graded["score"], "max_score": graded["max_score"],
         "feedback": {"correct": graded["correct"]}, "graded_by": exams.SBA_GRADER,
+        "confidence": confidence,
     })
+    await weakness_sql.after_sba(session, principal.tenant_id, principal.user_id, question,
+                                 attempt_id, bool(graded["correct"]), "sba_wrong", now_utc())
     await session.commit()
     return _sba_response(attempt_id, question, graded)
 
@@ -218,7 +223,8 @@ async def attempt_question(
         raise HTTPException(status_code=409, detail="question is in an open exam")
     if question["type"] == "sba":
         try:
-            return await _attempt_sba(session, principal, question, body.selected_option)
+            return await _attempt_sba(session, principal, question, body.selected_option,
+                                      body.confidence)
         except InvalidAnswer as exc:
             raise _exam_error(exc) from exc
     if question["type"] == "rapid_recall":

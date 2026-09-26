@@ -111,6 +111,15 @@ def _new_limit(counts: dict[str, int], phase: str) -> int:
 async def today_plan(
     repo: StudyRepo, user_id: UUID, now: datetime, refresh: bool = False
 ) -> dict[str, Any]:
+    plan = await ensure_plan(repo, user_id, now, refresh)
+    await repo.commit()
+    return plan
+
+
+async def ensure_plan(
+    repo: StudyRepo, user_id: UUID, now: datetime, refresh: bool = False
+) -> dict[str, Any]:
+    """The cached plan for the local day, else a fresh one saved in this transaction."""
     profile = await require_profile(repo, user_id)
     day = local_day(profile, now)
     cached = None if refresh else await repo.get_plan(user_id, day)
@@ -127,7 +136,6 @@ async def today_plan(
         weight_policy=weights.policy, weight_targets=weights.targets,
     ))
     generated = await repo.save_plan(user_id, plan)
-    await repo.commit()
     return {**plan, "generated_at": generated}
 
 
@@ -204,6 +212,8 @@ async def review_card(
               "scheduled_days": outcome.scheduled_days, "state_before": memory.state,
               "retrievability": outcome.retrievability}
     row = await repo.apply_review(user_id, updated, review)
+    if rating == fsrs.Rating.AGAIN and row.get("review_id") is not None:
+        await repo.record_lapse(user_id, row, row["review_id"], now)
     await repo.commit()
     return {"card": row, "scheduled_days": outcome.scheduled_days, "retention": retention}
 

@@ -80,6 +80,9 @@ OWNED: tuple[Owned, ...] = (
     Owned("grading_jobs", "t.user_id = :u", "direct"),
     Owned("viva_sessions", "t.user_id = :u", "direct"),
     Owned("viva_turns", "t.user_id = :u", "direct"),
+    Owned("study_sessions", "t.user_id = :u", "direct"),
+    Owned("study_session_steps", "t.user_id = :u", "direct"),
+    Owned("weakness_events", "t.user_id = :u", "direct"),
     Owned("data_jobs", "t.user_id = :u", "exports"),
 )
 
@@ -95,7 +98,9 @@ EXEMPT: dict[str, str] = {
 # Children before parents, so no foreign key blocks a delete. Rows of held
 # sources' cascades stay; the user's own study rows never do.
 DIRECT_DELETE_ORDER: tuple[str, ...] = (
-    "viva_turns", "viva_sessions", "grading_jobs", "item_stats", "baseline_tests", "weekly_reports",
+    "viva_turns", "viva_sessions",
+    "study_session_steps", "study_sessions", "weakness_events",
+    "grading_jobs", "item_stats", "baseline_tests", "weekly_reports",
     "card_reviews", "attempts", "exams", "cards", "questions", "study_plans",
     "study_profiles", "tutor_messages", "tutor_threads", "topic_weights",
     "topic_frequencies", "push_subscriptions", "notification_settings",

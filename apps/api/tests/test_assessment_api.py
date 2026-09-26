@@ -12,6 +12,7 @@ from apps.api.app.api import assessment as api
 from apps.api.app.assessment import generation, store
 from apps.api.app.assessment.contracts import public_question
 from apps.api.app.main import app
+from apps.api.app.study import weakness_sql
 from apps.api.tests.test_assessment_validation import EXCERPTS, sba_item, seq_item
 from fastapi.testclient import TestClient
 from packages.models.claude_code import ModelCall, ModelCallError, ModelResult, UsageLimitError
@@ -164,10 +165,21 @@ def test_sba_attempt_reveals_key_with_citations(
     monkeypatch.setattr(store, "get_question", get_question)
     monkeypatch.setattr(store, "in_open_exam", in_open_exam)
     monkeypatch.setattr(store, "insert_attempt", insert_attempt)
-    body = client.post(f"/v1/questions/{row['id']}/attempt", json={"selected_option": 1}).json()
+    weak: list[tuple[Any, ...]] = []
+
+    async def after_sba(*args: Any) -> None:
+        weak.append(args)
+
+    monkeypatch.setattr(weakness_sql, "after_sba", after_sba)
+    body = client.post(f"/v1/questions/{row['id']}/attempt",
+                       json={"selected_option": 1, "confidence": 3}).json()
     assert (body["correct"], body["key"], body["score"]) == (False, 0, 0.0)
     assert body["citations"] and all(o["citations"] for o in body["option_explanations"])
-    assert saved[0]["graded_by"] == "rule:sba_exact"
+    assert saved[0]["graded_by"] == "rule:sba_exact" and saved[0]["confidence"] == 3
+    # The wrong answer enters the weakness loop, keyed by its attempt id.
+    assert len(weak) == 1 and weak[0][5] is False and weak[0][6] == "sba_wrong"
+    assert client.post(f"/v1/questions/{row['id']}/attempt",
+                       json={"selected_option": 1, "confidence": 4}).status_code == 422
     bad = client.post(f"/v1/questions/{row['id']}/attempt", json={"selected_option": 7})
     assert bad.status_code == 422
 

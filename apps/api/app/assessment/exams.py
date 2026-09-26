@@ -15,6 +15,7 @@ from uuid import UUID
 
 from apps.api.app.assessment import grading_store, store
 from apps.api.app.core.time import now_utc
+from apps.api.app.study import weakness_sql
 from packages.assessment.exam_result import FREE_TEXT_TYPES, grade_exam
 from packages.assessment.grading import ExamState, autosave, exam_status, merge_text
 from sqlalchemy import text
@@ -145,26 +146,32 @@ async def submit(
         ),
         {"s": submitted_at, "r": store.dumps(result), "e": exam_id, "u": user_id},
     )
-    await _record_items(session, tenant_id, user_id, exam_id, result["items"])
+    await _record_items(session, tenant_id, user_id, exam_id, result["items"], questions)
     return {**row, "submitted_at": submitted_at, "result": result, "just_submitted": True}
 
 
 async def _record_items(
     session: AsyncSession, tenant_id: UUID, user_id: UUID, exam_id: UUID,
-    items: list[dict[str, Any]],
+    items: list[dict[str, Any]], questions: dict[str, dict[str, Any]],
 ) -> None:
-    """Attempts for items graded now; a grading job for each pending free-text item."""
+    """Attempts for items graded now (a wrong SBA feeds the weakness loop); a
+    grading job for each pending free-text item."""
+    now = now_utc()
     for item in items:
         question_id = UUID(item["question_id"])
         if item["status"] == "pending":
             await grading_store.create_job(session, tenant_id, user_id, exam_id, question_id)
         elif item["type"] == "sba":
-            await store.insert_attempt(session, tenant_id, user_id, {
+            attempt_id = await store.insert_attempt(session, tenant_id, user_id, {
                 "question_id": question_id, "exam_id": exam_id,
                 "response": {"selected_option": item["selected_option"]},
                 "score": item["score"], "max_score": item["max_score"],
                 "feedback": {"correct": item["correct"]}, "graded_by": SBA_GRADER,
             })
+            question = questions.get(item["question_id"])
+            if question is not None:
+                await weakness_sql.after_sba(session, tenant_id, user_id, question, attempt_id,
+                                             bool(item["correct"]), "exam_wrong", now)
         else:
             await grading_store.record_attempt(session, tenant_id, user_id, exam_id, item,
                                                BLANK_GRADER)

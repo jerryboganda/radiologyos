@@ -1,6 +1,8 @@
 <script lang="ts">
+  import Kbd from '$lib/components/Kbd.svelte';
   import { isWritten } from '$lib/exam-session';
   import { optionLetter } from '$lib/questions';
+  import { optionKey } from '$lib/shortcuts';
   import type { QuestionPublic } from '$lib/types/assessment';
   import { mediaUrl } from '$lib/viewer';
   import { composeStaged, splitStaged, STAGE_LABELS, STAGES } from '$lib/viva';
@@ -45,7 +47,18 @@
     image_case: 'Describe the findings, then give the diagnosis, differentials, and next step.',
     viva: 'Answer as you would to the examiner.'
   };
+
+  // A–E pick an option (ignored while typing, e.g. in a written answer).
+  function onKey(event: KeyboardEvent) {
+    if (written || disabled) return;
+    const option = optionKey(event, question.options.length);
+    if (option === null) return;
+    event.preventDefault();
+    onchoose(option);
+  }
 </script>
+
+<svelte:window onkeydown={onKey} />
 
 <article class="panel p-5 sm:p-6" aria-labelledby="q-{question.id}">
   <p class="label">Question {number}{question.topic ? ` · ${question.topic}` : ''}</p>
@@ -85,20 +98,31 @@
     </label>
   {:else}
     <fieldset class="mt-4" {disabled}>
-      <legend class="sr-only">Options</legend>
+      <legend class="sr-only">Options (keys A to {optionLetter(question.options.length - 1)})</legend>
       <div class="flex flex-col gap-2">
         {#each question.options as option, i (i)}
           <label
             class="flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-[0.9375rem] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--focus)]
               {selected === i ? 'border-accent bg-accent-soft' : 'border-line hover:border-line-strong'}"
           >
-            <input type="radio" name="option-{question.id}" value={i} checked={selected === i} onchange={() => onchoose(i)} class="sr-only" />
+            <input
+              type="radio"
+              name="option-{question.id}"
+              value={i}
+              checked={selected === i}
+              aria-keyshortcuts={optionLetter(i)}
+              onchange={() => onchoose(i)}
+              class="sr-only"
+            />
             <span class="font-mono text-xs font-semibold text-muted">{optionLetter(i)}</span>
             <span class="text-ink">{option}</span>
           </label>
         {/each}
       </div>
     </fieldset>
+    <p class="mt-2 hidden text-xs text-muted sm:block">
+      Press <Kbd key="A" />–<Kbd key={optionLetter(question.options.length - 1)} /> to choose.
+    </p>
     {#if selected !== undefined && !disabled}
       <button type="button" class="link mt-3 text-sm" onclick={() => onchoose(null)}>Clear answer</button>
     {/if}
