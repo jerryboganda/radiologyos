@@ -8,12 +8,14 @@
 | Search, tutor and question-topic queries | Local `voyage-4-nano` (`embedder` container) | $0 |
 | Question-stem duplicate checks | Local `voyage-4-nano` | $0 |
 
-**Estimate for the owner's library (September 2026):**
-- 393 sources, about 9–10M characters of final text, roughly **2.3–2.8M tokens**.
-- Figure descriptions add about 0.5M tokens.
-- Total: **about 3.3M tokens once**, about $0.40 at list price. **Billed: $0.00**, because
-  that is under 2% of the free tier.
-- Queries are never billed.
+**Estimate for the owner's library, measured in production (September 2026):**
+- A real 12-chunk slide deck cost 378 tokens, about 2.3 characters per token. Slide
+  fragments are abbreviation-heavy.
+- 393 sources, about 7.2M characters of text today; about 9–10M after the vision pass.
+- That is roughly **3–4.5M tokens**, plus up to about 1M for figure descriptions.
+- Total: **about 5M tokens once at most**. That is about **2.5% of the 195M cap**, or about
+  $0.60 at list price.
+- **Billed: $0.00**, inside the free tier. Queries are never billed.
 
 ## Why tokens are only paid once
 
