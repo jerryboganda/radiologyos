@@ -94,7 +94,7 @@ def _image_page(data: bytes) -> RenderedPage:
         converted = image.convert("RGB")
     converted.thumbnail((MAX_IMAGE_EDGE, MAX_IMAGE_EDGE))
     buffer = io.BytesIO()
-    converted.save(buffer, format="PNG", optimize=True)
+    converted.save(buffer, format="PNG")
     return RenderedPage(1, float(converted.width), float(converted.height), buffer.getvalue())
 
 
@@ -108,7 +108,8 @@ def _pdf_pages(pdf_bytes: bytes) -> Iterator[RenderedPage]:
             width, height = page.get_size()
             bitmap = page.render(scale=RENDER_DPI / 72)
             buffer = io.BytesIO()
-            bitmap.to_pil().save(buffer, format="PNG", optimize=True)
+            # optimize=True costs ~4x the CPU for ~0.5% smaller files.
+            bitmap.to_pil().save(buffer, format="PNG")
             blocks = native_blocks(page.get_textpage(), width, height)
             yield RenderedPage(index + 1, float(width), float(height), buffer.getvalue(), blocks)
     finally:
