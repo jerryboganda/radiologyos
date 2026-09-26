@@ -13,6 +13,7 @@ from apps.api.app.billing.service import (
     SubscriptionStatus,
     parse_stripe_event,
 )
+from apps.api.app.core.config import get_settings
 from apps.api.app.security.context import build_shared_dependencies
 from apps.api.app.security.principal import Principal, require_roles
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -22,7 +23,16 @@ from pydantic import BaseModel, ConfigDict, Field
 # never create a cycle back through the app module.
 principal_from_request, principal_context = build_shared_dependencies()
 
-router = APIRouter(prefix="/v1/billing", tags=["billing"])
+def require_billing() -> None:
+    # ADR 0011: billing is parked. The routes exist but answer 404 until the
+    # owner turns billing on, so no placeholder plan or payment path is live.
+    if not get_settings().billing_enabled:
+        raise HTTPException(status_code=404, detail="billing is disabled")
+
+
+router = APIRouter(
+    prefix="/v1/billing", tags=["billing"], dependencies=[Depends(require_billing)]
+)
 
 _service: BillingService | None = None
 

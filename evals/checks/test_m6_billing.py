@@ -11,11 +11,8 @@ missing key is asserted to fail loudly rather than invent a session.
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
 
 import pytest
 from apps.api.app.billing.service import (
@@ -28,55 +25,24 @@ from apps.api.app.billing.service import (
     parse_stripe_event,
     verify_stripe_signature,
 )
-from apps.api.app.main import app, settings
-from fastapi.testclient import TestClient
-
-client = TestClient(app)
-TENANT = UUID("40000000-0000-0000-0000-000000000001")
-OTHER_TENANT = UUID("40000000-0000-0000-0000-0000000000ff")
-ADMIN = UUID("10000000-0000-0000-0000-00000000000a")
-SECRET = "whsec_test_do_not_use_in_production"
-HEADERS = {
-    "x-user-id": "10000000-0000-0000-0000-00000000000a",
-    "x-tenant-id": "40000000-0000-0000-0000-000000000001",
-    "x-role": "org_admin",
-}
+from evals.checks._billing_support import (
+    ADMIN,
+    OTHER_TENANT,
+    SECRET,
+    TENANT,
+    enable_billing,
+    event_body,
+    restore_settings,
+    signature,
+)
 
 
 def setup_function() -> None:
-    settings.app_env = "test"
-    settings.preview_enabled = True
+    enable_billing()
 
 
 def teardown_function() -> None:
-    settings.app_env = "dev"
-
-
-def signature(payload: bytes, secret: str = SECRET, stamp: int | None = None) -> str:
-    ts = stamp if stamp is not None else int(datetime.now(UTC).timestamp())
-    signed = f"{ts}.".encode() + payload
-    digest = hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
-    return f"t={ts},v1={digest}"
-
-
-def event_body(
-    event_id: str = "evt_1",
-    event_type: str = "checkout.session.completed",
-    plan: str = "clinic",
-    tenant: str = str(TENANT),
-) -> bytes:
-    return json.dumps(
-        {
-            "id": event_id,
-            "type": event_type,
-            "data": {
-                "object": {
-                    "status": "complete",
-                    "metadata": {"tenant_id": tenant, "plan": plan},
-                }
-            },
-        }
-    ).encode()
+    restore_settings()
 
 
 # ------------------------------------------------------- signature safety
@@ -414,74 +380,3 @@ def test_no_secret_ever_appears_in_a_public_payload() -> None:
     )
     assert SECRET not in rendered
     assert "whsec" not in rendered
-
-
-# ------------------------------------------------------------ over HTTP
-
-
-def test_billing_routes_require_authentication() -> None:
-    for path in ("/v1/billing/subscription", "/v1/billing/plans", "/v1/billing/audit"):
-        assert client.get(path).status_code in {401, 403}
-
-
-def test_billing_subscription_and_plans_over_http() -> None:
-    plans = client.get("/v1/billing/plans", headers=HEADERS)
-    assert plans.status_code == 200
-    assert {plan["plan"] for plan in plans.json()} == set(PLANS)
-
-    subscription = client.get("/v1/billing/subscription", headers=HEADERS)
-    assert subscription.status_code == 200
-    assert subscription.json()["plan"] == "free"
-    assert subscription.json()["status"] == "inactive"
-
-
-def test_manual_approval_requires_an_admin_role_over_http() -> None:
-    student = {**HEADERS, "x-role": "student"}
-    recorded = client.post(
-        "/v1/billing/manual/record",
-        headers=student,
-        json={"plan": "solo", "reference": "BACS-HTTP-1"},
-    )
-    assert recorded.status_code == 200
-    assert recorded.json()["status"] == "pending_approval"
-
-    denied = client.post("/v1/billing/manual/approve", headers=student)
-    assert denied.status_code == 403
-
-    approved = client.post("/v1/billing/manual/approve", headers=HEADERS)
-    assert approved.status_code == 200
-    assert approved.json()["subscription"]["status"] == "active"
-
-
-def test_audit_is_privileged_over_http() -> None:
-    student = {**HEADERS, "x-role": "student"}
-    assert client.get("/v1/billing/audit", headers=student).status_code == 403
-    assert client.get("/v1/billing/audit", headers=HEADERS).status_code == 200
-
-
-def test_webhook_without_a_signature_is_refused() -> None:
-    response = client.post("/v1/billing/webhook/stripe", content=event_body())
-    assert response.status_code == 400
-
-
-def test_webhook_is_refused_when_stripe_is_unconfigured() -> None:
-    body = event_body()
-    response = client.post(
-        "/v1/billing/webhook/stripe",
-        content=body,
-        headers={"Stripe-Signature": signature(body)},
-    )
-    assert response.status_code == 501
-
-
-def test_checkout_is_refused_when_stripe_is_unconfigured() -> None:
-    response = client.post(
-        "/v1/billing/checkout",
-        headers=HEADERS,
-        json={
-            "plan": "solo",
-            "success_url": "https://radiologyos.polytronx.com/ok",
-            "cancel_url": "https://radiologyos.polytronx.com/cancel",
-        },
-    )
-    assert response.status_code == 402

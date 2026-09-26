@@ -17,201 +17,47 @@ an explicit, audited administrator approval.
 
 from __future__ import annotations
 
-import hashlib
-import hmac
-import json
-from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
-from enum import StrEnum
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-# Plan catalogue. Prices are the owner's commercial position (ADR 0009 records
-# Stripe test mode plus manual payment); these are test-mode amounts only.
-PLANS: dict[str, dict[str, Any]] = {
-    "free": {
-        "plan": "free",
-        "monthly_cost_cap_usd": 0.0,
-        "seats": 1,
-        "max_sources": 25,
-        "label": "Free",
-    },
-    "solo": {
-        "plan": "solo",
-        "monthly_cost_cap_usd": 19.0,
-        "seats": 1,
-        "max_sources": 500,
-        "label": "Solo",
-    },
-    "clinic": {
-        "plan": "clinic",
-        "monthly_cost_cap_usd": 99.0,
-        "seats": 10,
-        "max_sources": 10_000,
-        "label": "Clinic",
-    },
-}
-PLAN_ORDER = ("free", "solo", "clinic")
+from apps.api.app.billing.models import (
+    EVENT_STATUS,
+    MODELLED_EVENT_TYPES,
+    PLAN_ORDER,
+    PLANS,
+    BillingError,
+    BillingEvent,
+    PaymentMethod,
+    SignatureError,
+    Subscription,
+    SubscriptionStatus,
+    next_billing_date,
+    trial_days_for,
+)
+from apps.api.app.billing.stripe import (
+    parse_stripe_event,
+    status_for_event,
+    verify_stripe_signature,
+)
 
-
-class PaymentMethod(StrEnum):
-    STRIPE_TEST = "stripe_test"
-    MANUAL = "manual"
-
-
-class SubscriptionStatus(StrEnum):
-    INACTIVE = "inactive"
-    PENDING = "pending"
-    ACTIVE = "active"
-    PAST_DUE = "past_due"
-    CANCELLED = "cancelled"
-
-
-class BillingError(RuntimeError):
-    """Raised when a billing operation is refused. Never carries a secret."""
-
-
-class SignatureError(BillingError):
-    """A webhook signature did not verify."""
-
-
-@dataclass(frozen=True, slots=True)
-class BillingEvent:
-    """A provider event, already signature-verified by the caller."""
-
-    event_id: str
-    event_type: str
-    tenant_id: UUID
-    plan: str
-    occurred_at: datetime
-    payload: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(slots=True)
-class Subscription:
-    tenant_id: UUID
-    plan: str = "free"
-    status: SubscriptionStatus = SubscriptionStatus.INACTIVE
-    method: PaymentMethod | None = None
-    seats: int = 1
-    max_sources: int = 25
-    monthly_cost_cap_usd: float = 0.0
-    # Manual payments are recorded but not self-activating.
-    manual_reference: str | None = None
-    manual_approved_by: UUID | None = None
-    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "tenant_id": str(self.tenant_id),
-            "plan": self.plan,
-            "status": self.status.value,
-            "method": self.method.value if self.method else None,
-            "seats": self.seats,
-            "max_sources": self.max_sources,
-            "monthly_cost_cap_usd": self.monthly_cost_cap_usd,
-            "manual_reference": self.manual_reference,
-            "manual_approved_by": str(self.manual_approved_by)
-            if self.manual_approved_by
-            else None,
-            "updated_at": self.updated_at.isoformat(),
-        }
-
-
-def verify_stripe_signature(
-    payload: bytes,
-    signature_header: str,
-    secret: str,
-    tolerance_seconds: int = 300,
-    now: datetime | None = None,
-) -> None:
-    """Verify a Stripe-style webhook signature in constant time.
-
-    The header is ``t=<unix>,v1=<hex>``. The signed string is
-    ``<timestamp>.<raw body>``. The timestamp is rejected if it is outside the
-    tolerance, which is what stops a captured webhook being replayed later.
-
-    Raises SignatureError rather than returning a boolean, so a caller cannot
-    accidentally continue on a falsy result.
-    """
-
-    if not secret:
-        raise SignatureError("no webhook secret configured")
-
-    parts: dict[str, list[str]] = {}
-    for chunk in signature_header.split(","):
-        key, _, value = chunk.partition("=")
-        if key and value:
-            parts.setdefault(key, []).append(value)
-    timestamps = parts.get("t") or []
-    signatures = parts.get("v1") or []
-    if not timestamps or not signatures:
-        raise SignatureError("malformed signature header")
-
-    try:
-        stamp = int(timestamps[0])
-    except ValueError as exc:
-        raise SignatureError("malformed signature timestamp") from exc
-
-    current = now or datetime.now(UTC)
-    if abs(int(current.timestamp()) - stamp) > tolerance_seconds:
-        raise SignatureError("signature timestamp outside tolerance")
-
-    signed = f"{stamp}.".encode() + payload
-    expected = hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
-    if not any(hmac.compare_digest(expected, candidate) for candidate in signatures):
-        raise SignatureError("signature mismatch")
-
-
-def parse_stripe_event(
-    payload: bytes,
-    signature_header: str,
-    secret: str,
-    now: datetime | None = None,
-) -> BillingEvent:
-    """Verify then parse a webhook body into a BillingEvent."""
-
-    verify_stripe_signature(payload, signature_header, secret, now=now)
-    try:
-        body = json.loads(payload)
-    except json.JSONDecodeError as exc:
-        raise BillingError("webhook body is not valid JSON") from exc
-
-    event_id = body.get("id")
-    event_type = body.get("type")
-    if not isinstance(event_id, str) or not event_id:
-        raise BillingError("webhook has no event id")
-    if not isinstance(event_type, str) or not event_type:
-        raise BillingError("webhook has no event type")
-
-    obj = body.get("data", {}).get("object", {})
-    metadata = obj.get("metadata") or {}
-    tenant_raw = metadata.get("tenant_id") or obj.get("client_reference_id")
-    if not tenant_raw:
-        raise BillingError("webhook carries no tenant reference")
-    try:
-        tenant_id = UUID(str(tenant_raw))
-    except ValueError as exc:
-        raise BillingError("webhook tenant reference is not a uuid") from exc
-
-    plan = metadata.get("plan") or "free"
-    if plan not in PLANS:
-        raise BillingError(f"unknown plan in webhook: {plan}")
-
-    created = obj.get("created")
-    occurred = (
-        datetime.fromtimestamp(int(created), tz=UTC)
-        if isinstance(created, (int, float))
-        else (now or datetime.now(UTC))
-    )
-    return BillingEvent(
-        event_id=event_id,
-        event_type=event_type,
-        tenant_id=tenant_id,
-        plan=plan,
-        occurred_at=occurred,
-        payload={"status": obj.get("status")},
-    )
+__all__ = [
+    "EVENT_STATUS",
+    "MODELLED_EVENT_TYPES",
+    "PLANS",
+    "PLAN_ORDER",
+    "BillingError",
+    "BillingEvent",
+    "BillingService",
+    "PaymentMethod",
+    "SignatureError",
+    "Subscription",
+    "SubscriptionStatus",
+    "next_billing_date",
+    "parse_stripe_event",
+    "trial_days_for",
+    "verify_stripe_signature",
+]
 
 
 class BillingService:
@@ -360,7 +206,7 @@ class BillingService:
         self._apply(
             event.tenant_id,
             plan=event.plan,
-            status=_status_for_event(event),
+            status=status_for_event(event),
             method=PaymentMethod.STRIPE_TEST,
             action="subscription.event",
             actor=actor,
@@ -540,34 +386,3 @@ class BillingService:
         self._subscriptions[tenant_id] = subscription
         self._record(tenant_id, action, actor, plan=plan, status=status.value, **extra)
 
-
-def _status_for_event(event: BillingEvent) -> SubscriptionStatus:
-    mapping = EVENT_STATUS
-    payload_status = event.payload.get("status")
-    if payload_status in {"past_due", "unpaid", "canceled"}:
-        return SubscriptionStatus.PAST_DUE
-    return mapping[event.event_type]
-
-
-# Only these event types may change an entitlement. Anything else is recorded
-# and ignored, so an unmodelled provider event cannot alter a plan.
-EVENT_STATUS: dict[str, SubscriptionStatus] = {
-    "checkout.session.completed": SubscriptionStatus.ACTIVE,
-    "customer.subscription.updated": SubscriptionStatus.ACTIVE,
-    "customer.subscription.deleted": SubscriptionStatus.CANCELLED,
-    "invoice.payment_succeeded": SubscriptionStatus.ACTIVE,
-    "invoice.payment_failed": SubscriptionStatus.PAST_DUE,
-}
-MODELLED_EVENT_TYPES = frozenset(EVENT_STATUS)
-
-
-def trial_days_for(plan: str) -> int:
-    """Trial length per plan. Test-mode policy, not a commercial guarantee."""
-    return {"free": 0, "solo": 14, "clinic": 14}.get(plan, 0)
-
-
-def next_billing_date(plan: str, now: datetime | None = None) -> datetime:
-    current = now or datetime.now(UTC)
-    if plan == "free":
-        return current
-    return current + timedelta(days=30)

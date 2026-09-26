@@ -45,6 +45,7 @@ jobs:
           evals/checks/test_m5_assessment.py
           evals/checks/test_m6_ops.py
           evals/checks/test_m6_billing.py
+          evals/checks/test_m6_billing_http.py
           evals/checks/test_m7_portability.py
 
 

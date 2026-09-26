@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     models_config_path: Path = Path("packages/models/models.yaml")
     allow_ungrounded_default: bool = False
     preview_enabled: bool = False
+    # ADR 0011: billing is parked; its routes answer 404 unless this is set.
+    billing_enabled: bool = False
     core_tenant_id: UUID = UUID("00000000-0000-0000-0000-000000000001")
 
     @field_validator("api_prefix")
