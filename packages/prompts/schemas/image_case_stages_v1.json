@@ -1,0 +1,87 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "topic": {
+      "type": "string"
+    },
+    "stem": {
+      "description": "Station text shown with the image; never the diagnosis.",
+      "type": "string"
+    },
+    "citations": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "stages": {
+      "description": "Exactly five, in the fixed stage order.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "stage": {
+            "enum": [
+              "describe",
+              "findings",
+              "diagnosis",
+              "differentials",
+              "next_step"
+            ],
+            "type": "string"
+          },
+          "model_answer": {
+            "description": "What a passing candidate says at this stage.",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "point": {
+                  "description": "One markable point an examiner would credit.",
+                  "type": "string"
+                },
+                "marks": {
+                  "exclusiveMinimum": 0,
+                  "maximum": 10,
+                  "type": "number"
+                },
+                "citations": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "point",
+                "marks",
+                "citations"
+              ],
+              "type": "object"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "stage",
+          "model_answer",
+          "points"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "topic",
+    "stem",
+    "citations",
+    "stages"
+  ],
+  "type": "object"
+}

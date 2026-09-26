@@ -20,6 +20,7 @@ from apps.api.app.api.preview_operations import router as preview_operations_rou
 from apps.api.app.api.question_review import router as question_review_router
 from apps.api.app.api.study import router as study_router
 from apps.api.app.api.tutor import router as tutor_router
+from apps.api.app.api.viva import router as viva_router
 from apps.api.app.core.config import get_settings
 from apps.api.app.db.session import (
     get_system_session,
@@ -58,6 +59,7 @@ app.include_router(tutor_router)
 app.include_router(question_review_router)
 app.include_router(assessment_router)
 app.include_router(exams_router)
+app.include_router(viva_router)
 app.include_router(study_router)
 app.include_router(knowledge_router)
 app.include_router(data_rights_router)

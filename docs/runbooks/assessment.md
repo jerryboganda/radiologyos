@@ -70,3 +70,35 @@ Decision record: [ADR 0015](../decisions/0015-assessment-engine.md). Migration
 - Review approval fails with `citations_stale` when a cited source was deleted
   or a cited page no longer exists; reject the draft or regenerate it.
 - Live proof: `evals/checks/test_assessment_depth_live.py` (CI `RLS proof` job).
+
+## Viva and staged image case (migration `20260926_0018`, ADR 0026)
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| POST | `/v1/viva/sessions` | `{kind: viva or image_case, style: practice, fcps2_toacs, or frcr_2b_oral, topic?, figure_id?, question_id?, max_turns?, time_limit_minutes?}`; 404 `figure_not_found`/`question_not_found`; 422 `no_source_material`, `no_described_figure`, `question_not_staged`; 409 `question_in_open_exam` |
+| GET | `/v1/viva/sessions` | the owner's sessions with `overall_percent` |
+| GET | `/v1/viva/sessions/{id}` | transcript, current turn, `work`, debrief; finishes a session whose deadline passed while idle; re-queues work untouched for 10 minutes |
+| POST | `/v1/viva/sessions/{id}/turns/{n}/answer` | `{answer_text}`; 409 `viva_examiner_busy`, `viva_turn_closed`, `viva_not_active`, `viva_time_expired` (the session is finished from its graded turns) |
+| POST | `/v1/viva/sessions/{id}/end` | idempotent early end; in-flight examiner work is discarded |
+
+- Statuses: `preparing` (opening question or stage rubric being written), `active`,
+  `finished` (debrief stored), `failed` (nothing could be asked; `error_code` says why).
+  `work` is `pending`/`running` while the worker holds a turn.
+- Worker task: `radbrain.viva_step(tenant, session, turn, pipeline_version)`. Turn 0
+  opens a viva or writes the staged rubric; turn n grades answer n and asks n+1 or
+  finishes. Without the Claude runtime the step pauses as `model_unavailable` (every
+  30 min, failed after 48 runs); uncited model output is `uncited_output` and retried
+  like a model error (failed after 3). A session with graded turns that then fails
+  finishes as `examiner_error`; one without becomes `failed`.
+- `evidence_gone`: every text excerpt behind the session was deleted from the library.
+  Start a new session.
+- Staged cases become `image_case` bank questions (`answer.stages`), `active` only
+  after `question_check` passes (otherwise a draft in the review queue). A new session
+  on the same figure reuses the newest one instead of calling the model again. In an
+  exam the item answer is one text with `[describe]`…`[next_step]` headings; the
+  result item carries `stage_scores`.
+- Weak turns go to sinks registered with
+  `apps.api.app.assessment.weakness.register_weakness_sink`; with none registered they
+  stay in the debrief (`weak_turns`, `weak_areas`).
+- Live proof: `evals/checks/test_viva_live.py` (CI `RLS proof` job). Eval cases:
+  `evals/fixtures/viva_v1.json` (synthetic, `review_required`).
