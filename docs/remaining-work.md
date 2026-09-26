@@ -1,5 +1,8 @@
 # Remaining-work goal: M0 acceptance through M7
 
+> **2026-09-26:** the status tables below are stale. The audited gap list and the
+> execution plan are in [`completion-plan.md`](completion-plan.md).
+
 Status: **Active goal — M0 production evidence pending; M1–M7 implementation,
 eval gates, and runbooks complete as non-release preview**
 Scope: all remaining product slices A–Z, in strict milestone order
