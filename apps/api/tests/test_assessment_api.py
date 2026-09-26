@@ -55,7 +55,9 @@ def test_only_checker_passed_items_become_active() -> None:
                                   "reasons": ["no_cueing: length cue"]}],
     })
     outcome = generation.generate_items(fake, EXCERPTS, "sba", "fcps2_theory", 3, None)
-    assert [row["status"] for row in outcome.items] == ["active", "draft"]
+    # Checks run in parallel and the fake hands out verdicts in call order, so
+    # which item gets which verdict is scheduling-dependent; the gate is not.
+    assert sorted(row["status"] for row in outcome.items) == ["active", "draft"]
     assert outcome.rejected == [{"index": 2, "reasons": ["sba_key_out_of_range"]}]
     assert fake.calls.count("question_check") == 2
     first = outcome.items[0]
