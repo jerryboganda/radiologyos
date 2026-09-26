@@ -18,7 +18,7 @@
     "typecheck:staging": "tsc --noEmit -p tsconfig.staging.json"
   },
   "devDependencies": {
-    "@playwright/test": "1.52.0",
+    "@playwright/test": "1.63.0",
     "@sveltejs/adapter-node": "^5.5.7",
     "@sveltejs/kit": "^2.70.3",
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
