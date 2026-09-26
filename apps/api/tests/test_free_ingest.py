@@ -60,6 +60,22 @@ def test_text_page_skips_vision_but_pictures_scans_and_short_text_do_not() -> No
     assert text_only_pages(_pdf(LINES), {1: 120}) == set()  # below MIN_CHARS
 
 
+def test_multi_column_pages_go_to_vision(monkeypatch: pytest.MonkeyPatch) -> None:
+    import pdf_inspector
+
+    real = pdf_inspector.process_pdf_bytes
+
+    class Columns:
+        def __init__(self, report: Any) -> None:
+            self._r = report
+
+        def __getattr__(self, name: str) -> Any:
+            return [1] if name == "pages_with_columns" else getattr(self._r, name)
+
+    monkeypatch.setattr(pdf_inspector, "process_pdf_bytes", lambda b: Columns(real(b)))
+    assert text_only_pages(_pdf(LINES), {1: 900}) == set()
+
+
 def test_any_inspector_failure_sends_pages_to_vision(monkeypatch: pytest.MonkeyPatch) -> None:
     import pdf_inspector
 
