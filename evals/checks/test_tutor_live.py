@@ -101,8 +101,11 @@ class _Transport:
     def run(self, call: Any) -> Any:
         from packages.models.claude_code import ModelResult
 
-        output = {"coverage": "full",
-                  "segments": [{"text": "PAP shows crazy paving.", "sources": ["S1"]}]}
+        output: dict[str, Any] = {
+            "coverage": "full",
+            "segments": [{"text": "PAP shows crazy paving.", "sources": ["S1"]}]}
+        if "verdicts" in call.output_schema.get("properties", {}):  # grounding_judge
+            output = {"verdicts": [{"segment": 1, "verdict": "supported", "reason": "S1."}]}
         return ModelResult(output=output, duration_ms=1, cost_usd=0.0)
 
 
@@ -142,7 +145,10 @@ async def _repo_proof(runtime_dsn: str, runtime: Any, ids: dict[str, UUID]) -> N
         await engine.dispose()
     assert [t["message_count"] for t in listed] == [2]
     assert [m["role"] for m in stored] == ["user", "assistant"]
-    assert stored[1]["grounding"] == "sources" and stored[1]["citations"][0]["citations"]
+    assert stored[1]["grounding"] == "sources"
+    assert stored[1]["citations"][0]["citations"]
+    assert stored[1]["citations"][-1]["kind"] == "judge_stats"
+    assert stored[1]["citations"][-1]["judge"]["supported"] == 1
     assert [t.role for t in history] == ["user", "assistant"]
 
 

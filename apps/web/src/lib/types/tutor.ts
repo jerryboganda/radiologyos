@@ -1,14 +1,19 @@
 // Tutor API contract (apps/api/app/api/tutor.py, packages/tutor/models.py).
 // Every segment carries at least one verified citation; web segments carry URL
-// citations and are always labelled "From the web" in the UI.
+// citations and are always labelled "From the web" in the UI. Figure citations
+// resolve to a figure id + page and render as thumbnails via /media/figures/{id}.
+// `support` is the semantic grounding judge's verdict (ADR 0013 v2).
 import type { BlockRef } from './citation';
 
 export type Grounding = 'sources' | 'web' | 'mixed' | 'none';
 
+export type Support = 'supported' | 'partial' | 'not_verified';
+
 export interface TutorCitation {
-  kind: 'source' | 'web';
+  kind: 'source' | 'web' | 'figure';
   label?: string | null;
   chunk_id?: string | null;
+  figure_id?: string | null;
   source_id?: string | null;
   source_title?: string | null;
   page_from?: number | null;
@@ -21,6 +26,19 @@ export interface Segment {
   text: string;
   origin: 'sources' | 'web';
   citations: TutorCitation[];
+  support?: Support | null;
+  support_note?: string | null;
+}
+
+export interface JudgeStats {
+  status: 'ok' | 'failed' | 'skipped' | 'not_run';
+  judged: number;
+  supported: number;
+  partial: number;
+  unsupported: number;
+  not_verified: number;
+  web_unjudged: number;
+  agent_version: string;
 }
 
 export interface AskRequest {
@@ -38,6 +56,8 @@ export interface AskResponse {
   dropped_segments: number;
   agent_version: string;
   excerpts_considered: number;
+  figures_considered: number;
+  judge: JudgeStats | null;
 }
 
 export interface ThreadSummary {
@@ -56,6 +76,7 @@ export interface ThreadMessage {
   segments: Segment[];
   agent_version: string;
   created_at: string;
+  judge?: JudgeStats | null;
 }
 
 export interface ThreadDetail {
@@ -71,4 +92,10 @@ export const GROUNDING_LABEL: Record<Grounding, string> = {
   web: 'From the web',
   mixed: 'Your library + the web',
   none: 'No grounded answer'
+};
+
+export const SUPPORT_LABEL: Record<Support, string> = {
+  supported: 'Checked against the cited text',
+  partial: 'Partially supported',
+  not_verified: 'Not verified'
 };

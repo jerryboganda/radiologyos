@@ -3,9 +3,9 @@
 The model's citations are claims, not facts. Every segment is kept only if at
 least one of its citations verifies:
 
-* a source label must name an excerpt retrieved for *this* question from the
-  caller's own library (labels are mapped back to chunk ids here, never taken
-  from model output);
+* a source label must name an excerpt (``S1``..) or figure (``F1``..)
+  retrieved for *this* question from the caller's own library (labels are
+  mapped back to chunk or figure ids here, never taken from model output);
 * a web citation must be an https URL, without credentials, on an allow-listed
   authoritative radiology domain.
 
@@ -26,9 +26,11 @@ from packages.tutor.models import (
     Citation,
     GroundedAnswer,
     Grounding,
+    JudgeStats,
     Segment,
     SourceAnswer,
     WebAnswer,
+    WebAnswerWithPages,
 )
 
 NOT_FOUND = (
@@ -75,6 +77,61 @@ class Excerpt:
         )
 
 
+    @property
+    def evidence(self) -> str:
+        return self.text
+
+
+@dataclass(frozen=True, slots=True)
+class FigureExcerpt:
+    """One retrieved figure, shown to the model as its AI description."""
+
+    label: str
+    figure_id: UUID
+    source_id: UUID
+    source_title: str
+    page_no: int
+    caption: str
+    modality: str
+    anatomy: str
+    description: str
+
+    def citation(self) -> Citation:
+        return Citation(
+            kind="figure", label=self.label, figure_id=self.figure_id,
+            source_id=self.source_id, source_title=self.source_title,
+            page_from=self.page_no, page_to=self.page_no,
+        )
+
+    @property
+    def evidence(self) -> str:
+        parts = [f"Modality: {self.modality}" if self.modality else "",
+                 f"Anatomy: {self.anatomy}" if self.anatomy else "",
+                 f"Caption: {self.caption}" if self.caption else "",
+                 f"Description: {self.description}"]
+        return "\n".join(part for part in parts if part)
+
+
+Citable = Excerpt | FigureExcerpt
+MAX_FIGURES = 4
+
+
+def figures_from_hits(
+    hits: Sequence[dict[str, Any]], limit: int = MAX_FIGURES
+) -> list[FigureExcerpt]:
+    """Label described figure hits F1..Fn in rank order (undescribed ones are skipped)."""
+    described = [hit for hit in hits if (hit.get("description") or "").strip()][:limit]
+    return [
+        FigureExcerpt(
+            label=f"F{rank}", figure_id=hit["id"], source_id=hit["source_id"],
+            source_title=hit["source_title"], page_no=int(hit["page_no"]),
+            caption=hit.get("caption") or "", modality=hit.get("modality") or "",
+            anatomy=hit.get("anatomy") or "", description=hit["description"].strip(),
+        )
+        for rank, hit in enumerate(described, start=1)
+    ]
+
+
 def excerpts_from_hits(hits: Sequence[dict[str, Any]]) -> list[Excerpt]:
     """Label retrieval hits S1..Sn in rank order."""
     return [
@@ -93,15 +150,16 @@ def _clean_text(text: str) -> str:
 
 
 def ground_sources(
-    answer: SourceAnswer, excerpts: Sequence[Excerpt]
+    answer: SourceAnswer, excerpts: Sequence[Excerpt], figures: Sequence[FigureExcerpt] = ()
 ) -> tuple[list[Segment], int]:
-    """Keep segments whose labels resolve to retrieved excerpts."""
-    by_label = {excerpt.label.upper(): excerpt for excerpt in excerpts}
+    """Keep segments whose labels resolve to retrieved excerpts or figures."""
+    items: list[Citable] = [*excerpts, *figures]
+    by_label = {item.label.upper(): item for item in items}
     kept: list[Segment] = []
     dropped = 0
     for segment in answer.segments:
         text = _clean_text(segment.text)
-        seen: dict[str, Excerpt] = {}
+        seen: dict[str, Citable] = {}
         for label in segment.sources:
             found = by_label.get(label.strip().strip("[]").upper())
             if found is not None:
@@ -152,6 +210,22 @@ def ground_web(
     return kept, dropped
 
 
+def page_summaries(
+    answer: WebAnswer, allowed: Iterable[str] = ALLOWED_WEB_DOMAINS
+) -> dict[str, str]:
+    """Map each verified page URL to the web agent's summary of it (v2 output only)."""
+    if not isinstance(answer, WebAnswerWithPages):
+        return {}
+    domains = tuple(allowed)
+    summaries: dict[str, str] = {}
+    for page in answer.pages:
+        url = verified_url(page.url, domains)
+        summary = _clean_text(page.summary)
+        if url is not None and summary:
+            summaries.setdefault(url, summary)
+    return summaries
+
+
 def grounding_of(segments: Sequence[Segment]) -> Grounding:
     origins = {segment.origin for segment in segments}
     if not origins:
@@ -171,6 +245,7 @@ def combine(
     web_attempted: bool,
     notice: str | None = None,
     agent_version: str = "",
+    judge: JudgeStats | None = None,
 ) -> GroundedAnswer:
     """Source-cited segments first, then web segments, each labelled by origin."""
     segments = [*source_segments, *web_segments]
@@ -181,5 +256,5 @@ def combine(
         notice = notice or (NOT_FOUND_AFTER_WEB if web_attempted else NOT_FOUND)
     return GroundedAnswer(
         segments=segments, grounding=grounding_of(segments), dropped_segments=dropped,
-        notice=notice, agent_version=agent_version,
+        notice=notice, agent_version=agent_version, judge=judge,
     )

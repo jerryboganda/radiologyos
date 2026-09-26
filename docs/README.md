@@ -28,6 +28,7 @@ milestones defined by the implementation specification.
 | Local M1–M7 preview operation | [`runbooks/m1-preview.md`](runbooks/m1-preview.md) |
 | M2 knowledge and editor authority | [`runbooks/m2-preview.md`](runbooks/m2-preview.md) |
 | M3 retrieval, grounding, tutor threads | [`runbooks/m3-preview.md`](runbooks/m3-preview.md) |
+| Grounded tutor: figures, grounding judge, SSE streaming | [`runbooks/tutor.md`](runbooks/tutor.md) |
 | M4 planner, Today, scheduling | [`runbooks/m4-preview.md`](runbooks/m4-preview.md) |
 | M5 items, exam mode, autosave | [`runbooks/m5-preview.md`](runbooks/m5-preview.md) |
 | M6 preview operations boundaries | [`runbooks/m6-preview-operations.md`](runbooks/m6-preview-operations.md) |

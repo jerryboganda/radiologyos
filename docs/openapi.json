@@ -1581,6 +1581,114 @@
         }
       }
     },
+    "/v1/tutor/ask/stream": {
+      "post": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Ask Stream",
+        "operationId": "ask_stream_v1_tutor_ask_stream_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Server-Sent Events: status*, then answer + done, or one error.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/tutor/threads": {
       "get": {
         "tags": [
@@ -10650,6 +10758,20 @@
           "excerpts_considered": {
             "type": "integer",
             "title": "Excerpts Considered"
+          },
+          "figures_considered": {
+            "type": "integer",
+            "title": "Figures Considered"
+          },
+          "judge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JudgeStats"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -10661,7 +10783,9 @@
           "notice",
           "dropped_segments",
           "agent_version",
-          "excerpts_considered"
+          "excerpts_considered",
+          "figures_considered",
+          "judge"
         ],
         "title": "AskResponse"
       },
@@ -12155,6 +12279,69 @@
           "environment"
         ],
         "title": "HealthResponse"
+      },
+      "JudgeStats": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "failed",
+              "skipped",
+              "not_run"
+            ],
+            "title": "Status"
+          },
+          "judged": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Judged",
+            "default": 0
+          },
+          "supported": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Supported",
+            "default": 0
+          },
+          "partial": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Partial",
+            "default": 0
+          },
+          "unsupported": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Unsupported",
+            "description": "Dropped as unsupported.",
+            "default": 0
+          },
+          "not_verified": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Not Verified",
+            "default": 0
+          },
+          "web_unjudged": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Web Unjudged",
+            "default": 0
+          },
+          "agent_version": {
+            "type": "string",
+            "title": "Agent Version",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "JudgeStats",
+        "description": "What the semantic grounding judge did for one answer (persisted with it)."
       },
       "ManualDecisionRequest": {
         "properties": {
@@ -14389,6 +14576,33 @@
             "type": "array",
             "minItems": 1,
             "title": "Citations"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "supported",
+                  "partial",
+                  "not_verified"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          },
+          "support_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Note"
           }
         },
         "additionalProperties": false,
@@ -14900,6 +15114,16 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "judge": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JudgeStats"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -15261,7 +15485,8 @@
             "type": "string",
             "enum": [
               "source",
-              "web"
+              "web",
+              "figure"
             ],
             "title": "Kind"
           },
@@ -15287,6 +15512,18 @@
               }
             ],
             "title": "Chunk Id"
+          },
+          "figure_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Figure Id"
           },
           "source_id": {
             "anyOf": [
@@ -15361,7 +15598,7 @@
           "kind"
         ],
         "title": "Citation",
-        "description": "A verified citation: an excerpt the retriever returned, or an allowed URL."
+        "description": "A verified citation: a retrieved excerpt or figure, or an allowed URL."
       }
     },
     "securitySchemes": {

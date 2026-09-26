@@ -3,6 +3,12 @@
 Every query runs in the caller's transaction-local tenant session (RLS) and is
 additionally scoped to the thread owner, so one member of a tenant never sees
 another member's tutor conversations.
+
+An assistant message stores its verified answer in ``citations`` (jsonb, which
+migration 0005 constrains to an array): the segments in order, then — since ADR
+0013 v2 — one trailing ``{"kind": "judge_stats", "judge": {...},
+"dropped_segments": n}`` element. Rows written before v2 have no such element;
+``stored_answer`` reads both, so no migration is needed.
 """
 
 from __future__ import annotations
@@ -18,6 +24,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 TITLE_CHARS = 120
 HISTORY_MESSAGES = 6
+
+
+JUDGE_STATS = "judge_stats"
+
+
+def stored_citations(answer: GroundedAnswer) -> list[dict[str, Any]]:
+    """The jsonb array for an answer: segments, then its judge stats element."""
+    stored: list[dict[str, Any]] = [s.model_dump(mode="json") for s in answer.segments]
+    if answer.judge is not None:
+        stored.append({"kind": JUDGE_STATS, "judge": answer.judge.model_dump(mode="json"),
+                       "dropped_segments": answer.dropped_segments})
+    return stored
+
+
+def stored_answer(citations: Any) -> tuple[list[Any], Any]:
+    """Return (segments, judge stats) from a stored ``citations`` array (any version)."""
+    segments: list[Any] = []
+    judge: Any = None
+    for item in citations or []:
+        if isinstance(item, dict) and item.get("kind") == JUDGE_STATS:
+            judge = item.get("judge")
+        else:
+            segments.append(item)
+    return segments, judge
 
 
 def thread_title(question: str) -> str:
@@ -96,7 +126,7 @@ async def add_exchange(
              "VALUES (:t, :th, 'user', :c)"),
         {"t": tenant_id, "th": thread_id, "c": question},
     )
-    segments = [segment.model_dump(mode="json") for segment in answer.segments]
+    stored = stored_citations(answer)
     row = await session.execute(
         text(
             "INSERT INTO tutor_messages (tenant_id, thread_id, role, content, citations, "
@@ -104,7 +134,7 @@ async def add_exchange(
             "CAST(:cit AS jsonb), :g, :v, clock_timestamp()) RETURNING id"
         ),
         {"t": tenant_id, "th": thread_id, "c": answer.text, "g": answer.grounding,
-         "v": answer.agent_version, "cit": json.dumps(segments, ensure_ascii=False)},
+         "v": answer.agent_version, "cit": json.dumps(stored, ensure_ascii=False)},
     )
     await session.execute(
         text("UPDATE tutor_threads SET updated_at = now() WHERE id = :th"), {"th": thread_id}

@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "description": "Output of ``tutor_answer``: an answer drawn only from numbered excerpts.",
+  "properties": {
+    "segments": {
+      "description": "The answer in reading order; [] if nothing is covered.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "description": "One or two sentences of the answer, supported by the cited excerpts.",
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "sources": {
+            "description": "Excerpt labels that support this text, e.g. [\"S1\", \"S3\"]. Never empty.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "type": "array"
+          }
+        },
+        "required": [
+          "text",
+          "sources"
+        ],
+        "type": "object"
+      },
+      "maxItems": 40,
+      "type": "array"
+    },
+    "coverage": {
+      "description": "How completely the excerpts answer the question.",
+      "enum": [
+        "full",
+        "partial",
+        "none"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "segments",
+    "coverage"
+  ],
+  "type": "object"
+}
