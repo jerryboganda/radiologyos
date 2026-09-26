@@ -111,6 +111,18 @@ class AutosaveResponse(BaseModel):
     answers: dict[str, int]
 
 
+class ExamSummary(BaseModel):
+    id: UUID
+    mode: str
+    status: str
+    started_at: datetime
+    deadline_at: datetime | None
+    submitted_at: datetime | None
+    question_count: int
+    answered: int
+    score_percent: float | None
+
+
 class ExamView(BaseModel):
     id: UUID
     mode: str

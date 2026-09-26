@@ -50,3 +50,19 @@ export const saveAnswers = (event: RequestEvent, examId: string, body: AutosaveI
 /** Idempotent: later calls return the stored result. */
 export const submitExam = (event: RequestEvent, examId: string) =>
   sendJson<ExamView>(event, `/v1/exams/${encodeURIComponent(examId)}/submit`, 'POST');
+
+export type ExamSummary = {
+  id: string;
+  mode: string;
+  status: string;
+  started_at: string;
+  deadline_at: string | null;
+  submitted_at: string | null;
+  question_count: number;
+  answered: number;
+  score_percent: number | null;
+};
+
+export function listExams(event: RequestEvent) {
+  return getJson<ExamSummary[]>(event, '/v1/exams');
+}

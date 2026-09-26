@@ -56,8 +56,8 @@ Exams: the timer uses the server's `deadline_at` corrected by `server_time`.
 Answers autosave (debounced 800 ms) with the exam `revision`; a 409
 `stale_revision` reloads the exam, re-applies this tab's unsaved edits, and
 retries. At zero the screen submits; the server grades expired exams on read.
-The API has no "list my exams" route, so `/exams` remembers the exam IDs this
-browser created in an httpOnly cookie (`radbrain_exams`, IDs only).
+`/exams` lists the user's exams from `GET /v1/exams` (status, counts, score),
+so exams started on any device appear.
 - `/offline` is prerendered static HTML served by the service worker when offline.
 
 ## Troubleshooting

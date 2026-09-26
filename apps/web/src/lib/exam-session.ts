@@ -76,18 +76,3 @@ export function retryDelay(attempt: number): number {
 export function answeredCount(questionIds: string[], answers: Answers): number {
   return questionIds.filter((id) => typeof answers[id] === 'number').length;
 }
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export const RECENT_EXAMS_COOKIE = 'radbrain_exams';
-const MAX_RECENT = 8;
-
-/** Parse the recent-exams cookie (comma-separated UUIDs); junk is dropped. */
-export function parseRecentExams(value: string | undefined | null): string[] {
-  return [...new Set((value ?? '').split(',').filter((id) => UUID.test(id)))].slice(0, MAX_RECENT);
-}
-
-/** Newest first, de-duplicated, capped. */
-export function withRecentExam(ids: string[], examId: string): string[] {
-  if (!UUID.test(examId)) return ids.slice(0, MAX_RECENT);
-  return [examId, ...ids.filter((id) => id !== examId)].slice(0, MAX_RECENT);
-}

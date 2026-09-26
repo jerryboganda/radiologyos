@@ -60,9 +60,9 @@ def test_only_checker_passed_items_become_active() -> None:
     assert sorted(row["status"] for row in outcome.items) == ["active", "draft"]
     assert outcome.rejected == [{"index": 2, "reasons": ["sba_key_out_of_range"]}]
     assert fake.calls.count("question_check") == 2
-    first = outcome.items[0]
-    assert first["exam_tags"] == ["fcps2_theory"] and first["answer"] == {"key": 0}
-    assert first["citations"] and first["quality"]["passed"] is True
+    active = next(row for row in outcome.items if row["status"] == "active")
+    assert active["exam_tags"] == ["fcps2_theory"] and active["answer"] == {"key": 0}
+    assert active["citations"] and active["quality"]["passed"] is True
 
 
 def test_uncited_generation_is_rejected_before_checking() -> None:
@@ -170,3 +170,10 @@ def test_sba_attempt_reveals_key_with_citations(
     assert saved[0]["graded_by"] == "rule:sba_exact"
     bad = client.post(f"/v1/questions/{row['id']}/attempt", json={"selected_option": 7})
     assert bad.status_code == 422
+
+
+def test_exam_list_route_is_mounted_and_requires_identity() -> None:
+    from apps.api.app.main import app
+
+    assert "get" in app.openapi()["paths"]["/v1/exams"]
+    assert TestClient(app).get("/v1/exams").status_code == 401

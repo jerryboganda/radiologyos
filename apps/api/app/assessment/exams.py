@@ -30,6 +30,18 @@ class NotEnoughQuestions(LookupError):
     pass
 
 
+async def list_exams(session: AsyncSession, user_id: UUID, limit: int) -> list[dict[str, Any]]:
+    rows = await session.execute(
+        text(
+            "SELECT id, mode, config, question_ids, started_at, deadline_at, submitted_at, "
+            "revision, answers, result FROM exams WHERE user_id = :u "
+            "ORDER BY started_at DESC LIMIT :n"
+        ),
+        {"u": user_id, "n": limit},
+    )
+    return [dict(row) for row in rows.mappings()]
+
+
 def state_of(row: dict[str, Any]) -> ExamState:
     return ExamState(
         mode=row["mode"], question_ids=list(row["question_ids"]),

@@ -20,6 +20,7 @@ from apps.api.app.assessment.contracts import (
     AutosaveRequest,
     AutosaveResponse,
     ExamCreate,
+    ExamSummary,
     ExamView,
     GenerateRequest,
     GenerateResponse,
@@ -273,6 +274,24 @@ async def submit_exam(exam_id: UUID, principal: PrincipalDep, session: SessionDe
     view = await _exam_view(session, principal, row)
     await session.commit()
     return view
+
+
+@router.get("/exams", response_model=list[ExamSummary])
+async def list_exams(
+    principal: PrincipalDep, session: SessionDep, limit: int = 50
+) -> list[ExamSummary]:
+    now = now_utc()
+    rows = await exams.list_exams(session, principal.user_id, max(1, min(limit, 200)))
+    return [
+        ExamSummary(
+            id=row["id"], mode=row["mode"], status=exam_status(exams.state_of(row), now),
+            started_at=row["started_at"], deadline_at=row["deadline_at"],
+            submitted_at=row["submitted_at"], question_count=len(row["question_ids"] or []),
+            answered=len(row["answers"] or {}),
+            score_percent=(row["result"] or {}).get("percent"),
+        )
+        for row in rows
+    ]
 
 
 @router.get("/exams/{exam_id}", response_model=ExamView)

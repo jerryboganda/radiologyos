@@ -4,13 +4,11 @@ import {
   answeredCount,
   clockOffset,
   formatClock,
-  parseRecentExams,
   pendingChanges,
   rebase,
   remainingMs,
   retryDelay,
-  saveOutcome,
-  withRecentExam
+  saveOutcome
 } from './exam-session.ts';
 
 const A = '11111111-1111-4111-8111-111111111111';
@@ -64,10 +62,6 @@ test('saveOutcome maps autosave responses', () => {
   assert.equal(retryDelay(10), 30_000);
 });
 
-test('answered count and the recent-exams cookie', () => {
+test('answered count', () => {
   assert.equal(answeredCount([A, B], { [A]: 0 }), 1);
-  assert.deepEqual(parseRecentExams(`${A},../x,${B},${A}`), [A, B]);
-  assert.deepEqual(parseRecentExams(undefined), []);
-  assert.deepEqual(withRecentExam([A, B], B), [B, A]);
-  assert.deepEqual(withRecentExam([A], 'nope'), [A]);
 });
