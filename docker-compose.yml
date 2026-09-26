@@ -117,6 +117,8 @@ services:
       VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      # Local voyage-4-nano (ADR 0019); optional, search degrades to lexical.
+      EMBEDDER_URL: http://radbrain-embedder:8080
     ports:
       - "${API_PORT:-8000}:8000"
     healthcheck:
@@ -164,6 +166,27 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+
+  # Local voyage-4-nano embeddings (ADR 0019). No published port; the API
+  # reaches it by alias and does not depend on it.
+  embedder:
+    build:
+      context: ./infra/embedder
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      EMBEDDER_THREADS: "2"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      default:
+        aliases: [radbrain-embedder]
+    cpus: "2.0"
+    mem_limit: 3g
 
   web:
     build:

@@ -61,6 +61,9 @@ services:
       CORE_TENANT_ID: ${CORE_TENANT_ID:-00000000-0000-0000-0000-000000000001}
       MODELS_CONFIG_PATH: ${MODELS_CONFIG_PATH:-packages/models/models.yaml}
       ALLOW_UNGROUNDED_DEFAULT: "false"
+      # Local voyage-4-nano (ADR 0019). No depends_on: if it is down, search
+      # degrades to lexical instead of blocking the API.
+      EMBEDDER_URL: http://radbrain-embedder:8080
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live')"]
       interval: 10s
@@ -103,6 +106,25 @@ services:
       retries: 10
       start_period: 30s
     networks: [default, platform]
+    cpus: "2.0"
+    mem_limit: 3g
+
+  embedder:
+    <<: *restricted
+    image: ${RADBRAIN_EMBEDDER_IMAGE:?RADBRAIN_EMBEDDER_IMAGE is required}
+    environment:
+      EMBEDDER_THREADS: "2"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      # Project network only, under a unique alias: bare names collide with
+      # other projects on `platform`/ingress (see API_INTERNAL_URL below).
+      default:
+        aliases: [radbrain-embedder]
     cpus: "2.0"
     mem_limit: 3g
 

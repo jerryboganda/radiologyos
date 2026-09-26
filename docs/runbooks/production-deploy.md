@@ -17,6 +17,7 @@ same-commit OIDC, RLS, backup, security, and compliance evidence described by AD
 | `radiologyos-api-1` | `ghcr.io/jerryboganda/radiologyos-python:<sha>` | FastAPI/uvicorn, 768m / 1.0 cpu |
 | `radiologyos-worker-1` | same python image | Celery, concurrency 1, 512m / 0.5 cpu |
 | `radiologyos-migrate-1` | same python image | one-shot `alembic upgrade head` as `radbrain_migrator` |
+| `radiologyos-embedder-1` | `ghcr.io/jerryboganda/radiologyos-embedder:<sha>` | voyage-4-nano on CPU (ADR 0019), 3g / 2.0 cpu, project network only, alias `radbrain-embedder`; optional (search degrades to lexical) |
 | Postgres / Redis / MinIO | `platform-postgres`, `platform-redis`, `platform-minio` | shared, never started by this project |
 
 ## Prerequisites
@@ -79,8 +80,9 @@ older image tolerates a newer schema.
 
 ```bash
 cd /opt/radiologyos
-sed -i '/^RADBRAIN_PYTHON_IMAGE=/d;/^RADBRAIN_WEB_IMAGE=/d' app.env
-printf 'RADBRAIN_PYTHON_IMAGE=%s\nRADBRAIN_WEB_IMAGE=%s\n' <python-ref> <web-ref> >> app.env
+sed -i '/^RADBRAIN_PYTHON_IMAGE=/d;/^RADBRAIN_WEB_IMAGE=/d;/^RADBRAIN_EMBEDDER_IMAGE=/d' app.env
+printf 'RADBRAIN_PYTHON_IMAGE=%s\nRADBRAIN_WEB_IMAGE=%s\nRADBRAIN_EMBEDDER_IMAGE=%s\n' \
+  <python-ref> <web-ref> <embedder-ref> >> app.env
 docker compose --env-file app.env -f platform.yml pull
 docker compose --env-file app.env -f platform.yml up -d
 ```

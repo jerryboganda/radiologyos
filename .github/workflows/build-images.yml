@@ -28,6 +28,11 @@ jobs:
             context: ./apps/web
             dockerfile: apps/web/Dockerfile
             image: ghcr.io/${{ github.repository_owner }}/radiologyos-web
+          # Local voyage-4-nano (ADR 0019); the build smoke-tests the baked model.
+          - name: embedder
+            context: ./infra/embedder
+            dockerfile: infra/embedder/Dockerfile
+            image: ghcr.io/${{ github.repository_owner }}/radiologyos-embedder
 
     steps:
       - uses: actions/checkout@v4
