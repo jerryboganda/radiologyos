@@ -65,11 +65,14 @@ non-release preview mode, but it cannot be claimed accepted or release-ready.
 | M0 Foundation | Compose stack, pgvector, RLS, OIDC, tenancy/roles, generated types, CI, observability skeleton, health | [`runbooks/m0-foundation.md`](runbooks/m0-foundation.md) |
 | M1 | Upload, reader, cited search | M0 complete first |
 | M2 | Knowledge graph, claims, conflicts, curriculum | M1 complete first |
-| M3 | Grounded tutor and retrieval | M2 complete first |
+| M3 | Grounded tutor and retrieval, including the reranker (ADR 0028, ADR 0034) | M2 complete first |
 | M4 | Exam-first planner and spaced repetition | M3 complete first |
 | M5 | Assessments, grading, and exam mode | M4 complete first |
-| M6 | Billing (parked, ADR 0011), hardening, export/delete, backup drill | M5 complete first |
-| M7 | Baseline: certified local mode. ADR 0009 removed local mode, mobile and institution SSO; the replacement scope (Markdown export with round-trip links) awaits a scope ADR | M6 complete first |
+| M6 | Hardening, export/delete, retention purge, ops (ADR 0032), backup drill. Billing is out of release scope until the owner sets pricing (ADR 0011, ADR 0034) | M5 complete first |
+| M7 | Portability: durable Markdown/Obsidian-compatible vault export with round-trip link reading (ADR 0031, ADR 0034). Certified local mode, mobile and institution SSO were removed by ADR 0009 | M6 complete first |
+
+Evidence records live in [`evidence/`](evidence/README.md) and five-minute demos in
+`demos/`.
 
 Every milestone requires tests, relevant evals, a runbook, a five-minute demo
 from a clean tenant, and no open critical or high security finding.

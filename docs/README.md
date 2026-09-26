@@ -34,7 +34,20 @@ milestones defined by the implementation specification.
 | Scheduled retention purge (off by default) | [`decisions/0020-scheduled-retention-purge.md`](decisions/0020-scheduled-retention-purge.md) |
 | Quota-aware effort for bulk ingest | [`decisions/0021-quota-aware-effort.md`](decisions/0021-quota-aware-effort.md) |
 | Derived schema evidence and branch-protected checks | [`decisions/0022-derived-schema-evidence-and-branch-protection.md`](decisions/0022-derived-schema-evidence-and-branch-protection.md) |
+| Curriculum topic tree, node mapping, exam blueprints | [`decisions/0023-curriculum-tree-and-exam-blueprints.md`](decisions/0023-curriculum-tree-and-exam-blueprints.md) |
+| Daily study loop: Today sessions, weakness loop, progress | [`decisions/0024-daily-study-loop.md`](decisions/0024-daily-study-loop.md) |
+| Tutor depth: streamed drafts, image questions, memory, page focus | [`decisions/0025-tutor-depth.md`](decisions/0025-tutor-depth.md) |
+| Viva examiner and staged TOACS image case | [`decisions/0026-viva-examiner-and-staged-image-case.md`](decisions/0026-viva-examiner-and-staged-image-case.md) |
+| Free-first bulk ingest (Mistral part superseded by 0033) | [`decisions/0027-free-first-bulk-ingest.md`](decisions/0027-free-first-bulk-ingest.md) |
+| Retrieval quality: reranker, graph expansion, intent routing | [`decisions/0028-retrieval-quality.md`](decisions/0028-retrieval-quality.md) |
+| Cloze and image cards, results review, disputes, claim-based SBA | [`decisions/0029-cards-results-review-claim-questions.md`](decisions/0029-cards-results-review-claim-questions.md) |
+| Knowledge depth: Synthesis, Resolver, Conflict agents; tables; re-process | [`decisions/0030-knowledge-depth-and-tables.md`](decisions/0030-knowledge-depth-and-tables.md) |
 | Preview retired; durable vault export; real `/v1/me` | [`decisions/0031-retire-in-memory-preview.md`](decisions/0031-retire-in-memory-preview.md) |
+| Ops hardening: model ledger, metrics, rate limits, audit, MFA | [`decisions/0032-ops-hardening.md`](decisions/0032-ops-hardening.md) |
+| Page reading on Sonnet 5 high, Opus 5.5 on gate failure | [`decisions/0033-sonnet-page-reading.md`](decisions/0033-sonnet-page-reading.md) |
+| Release scope: M7 vault export, billing out, reranker in M3 | [`decisions/0034-release-scope.md`](decisions/0034-release-scope.md) |
+| Five-minute demos per milestone | [`demos/`](demos/) |
+| Per-milestone evidence records | [`evidence/README.md`](evidence/README.md) |
 | M0 production evidence and RLS acceptance | [`runbooks/m0-foundation.md`](runbooks/m0-foundation.md) |
 | Production deploy, rollback, and known gaps | [`runbooks/production-deploy.md`](runbooks/production-deploy.md) |
 | Library upload, parsing, reader, search | [`runbooks/library.md`](runbooks/library.md) |

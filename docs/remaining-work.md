@@ -4,8 +4,9 @@
 > it has the audited gap list (G1–G35) and the phased plan. This file keeps the A–Z
 > slice history and the definition of done; the checkpoint below is refreshed.
 
-Status: **Active goal — M0 evidence record pending; durable M1–M6 slices run in
-production for the owner's tenant; nothing accepted yet (see `completion-plan.md`)**
+Status: **Active goal — every in-scope slice is implemented and merged on `main`
+(billing parked); the next deploy and the M0 evidence record are pending; nothing
+accepted yet (see `completion-plan.md`)**
 Scope: all remaining product slices A–Z, in strict milestone order
 Owner: autonomous engineering execution, with substantive product/provider decisions preserved
 Last reviewed: **2026-09-26**
@@ -19,9 +20,9 @@ claimed complete before the preceding milestone passes its authoritative exit ev
 
 ## Non-negotiable execution rules
 
-- Milestone acceptance remains M0 → M7. Under ADR 0006, local/test-only M1–M7 preview
-  implementation may proceed before acceptance when labelled non-release; no later
-  milestone may be claimed accepted before its predecessor passes its exit evidence.
+- Milestone acceptance remains M0 → M7. The ADR 0006 preview surface was removed
+  (ADR 0031); no later milestone may be claimed accepted before its predecessor
+  passes its exit evidence. Release scope is fixed by ADR 0034.
 - All compute-intensive verification runs in GitHub Actions. Local work is limited to
   lightweight syntax, unit, lint, type, contract, and diff checks.
 - Never inspect, copy, summarize, hash, index, commit, or upload private study inputs.
@@ -41,6 +42,10 @@ claimed complete before the preceding milestone passes its authoritative exit ev
   production RLS and Verify production identity are green on it. A push to `main`
   builds but never deploys (ADR 0011); each deploy needs the owner's explicit OK and
   is dispatched for one exact SHA.
+- `main` is ahead of production. Completion-plan work packages A–J (ADR 0022–0032)
+  and ADR 0033 page reading are merged with migrations `20260926_0015` through
+  `20260926_0104`, but they are **not deployed**. Their tenant tables have ENABLE +
+  FORCE RLS and runtime-role two-tenant proofs in CI.
 - **Priority (ADR 0011): personal-first.** A usable study loop for the owner's
   tenant on the production VPS, with models per ADR 0010.
 - Sign-in works in the browser. The OIDC issuer is public
@@ -58,47 +63,53 @@ claimed complete before the preceding milestone passes its authoritative exit ev
 - Nightly platform dumps and an off-host Google Drive copy (databases and objects)
   exist; see [`runbooks/backup-restore.md`](runbooks/backup-restore.md).
 - **No M1–M7 feature has been accepted.** M0 is not accepted: it needs its same-SHA
-  evidence record in `docs/evidence/m0.md` (generated with
-  `scripts/evidence_record.py`), plus the drill output and compliance result. Eval
-  gates and deployment alone are not acceptance evidence.
+  evidence record in `docs/evidence/m0.md` (a TODO stub today; format in
+  `docs/evidence/README.md`, run table from `scripts/evidence_record.py`), plus the
+  drill output and compliance result. Eval gates and deployment alone are not
+  acceptance evidence.
+- Five-minute demo scripts exist for M0–M7 in `docs/demos/`. Running them is not
+  evidence until a record cites the run.
 
 ## A–Z execution queue
 
 Each slice is complete only when its implementation, tests, eval gate where relevant,
 runbook, five-minute demo, redacted release evidence, and security review are complete.
 
-Legend: **durable** = persistent, RLS-proved, deployed for the owner tenant (ADR 0011) · **impl** = implementation and local checks done · **eval** = eval gate exists and
-passes · **runbook** = operational runbook exists · **blocked** = needs a substantive
-decision or required release evidence.
+Legend: **durable** = persistent, RLS-proved, and deployed for the owner tenant at
+`0a18f2c` (ADR 0011) · **merged** = implemented, tested (unit, HTTP, eval gate, CI
+runtime-role live proof) and merged on `main`, not yet deployed · **pending
+evidence** = needs the next deploy (owner OK) and a same-SHA record in
+`docs/evidence/` · **parked** / **out of scope** = excluded from the release by an ADR
+(ADR 0034). No slice is accepted until its milestone's record is.
 
 | Slice | Milestone | Outcome | State |
 | --- | --- | --- | --- |
-| A | M0 | Deploy one exact candidate revision and capture redacted production health evidence | **blocked** — candidate evidence pending |
-| B | M0 | Verify production OIDC identity, membership, role denial, and logout behavior | **impl** — `verify-oidc.py` checks logout, tenant-switch denial and role denial (ADR 0022); run on the deployed head pending |
-| C | M0 | Run production RLS proof as the non-privileged application role | **impl** — catalog-driven proof over every `tenant_id` table (ADR 0022); run on the deployed head pending |
-| D | M0 | Complete same-commit backup, security, compliance, and M0 evidence record | **blocked** — asserting drill ready; `docs/evidence/m0.md` pending |
-| E | M1 | Ingestion schema, migrations, private object-key policy, resumable job state | **durable** (0004, ADR 0012) — tenant-prefixed object keys, jobs/job_steps written, resumable, 25-page run budget; live RLS proof |
-| F | M1 | Parsing pipeline steps 1–7 for PDF/DOCX and supported formats | **durable** — pdfium render + LibreOffice for DOCX/PPTX (repack fallback), native text first, Opus 5.5 `page_parse` vision pass; 393 owner sources ingested |
-| G | M1 | Library screen, reader, page/bounding-box/figure provenance | **durable** — web Library + reader with real normalised bboxes, figure crops, 1:1 zoom, cited-block deep links |
-| H | M1 | Cited `POST /search` with tenant-scoped chunks and figures | **durable** — `POST /v1/library/search` tsvector + pgvector RRF, cited hits and figures, owner-scoped |
-| I | M2 | Extraction workers, schemas, versioning, and mock/local route boundary | **durable** (0008, ADR 0016) — `knowledge_extract` with verbatim evidence spans enforced in code; resumable worker |
-| J | M2 | Entity resolution and knowledge graph with tenant isolation | **durable** — alias + trigram resolution (0.92 merge, 0.80–0.92 flagged) |
-| K | M2 | Claims, explicit conflicts, curriculum seed/mapping, concept pages | **durable** — claims, explicit `knowledge_conflicts`, curriculum mapping (<0.7 → review) |
-| L | M2 | Editor queues for mappings/conflicts with authorization and audit | **durable** — conflict resolve, weight approval, and the curriculum-mapping review queue (`/knowledge/review`, ADR 0018) are audited APIs + UI |
-| M | M3 | Query planner, explicit retrieval stages, hybrid fusion, reranking config | **durable** — explicit lexical + dense stages fused by RRF; reranker not yet configured |
-| N | M3 | Grounding judge, citations, figure cards, image-question upload | **durable** (0005, ADR 0013) — code-verified citations, allow-listed web fallback, semantic grounding judge on by default; image-question upload still missing (G7) |
-| O | M3 | Tutor thread memory, “not in your sources,” tenant-aware cache boundaries | **durable** — persisted threads, explicit not-found response, no cross-tenant cache |
-| P | M4 | Exam-date onboarding, baseline test, planner, phases, Today runner | **durable** (0006, ADR 0014) — exam-date onboarding, phases, sized daily plan, baseline test (0010); Today session runner still missing (G4) |
-| Q | M4 | FSRS-style cards, mastery, weekly report, reminders, nightly replan | **durable** — in-house FSRS-5, mastery, push reminders (0009), weekly report and nightly replan jobs (0010) |
-| R | M5 | SBA, SEQ, image-case, and viva generation with versioned prompts/evals | **durable** (0007, ADR 0015) — SBA/SEQ/image-case/viva generation with checker gate and versioned prompts |
-| S | M5 | Practice, Exam mode, autosave/resume, grader, review queue, statistics | **durable** — exam mode with server deadline, revision autosave, idempotent submit, per-topic results; mixed SBA and free-text papers with a grader (0011) |
-| T | M6 | Stripe test-mode billing, portal, webhooks, caps, degradation, org/superadmin | **parked** (ADR 0011) — in-memory service and routes exist but answer 404 unless `BILLING_ENABLED=true`; plan values are placeholders pending an owner pricing decision |
-| U | M6 | Export/delete across data, derived artifacts, caches, queues, and observability | **durable** (0012, ADR 0018) — export ZIP job with 7-day expiry, resumable account delete across rows, embeddings, and objects, legal-hold aware; live proof in CI. Scheduled 24-month retention purge built, **off by default** (0014, ADR 0020; dry-run command, audited, legal-hold/Core/exempt-safe; live proof in CI). Open: IdP session revocation, provider-log purge, backup expiry |
-| V | M6 | Load tests, security scans, backup/restore drill, RPO/RTO runbook | impl · eval · runbook (load + scans + drill all green) |
-| W | M7 | Certified local-model mode with lower approved thresholds | **out of scope** — removed by ADR 0009 |
-| X | M7 | Markdown/Obsidian-compatible export and round-trip links | impl · eval · runbook (Markdown only, no import) |
+| A | M0 | Deploy one exact candidate revision and capture redacted production health evidence | **pending evidence** — next deploy needs the owner's OK; record stub `docs/evidence/m0.md` |
+| B | M0 | Verify production OIDC identity, membership, role denial, and logout behavior | **merged** — `verify-oidc.py` checks logout, tenant-switch denial and role denial (ADR 0022); **pending evidence** on the deployed head |
+| C | M0 | Run production RLS proof as the non-privileged application role | **merged** — catalog-driven proof over every `tenant_id` table (ADR 0022); **pending evidence** on the deployed head |
+| D | M0 | Complete same-commit backup, security, compliance, and M0 evidence record | **pending evidence** — asserting drill merged; record format in `docs/evidence/README.md`; M0 demo `docs/demos/m0-foundation.md` |
+| E | M1 | Ingestion schema, migrations, private object-key policy, resumable job state | **durable** (0004, ADR 0012) — tenant-prefixed object keys, jobs/job_steps, resumable, 25-page run budget; live RLS proof |
+| F | M1 | Parsing pipeline steps 1–7 for PDF/DOCX and supported formats | **durable**, depth **merged** — pdfium + LibreOffice, text-first PDFs (ADR 0027), Sonnet 5 page reading with Opus 5.5 fallback (ADR 0033), tables (ADR 0030); 393 owner sources ingested, vision pass awaits the one-time reprocess |
+| G | M1 | Library screen, reader, page/bounding-box/figure provenance | **durable**, depth **merged** — reader with bboxes, figure crops, 1:1 zoom, deep links; Tables tab, Re-process, "Ask about this page" (ADR 0025, ADR 0030) |
+| H | M1 | Cited `POST /search` with tenant-scoped chunks and figures | **durable**, depth **merged** — tsvector + pgvector RRF, cited hits, figures and tables, reranked order (ADR 0028) |
+| I | M2 | Extraction workers, schemas, versioning, and mock/local route boundary | **durable** (0008, ADR 0016) — verbatim evidence spans enforced in code; user-turn templates in versioned prompt YAML (ADR 0032) **merged** |
+| J | M2 | Entity resolution and knowledge graph with tenant isolation | **durable**, depth **merged** — alias + trigram resolution; Resolver agent merges duplicates with undo (ADR 0030) |
+| K | M2 | Claims, explicit conflicts, curriculum seed/mapping, concept pages | **durable**, depth **merged** — curriculum topic tree and blueprints (ADR 0023, owner approval pending), cited concept notes, Conflict agent and "trust source", concept map (ADR 0030) |
+| L | M2 | Editor queues for mappings/conflicts with authorization and audit | **durable**, depth **merged** — audited conflict, weight and mapping queues; duplicate-merge review with undo (ADR 0030) |
+| M | M3 | Query planner, explicit retrieval stages, hybrid fusion, reranking config | **merged** — Voyage `rerank-2.5` with its own 195M cap, graph expansion, intent routing (ADR 0028; reranker is M3, ADR 0034); production eval pending (G32) |
+| N | M3 | Grounding judge, citations, figure cards, image-question upload | **durable**, depth **merged** — draft streaming (off by default), image-question upload, similar figures, figure quiz (ADR 0025) |
+| O | M3 | Tutor thread memory, “not in your sources,” tenant-aware cache boundaries | **durable**, depth **merged** — rolling thread summary, never cited (ADR 0025) |
+| P | M4 | Exam-date onboarding, baseline test, planner, phases, Today runner | **durable**, depth **merged** — Today session runner, blueprints for exams (ADR 0023, ADR 0024) |
+| Q | M4 | FSRS-style cards, mastery, weekly report, reminders, nightly replan | **durable**, depth **merged** — weakness loop, cloze and image cards, heatmap, projection, calibration, keyboard shortcuts (ADR 0024, ADR 0029) |
+| R | M5 | SBA, SEQ, image-case, and viva generation with versioned prompts/evals | **durable**, depth **merged** — multi-turn viva examiner, staged TOACS image case (ADR 0026), claim-based SBA with graph distractors (ADR 0029) |
+| S | M5 | Practice, Exam mode, autosave/resume, grader, review queue, statistics | **durable**, depth **merged** — results review with time per item, jump to source, grade disputes (ADR 0029) |
+| T | M6 | Stripe test-mode billing, portal, webhooks, caps, degradation, org/superadmin | **parked** — out of release scope until the owner sets pricing (ADR 0011, ADR 0034); routes answer 404 unless `BILLING_ENABLED=true`; gates kept as regression only |
+| U | M6 | Export/delete across data, derived artifacts, caches, queues, and observability | **durable**, depth **merged** — export ZIP with vault, resumable delete, retention purge off by default (ADR 0018, ADR 0020); IdP session revocation, provider-log and backup-expiry procedure (ADR 0032) |
+| V | M6 | Load tests, security scans, backup/restore drill, RPO/RTO runbook | **merged** — model ledger, metrics, rate limits, audit coverage, MFA script (ADR 0032), asserting drill (ADR 0022); applying MFA and the Actions load check need the owner |
+| W | M7 | Certified local-model mode with lower approved thresholds | **out of scope** — removed by ADR 0009; M7 redefined by ADR 0034 |
+| X | M7 | Markdown/Obsidian-compatible export and round-trip links | **merged** — durable vault in the account export, read back by `vault_links.read_vault` (ADR 0031); this is M7 (ADR 0034); import not in scope |
 | Y | M7 | Mobile wrapper/institution SSO/Core authoring scale work as approved | **out of scope** — mobile and institution SSO removed by ADR 0009 |
-| Z | Release | Final cross-milestone security, privacy, legal, operational, and rollback audit | **blocked** — needs D and all milestone evidence |
+| Z | Release | Final cross-milestone security, privacy, legal, operational, and rollback audit | **pending evidence** — needs A–D, then M1–M7 records, demos (all written) and G32 eval runs |
 
 ## Eval gates
 
@@ -114,8 +125,8 @@ sessions, fake model transports); the row-level proofs are the `*_live.py` modul
 | `evals/checks/test_m4_planner.py` | P, Q | 49 |
 | `evals/checks/test_m5_assessment.py` | R, S | 27 |
 | `evals/checks/test_m6_ops.py` | U, V | 13 |
-| `evals/checks/test_m6_billing.py`, `test_m6_billing_http.py` | T | 52 |
-| `evals/checks/test_m7_portability.py` | W, X | 17 |
+| `evals/checks/test_m6_billing.py`, `test_m6_billing_http.py` | T (regression only, not release evidence; ADR 0034) | 52 |
+| `evals/checks/test_m7_portability.py` | X, and the online-only provider boundary that replaced W | 17 |
 
 Plus `test_determinism.py` (10), `test_scaffolding.py`, and the opt-in
 `*_live.py` proofs, which CI runs against a migrated database. `test_rls_live.py`
@@ -129,17 +140,25 @@ also runs against production in `Verify production RLS`. It covers every
 - Every agent route has a versioned schema, prompt, fixture, and eval result.
 - Every emitted claim/card/question/tutor sentence has a citation or fails closed.
 - Long jobs are idempotent, resumable, and expose visible step status.
-- Export/delete, backup/restore, cache isolation, object isolation, billing, and the
-  approved v1 portability scope have explicit evidence where applicable.
+- Export/delete, backup/restore, cache isolation, object isolation, and the v1
+  portability scope (the vault export, ADR 0034) have explicit evidence. Billing is
+  out of release scope until the owner sets pricing (ADR 0034).
 - No open critical/high security finding remains.
 - Runbooks, five-minute demos, rollback procedures, approvals, and ADRs are current.
 - The final release audit records known limitations without private content or secrets.
 
 ## Immediate pursuit
 
-Follow [`completion-plan.md`](completion-plan.md). Phase 1 accepts M0: run the
-extended identity and RLS verification and the asserting restore drill on the deployed
-head, then write `docs/evidence/m0.md`. After that come the product-decision phases,
-then Z. Provider, privacy, pricing, curriculum and legal decisions still need explicit
+Follow [`completion-plan.md`](completion-plan.md). The code for every in-scope slice
+is merged, so what remains is evidence, in order:
+
+1. The owner approves a deploy of one `main` SHA. Then run the extended identity and
+   RLS verification and the asserting restore drill on that head, and fill in
+   `docs/evidence/m0.md` (format: `docs/evidence/README.md`).
+2. The owner's pending decisions: approve the curriculum and blueprints, time the
+   library reprocess, apply admin MFA, and decide on draft streaming.
+3. M1–M7 records in order, each with its demo from `docs/demos/` and, where the
+   milestone has agent routes, recorded real-model eval runs (G32).
+4. Slice Z, the final audit. Provider, privacy, pricing, curriculum and legal decisions still need explicit
 decisions with ADRs. They stay open rather than simulated, and the implementation
 refuses rather than fakes them.
