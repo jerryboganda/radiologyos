@@ -3,7 +3,7 @@ import { dataOr, loadProblem } from '$lib/api-state';
 import { isWeightTarget, parseApproveForm, parseExtractForm } from '$lib/knowledge';
 import { failureMessage, getJson } from '$lib/server/client';
 import { approveTopicWeights, extractSource, listConcepts, listConflicts, listTopicWeights } from '$lib/server/knowledge';
-import { resolveAction } from '$lib/server/knowledge-actions';
+import { resolveAction, trustAction } from '$lib/server/knowledge-actions';
 import type { SourceSummary } from '$lib/types/library';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -34,6 +34,7 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions: Actions = {
   resolve: resolveAction,
+  trust: trustAction,
   approve: async (event) => {
     const parsed = parseApproveForm(await event.request.formData());
     if (!parsed.ok) return fail(400, { section: 'weights', error: parsed.error });

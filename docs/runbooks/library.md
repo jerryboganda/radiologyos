@@ -84,6 +84,27 @@ docker logs --since 10m radiologyos-worker-1 | grep -E "ingest job=|page_parse f
 The Library page shows per-source step status. `pages_parsed` counts pages that
 finished the vision pass.
 
+## Tables (ADR 0030)
+
+`extract_tables` runs with every chunk pass and needs no model. Each `table` block
+the page parser wrote (rows as lines, cells separated by `" | "`) becomes a
+`source_tables` row: cells, CSV, escaped HTML, and the block's bbox. The reader's
+**Tables** tab shows them. Selecting one highlights its block on the page. Search
+lists matching tables (tsvector) above the passages. The step's `output_ref` is
+`tables:N`. Text that does not parse as a table stays an ordinary block.
+
+## Re-process one source (ADR 0030)
+
+In the reader, **Re-process** (`POST /v1/library/sources/{id}/reprocess`) is
+available only to the source's uploader. Everyone else gets 404, and a job that is
+running (updated in the last 2 hours) gets 409. It sets failed pages back to
+`pending`, marks the latest ingest job `queued`, audits
+`source.reprocess_requested`, and re-queues it. The pipeline then skips finished
+steps and pages already parsed, and rebuilds chunks and tables from the stored
+blocks. It embeds only text the embedding cache does not hold, so unchanged text
+costs nothing. Knowledge units already done are skipped by content hash. To
+re-queue every source that still has work, use the bulk `--reprocess` above.
+
 ## Deleting
 
 Deleting a source removes its rows (cascade: pages, blocks, figures, chunks, jobs)

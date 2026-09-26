@@ -1,8 +1,9 @@
-import { error } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { isUuid } from '$lib/citations';
-import { readPage, sourceDetail } from '$lib/server/library';
+import { failureMessage } from '$lib/server/client';
+import { readPage, reprocessSource, sourceDetail } from '$lib/server/library';
 import { parsePage } from '$lib/viewer';
-import type { PageServerLoad } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 
 // Only `?page=` is read here; `?block=` is handled client-side so selecting a
 // block (and updating the shareable URL) does not refetch the page.
@@ -19,4 +20,15 @@ export const load: PageServerLoad = async (event) => {
     pageNo,
     page: page.state === 'ok' ? page.data : null
   };
+};
+
+export const actions: Actions = {
+  // Owner-only re-run (ADR 0030): failed pages retried, finished work skipped,
+  // unchanged text served from the embedding cache.
+  reprocess: async (event) => {
+    const result = await reprocessSource(event, event.params.source);
+    if (result.state !== 'ok') return fail(400, { error: failureMessage(result) });
+    const retried = result.data.retried_pages;
+    return { message: retried ? `Re-processing; ${retried} failed pages will be read again.` : 'Re-processing queued.' };
+  }
 };

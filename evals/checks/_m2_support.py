@@ -147,9 +147,9 @@ def _record_run(s: FakeSession, p: Params) -> Result:
 
 def _candidates(s: FakeSession, p: Params) -> Result:
     keys = set(p["keys"])
-    hits = [r for r in s.rows("concepts")
-            if r["normalized_name"] in keys or keys & set(r["alias_keys"])
-            or trigram_similarity(r["normalized_name"], p["key"]) >= p["floor"]]
+    hits = [r for r in s.rows("concepts") if r.get("merged_into") is None and (
+            r["normalized_name"] in keys or keys & set(r["alias_keys"])
+            or trigram_similarity(r["normalized_name"], p["key"]) >= p["floor"])]
     hits.sort(key=lambda r: trigram_similarity(r["normalized_name"], p["key"]), reverse=True)
     return Result(hits[:8])
 
@@ -364,7 +364,7 @@ HANDLERS: list[tuple[str, Callable[[FakeSession, Params], Result]]] = [
     ("FROM source_blocks WHERE source_id = :s", _blocks),
     ("SELECT status FROM knowledge_runs", _run_status),
     ("INSERT INTO knowledge_runs", _record_run),
-    ("FROM concepts WHERE normalized_name = ANY", _candidates),
+    ("FROM concepts WHERE merged_into IS NULL AND (normalized_name = ANY", _candidates),
     ("UPDATE concepts SET aliases", _update_aliases),
     ("INSERT INTO concepts (", _insert_concept),
     ("SELECT id, statement, source_id FROM claims", _same_concept_claims),

@@ -5,10 +5,14 @@ import type {
   CurriculumFilter,
   ExtractRequest,
   ResolveRequest,
+  TrustChoice,
+  TrustRequest,
   WeightBasis,
   WeightTarget
 } from './types/knowledge.ts';
 import { CURRICULUM_FILTERS, WEIGHT_TARGETS } from './types/knowledge.ts';
+
+const TRUST_CHOICES: TrustChoice[] = ['a', 'b', 'both'];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -29,6 +33,35 @@ export function parseResolveForm(form: FormData): Parsed<{ conflictId: string; b
     ok: true,
     value: { conflictId, body: { resolution, preferred_claim_id: UUID.test(preferred) ? preferred : null } }
   };
+}
+
+/** "Trust source A / B / both valid in context" on one conflict (ADR 0030). */
+export function parseTrustForm(form: FormData): Parsed<{ conflictId: string; body: TrustRequest }> {
+  const conflictId = String(form.get('conflict_id') ?? '');
+  if (!UUID.test(conflictId)) return { ok: false, error: 'Unknown conflict.' };
+  const trust = String(form.get('trust') ?? '');
+  if (!TRUST_CHOICES.includes(trust as TrustChoice)) return { ok: false, error: 'Choose which source to trust.' };
+  const note = String(form.get('note') ?? '').trim();
+  if (note.length > 1000) return { ok: false, error: 'Keep the note under 1,000 characters.' };
+  return { ok: true, value: { conflictId, body: { trust: trust as TrustChoice, note } } };
+}
+
+export type MergeAction = 'merge' | 'distinct' | 'undo';
+
+/** Owner decision on a Resolver pair: merge, keep distinct, or undo an applied merge. */
+export function parseMergeForm(form: FormData): Parsed<{ mergeId: string; action: MergeAction }> {
+  const mergeId = String(form.get('merge_id') ?? '');
+  if (!UUID.test(mergeId)) return { ok: false, error: 'Unknown merge decision.' };
+  const action = String(form.get('action') ?? '');
+  if (action !== 'merge' && action !== 'distinct' && action !== 'undo') return { ok: false, error: 'Choose merge, keep separate, or undo.' };
+  return { ok: true, value: { mergeId, action } };
+}
+
+/** Verification binds the exact note version the owner read. */
+export function parseVerifyForm(form: FormData): Parsed<{ noteId: string }> {
+  const noteId = String(form.get('note_id') ?? '');
+  if (!UUID.test(noteId)) return { ok: false, error: 'Reload the page and try again.' };
+  return { ok: true, value: { noteId } };
 }
 
 /** One weight (`weight_id`) or every weight for the target when absent. */

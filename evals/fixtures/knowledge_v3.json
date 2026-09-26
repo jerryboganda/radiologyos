@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "fixture_set_id": "knowledge_v3",
+  "status": "review_required",
+  "data_class": "synthetic",
+  "cases": [
+    {
+      "case_id": "synthesis-cites-only-supplied-claims",
+      "prompt": "concept_synthesis/v1.yaml",
+      "route": "extract",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "concept": "Synthetic pulmonary alveolar proteinosis",
+        "aliases": ["PAP"],
+        "differentials": ["Pulmonary oedema"],
+        "claims": [
+          "[C1] (definition) Synthetic PAP is filling of alveoli with lipoproteinaceous material.",
+          "[C2] (imaging_finding; HRCT) Synthetic PAP shows crazy paving on HRCT.",
+          "[C3] (differential; CT) Pulmonary oedema also shows crazy paving but with cardiomegaly and effusions.",
+          "[C4] (clinical) Symptoms of synthetic PAP are milder than the imaging suggests."
+        ]
+      },
+      "expected": {
+        "allowed_cites": ["C1", "C2", "C3", "C4"],
+        "sections_with_content": ["definition", "imaging", "differentials"],
+        "differential_names": ["Pulmonary oedema"],
+        "unsupported_sentence_dropped": "Synthetic PAP affects 90% of smokers."
+      },
+      "assertions": ["schema_valid", "every_sentence_cited", "cites_from_supplied_labels",
+                     "no_invented_content"]
+    },
+    {
+      "case_id": "resolver-word-order-variant-merges",
+      "prompt": "concept_resolver/v1.yaml",
+      "route": "reason",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "concept_a": "Appendiceal mucocele (disease); aliases: []; claims: Synthetic appendiceal mucocele is a dilated mucus-filled appendix.",
+        "concept_b": "Mucocele of the appendix (disease); aliases: [mucocoele]; claims: Synthetic mucocele of the appendix may show curvilinear mural calcification.",
+        "similarity": 0.84
+      },
+      "expected": {"decision": "merge", "min_confidence": 0.85},
+      "assertions": ["schema_valid", "decision_matches", "rationale_cites_names_or_claims"]
+    },
+    {
+      "case_id": "resolver-opposite-signs-stay-distinct",
+      "prompt": "concept_resolver/v1.yaml",
+      "route": "reason",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "concept_a": "Hyperdense MCA sign (sign); aliases: []; claims: Synthetic hyperdense MCA sign indicates intraluminal thrombus on non-contrast CT.",
+        "concept_b": "Hypodense MCA territory (finding); aliases: []; claims: Synthetic hypodense MCA territory indicates established infarction.",
+        "similarity": 0.81
+      },
+      "expected": {"decision": "distinct"},
+      "assertions": ["schema_valid", "decision_matches", "no_merge_of_distinct_entities"]
+    },
+    {
+      "case_id": "conflict-age-groups-are-context",
+      "prompt": "claim_conflict/v1.yaml",
+      "route": "reason",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "concept": "Synthetic Ewing sarcoma",
+        "claim_a": "[A] Synthetic Ewing sarcoma usually occurs under 20 years in long bones. Span: \"under 20 years in long bones\"",
+        "claim_b": "[B] Synthetic Ewing sarcoma of flat bones presents over 20 years. Span: \"of flat bones presents over 20 years\"",
+        "heuristic": "Numeric disagreement (years)"
+      },
+      "expected": {"label": "context", "context_mentions": "flat bones"},
+      "assertions": ["schema_valid", "label_matches", "rationale_cites_a_or_b"]
+    },
+    {
+      "case_id": "conflict-opposite-signal-is-true-conflict",
+      "prompt": "claim_conflict/v1.yaml",
+      "route": "reason",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "concept": "Synthetic lesion X",
+        "claim_a": "[A] Synthetic lesion X is hyperintense on T1. Span: \"hyperintense on T1\"",
+        "claim_b": "[B] Synthetic lesion X is hypointense on T1. Span: \"hypointense on T1\"",
+        "heuristic": "Opposed terms: hyperintense vs hypointense"
+      },
+      "expected": {"label": "conflict"},
+      "assertions": ["schema_valid", "label_matches", "rationale_cites_a_or_b"]
+    },
+    {
+      "case_id": "conflict-unit-restatement-is-same",
+      "prompt": "claim_conflict/v1.yaml",
+      "route": "reason",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "concept": "Synthetic aortic aneurysm",
+        "claim_a": "[A] Synthetic abdominal aortic aneurysm is a diameter of 3 cm or more. Span: \"diameter of 3 cm or more\"",
+        "claim_b": "[B] Synthetic abdominal aortic aneurysm is a diameter of at least 30 mm. Span: \"diameter of at least 30 mm\"",
+        "heuristic": "Numeric disagreement (cm)"
+      },
+      "expected": {"label": "same"},
+      "assertions": ["schema_valid", "label_matches", "rationale_cites_a_or_b"]
+    }
+  ]
+}

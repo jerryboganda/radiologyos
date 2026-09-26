@@ -43,7 +43,7 @@ CHEST_PAGES = [
     ["Mediastinum", "Loss of the hilar point suggests hilar lymphadenopathy."],
 ]
 DICOM = b"\x00" * 128 + b"DICM" + b"\x00" * 64
-GATED = {"extract_tables": "tables_are_blocks", "embed_index": "no_embedding_key",
+GATED = {"embed_index": "no_embedding_key",
          "parse_layout": "no_model_transport", "extract_figures": "no_model_transport"}
 Handler = Callable[[str, dict[str, Any]], list[dict[str, Any]]]
 
@@ -145,6 +145,11 @@ def worker_db(monkeypatch: pytest.MonkeyPatch) -> MemoryIngestDB:
                                    "replace_chunks": fake.replace_chunks})
     monkeypatch.setattr(steps, "db", fake)
     monkeypatch.setattr(steps, "db_content", content)
+
+    async def no_tables(*_: Any) -> int:  # the synthetic PDF has no table blocks (ADR 0030)
+        return 0
+
+    monkeypatch.setattr(steps, "extract_tables", no_tables)
     return fake
 
 
@@ -174,6 +179,8 @@ async def test_every_canonical_step_is_visible_and_a_rerun_resumes(
     for step, reason in GATED.items():  # gated work says why, never fakes success
         assert (recorded[step]["status"], recorded[step]["error_code"]) == ("skipped", reason)
     assert recorded["render_pages"]["output_ref"] == "pages:2"
+    tables = recorded["extract_tables"]
+    assert (tables["status"], tables["output_ref"]) == ("succeeded", "tables:0")
     assert job["status"] == "succeeded"
     assert worker_db.sources[job["entity_id"]]["status"] == "ready"
     store = cast(storage.MemoryObjectStore, deps.store)

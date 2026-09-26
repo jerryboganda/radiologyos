@@ -4,6 +4,7 @@ import type { ApiResult } from '$lib/api-state';
 import { isProcessing } from '$lib/pipeline';
 import type {
   ReaderPage,
+  ReprocessResponse,
   SearchResponse,
   SourceDetail,
   SourceRow,
@@ -42,6 +43,11 @@ export function sourceDetail(event: RequestEvent, id: string) {
 
 export function readPage(event: RequestEvent, id: string, page: number) {
   return getJson<ReaderPage>(event, `${LIB}/sources/${id}/pages/${page}`);
+}
+
+/** Owner-only re-run of one source's pipeline; unchanged text is never re-paid (ADR 0030). */
+export function reprocessSource(event: RequestEvent, id: string) {
+  return sendJson<ReprocessResponse>(event, `${LIB}/sources/${id}/reprocess`, 'POST');
 }
 
 export function deleteSource(event: RequestEvent, id: string) {

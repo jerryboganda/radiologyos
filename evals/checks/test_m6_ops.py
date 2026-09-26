@@ -73,7 +73,9 @@ async def test_purge_removes_the_source_its_jobs_and_orphaned_derivatives() -> N
 async def test_purge_skips_cache_and_concept_sweeps_when_nothing_was_derived() -> None:
     session = RecordingSession()
     await service.purge_source_rows(session, SOURCE)  # type: ignore[arg-type]
-    assert not [s for s in session.sql() if "embedding_cache" in s or "FROM concepts" in s]
+    # The affected-concept lookup still runs; no cache or concept sweep (DELETE) does.
+    assert not [s for s in session.sql()
+                if "DELETE FROM embedding_cache" in s or "DELETE FROM concepts" in s]
 
 
 async def test_delete_removes_objects_first_then_rows_and_audits(

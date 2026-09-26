@@ -9,6 +9,7 @@ from uuid import UUID
 
 from apps.api.app.core.config import get_settings
 from apps.api.app.library import reader, rerank, search, service
+from apps.api.app.library import tables as table_store
 from apps.api.app.ops.ratelimit import rate_limit
 from apps.api.app.security.context import (
     build_shared_dependencies,
@@ -115,6 +116,20 @@ class FigureHit(BaseModel):
     image_path: str | None
 
 
+class TableHit(BaseModel):
+    table_id: UUID
+    source_id: UUID
+    source_title: str
+    page_no: int
+    block_no: int
+    bbox: list[float]
+    n_rows: int
+    n_cols: int
+    header: bool
+    cells: list[list[str]]
+    score: float
+
+
 class SearchResponse(BaseModel):
     query: str
     hits: list[SearchHit]
@@ -123,6 +138,13 @@ class SearchResponse(BaseModel):
     reranked: bool = Field(
         default=False, description="Hits were reordered by the reranker (ADR 0028); "
                                    "false means fused (RRF) order.")
+    tables: list[TableHit] = []
+
+
+class ReprocessResponse(BaseModel):
+    source_id: UUID
+    job_id: UUID
+    retried_pages: int
 
 
 @router.post("/sources", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED,
@@ -171,6 +193,23 @@ async def delete_source(source_id: UUID, principal: PrincipalDep, session: Sessi
         raise HTTPException(status_code=409, detail="source is under legal hold") from exc
     if not deleted:
         raise HTTPException(status_code=404, detail="source not found")
+
+
+@router.post("/sources/{source_id}/reprocess", response_model=ReprocessResponse,
+             status_code=status.HTTP_202_ACCEPTED)
+async def reprocess_source(
+    source_id: UUID, principal: PrincipalDep, session: SessionDep
+) -> ReprocessResponse:
+    """Owner-only re-run of one source's pipeline (ADR 0030): failed pages are retried,
+    finished work is skipped, and unchanged text is served from the embedding cache."""
+    try:
+        queued = await table_store.request_reprocess(session, principal, source_id)
+    except table_store.ReprocessBusy as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if queued is None:
+        raise HTTPException(status_code=404, detail="source not found")
+    enqueue_ingest(principal.tenant_id, queued["job_id"])
+    return ReprocessResponse(**queued)
 
 
 @router.get("/sources/{source_id}/pages/{page_no}")
@@ -239,10 +278,13 @@ async def search_library(
     hits = ranked.hits
     figures = await search.search_figures(session, principal.user_id, body.query,
                                           query_vector=vector)
+    tables = await table_store.search_tables(session, principal.user_id, body.query)
     return SearchResponse(
         query=body.query,
         dense=vector is not None,
         reranked=ranked.reranked,
+        tables=[TableHit(table_id=t["id"], **{k: v for k, v in t.items() if k != "id"})
+                for t in tables],
         hits=[
             SearchHit(
                 chunk_id=h["id"], heading=h["heading"], text=h["text"], score=h["score"],

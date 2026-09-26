@@ -1,0 +1,199 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "definition": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "cites": {
+            "description": "Claim labels exactly as supplied (e.g. 'C3') that support the sentence.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "type": "array"
+          },
+          "text": {
+            "description": "One sentence, no new facts.",
+            "maxLength": 600,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "cites"
+        ],
+        "type": "object"
+      },
+      "maxItems": 4,
+      "type": "array"
+    },
+    "differentials": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "discriminators": {
+            "description": "Cited features that tell it apart from the concept.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "cites": {
+                  "description": "Claim labels exactly as supplied (e.g. 'C3') that support the sentence.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 6,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "text": {
+                  "description": "One sentence, no new facts.",
+                  "maxLength": 600,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text",
+                "cites"
+              ],
+              "type": "object"
+            },
+            "maxItems": 4,
+            "type": "array"
+          },
+          "name": {
+            "description": "Differential diagnosis name.",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "discriminators"
+        ],
+        "type": "object"
+      },
+      "maxItems": 8,
+      "type": "array"
+    },
+    "imaging": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "modality": {
+            "description": "e.g. CT, MRI, US, X-ray.",
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          },
+          "sentences": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "cites": {
+                  "description": "Claim labels exactly as supplied (e.g. 'C3') that support the sentence.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 6,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "text": {
+                  "description": "One sentence, no new facts.",
+                  "maxLength": 600,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text",
+                "cites"
+              ],
+              "type": "object"
+            },
+            "maxItems": 8,
+            "type": "array"
+          }
+        },
+        "required": [
+          "modality",
+          "sentences"
+        ],
+        "type": "object"
+      },
+      "maxItems": 6,
+      "type": "array"
+    },
+    "pearls": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "cites": {
+            "description": "Claim labels exactly as supplied (e.g. 'C3') that support the sentence.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "type": "array"
+          },
+          "text": {
+            "description": "One sentence, no new facts.",
+            "maxLength": 600,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "cites"
+        ],
+        "type": "object"
+      },
+      "maxItems": 6,
+      "type": "array"
+    },
+    "pitfalls": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "cites": {
+            "description": "Claim labels exactly as supplied (e.g. 'C3') that support the sentence.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "type": "array"
+          },
+          "text": {
+            "description": "One sentence, no new facts.",
+            "maxLength": 600,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "cites"
+        ],
+        "type": "object"
+      },
+      "maxItems": 6,
+      "type": "array"
+    }
+  },
+  "required": [
+    "definition",
+    "imaging",
+    "differentials",
+    "pearls",
+    "pitfalls"
+  ],
+  "type": "object"
+}
