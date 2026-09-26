@@ -23,7 +23,7 @@ from packages.models.claude_code import (
     UsageLimitError,
     _parse,
 )
-from packages.models.gateway import build_call, load_agent, routing_config, run_agent
+from packages.models.gateway import build_calls, load_agent, run_agent
 
 SECRET = "s" * 40
 
@@ -78,10 +78,12 @@ def test_unknown_effort_is_rejected() -> None:
 def test_page_parse_agent_uses_low_effort_and_generated_schema() -> None:
     agent = load_agent("page_parse")
     assert agent.schema == inline_schema(PageParse)
-    call = build_call(agent, "prompt")
-    route = routing_config().routes[agent.prompt.route].targets[0]
-    assert (call.model, call.effort) == (route.model, "low")
-    assert call.tools == ("Read",)
+    calls = build_calls(agent, "prompt")
+    # ADR 0027: free Mistral first, Claude Opus 5.5 at low effort as fallback.
+    assert [(c.backend, c.model) for c in calls] == [
+        ("mistral", "mistral-large-2512"), ("claude_code", "claude-opus-5-5")]
+    assert {c.effort for c in calls} == {"low"}
+    assert all(c.tools == ("Read",) for c in calls)
 
 
 class FakeTransport:

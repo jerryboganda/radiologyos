@@ -42,6 +42,27 @@ routes:
     fallbacks: []
     timeout_ms: 600000
     max_retries: 2
+# ADR 0027 (owner decision 2026-09-26): bulk ingest agents run first on the
+# owner's free Mistral Experiment plan (training opt-in accepted; public teaching
+# material) and fall back to Claude on failure, invalid output, or a usage limit.
+# Claude effort for the fallback comes from each prompt file.
+agents:
+  page_parse:
+    targets:
+      - {backend: mistral, model: mistral-large-2512, api_key_env: MISTRAL_API_KEY, base_url: "https://api.mistral.ai/v1"}
+      - {backend: claude_code, model: claude-opus-5-5}
+  paper_topics:
+    targets:
+      - {backend: mistral, model: mistral-large-2512, api_key_env: MISTRAL_API_KEY, base_url: "https://api.mistral.ai/v1"}
+      - {backend: claude_code, model: claude-opus-5-5}
+  knowledge_extract:
+    targets:
+      - {backend: mistral, model: mistral-large-2512, api_key_env: MISTRAL_API_KEY, base_url: "https://api.mistral.ai/v1"}
+      - {backend: claude_code, model: claude-opus-5-5}
+  topic_classify:
+    targets:
+      - {backend: mistral, model: mistral-large-2512, api_key_env: MISTRAL_API_KEY, base_url: "https://api.mistral.ai/v1"}
+      - {backend: claude_code, model: claude-opus-5-5}
 # ADR 0019 (owner override 2026-09-26): everything uses the paid best model,
 # voyage-4-large, inside the 200M free tokens. Every call (documents, figures,
 # queries, question stems) is metered; Voyage calls stop hard at 195M lifetime

@@ -24,6 +24,7 @@ from packages.library.chunking import BlockInput, build_chunks, looks_like_headi
 from packages.library.formats import SourceKind
 from packages.library.parse_models import ImageCase, PageParse
 from packages.library.render import RenderError, crop_png, iter_pages
+from packages.library.text_first import text_only_pages
 from packages.models.budget import EmbeddingBudgetExhausted
 from packages.models.claude_code import ModelCallError, UsageLimitError
 from packages.models.embeddings import EmbeddingError, VoyageEmbedder
@@ -194,7 +195,10 @@ async def _vision_pass(deps: Deps, job: dict[str, Any], source: dict[str, Any]) 
     async with db.tenant_tx(deps.engine, tenant_id) as session:
         todo = [p for p in await db_content.pages(session, source_id)
                 if p["vision_status"] == "pending"]
+        starting = await db.step_status(session, job["id"], "parse_layout") != "running"
         await db.mark_step(session, job, "parse_layout", "running")
+    if starting and todo and source["kind"] == SourceKind.PDF.value:
+        todo = await _keep_text_pages(deps, job, source, todo)
     for page in todo[:PAGES_PER_RUN]:
         await _parse_page(deps, job, source, page)
     if len(todo) > PAGES_PER_RUN:
@@ -216,6 +220,24 @@ async def _vision_pass(deps: Deps, job: dict[str, Any], source: dict[str, Any]) 
     from apps.worker.app.knowledge.enqueue import enqueue_knowledge
 
     enqueue_knowledge(tenant_id, source_id)
+
+
+async def _keep_text_pages(
+    deps: Deps, job: dict[str, Any], source: dict[str, Any], todo: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Text-first routing (ADR 0027): keep the native blocks of pages whose text
+    layer is already good, and return only the pages that still need vision."""
+    chars = {p["page_no"]: len(p["native_text"] or "") for p in todo}
+    keep = text_only_pages(deps.store.get(source["storage_key"]), chars)
+    if not keep:
+        return todo
+    async with db.tenant_tx(deps.engine, job["tenant_id"]) as session:
+        for page_no in sorted(keep):
+            await db_content.set_vision_status(
+                session, job["entity_id"], page_no, "done", "native")
+    log.info("text_first source=%s native_pages=%s vision_pages=%s",
+             job["entity_id"], len(keep), len(todo) - len(keep))
+    return [p for p in todo if p["page_no"] not in keep]
 
 
 async def _parse_page(

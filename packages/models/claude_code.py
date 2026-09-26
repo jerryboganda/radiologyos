@@ -42,6 +42,9 @@ class ModelCall:
     files: Sequence[tuple[str, bytes]] = ()
     tools: Sequence[str] = ()
     timeout_s: int = 600
+    backend: str = "claude_code"
+    api_key_env: str | None = None
+    base_url: str | None = None
 
     def __post_init__(self) -> None:
         if self.effort not in EFFORTS:
@@ -54,11 +57,13 @@ class ModelResult:
     duration_ms: int
     cost_usd: float
     usage: dict[str, Any] = field(default_factory=dict)
+    backend: str = "claude_code"
 
 
 @dataclass(slots=True)
 class ClaudeCodeTransport:
     binary: str = "claude"
+    backends: tuple[str, ...] = ("claude_code",)
 
     def available(self) -> bool:
         return shutil.which(self.binary) is not None

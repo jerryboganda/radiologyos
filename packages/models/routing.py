@@ -90,6 +90,18 @@ class ModelRoute(BaseModel):
     max_retries: int = Field(default=0, ge=0, le=10)
 
 
+class AgentTargets(BaseModel):
+    """Per-agent target order that overrides its route (ADR 0027).
+
+    Targets are tried in order; a failure, usage limit, or invalid output moves
+    to the next one. Concrete names stay in ``models.yaml`` (hard rule 2).
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    targets: tuple[ModelTarget, ...] = Field(min_length=1)
+
+
 class ProviderGate(BaseModel):
     """Release gate for any concrete provider or credential-bearing endpoint."""
 
@@ -119,6 +131,7 @@ class ModelRoutingConfig(BaseModel):
     default_backend: str = Field(min_length=1)
     allow_ungrounded_default: Literal[False] = False
     routes: dict[RouteName, ModelRoute]
+    agents: dict[str, AgentTargets] = Field(default_factory=dict)
     embeddings: EmbeddingConfig | None = None
 
     @model_validator(mode="after")
@@ -135,6 +148,8 @@ def require_mock_routes(config: ModelRoutingConfig) -> None:
 
     if config.default_backend != "mock" or config.provider_gate.status != "blocked":
         raise ValueError("preview model routes must be blocked and mock-only")
+    if config.agents:
+        raise ValueError("preview model routes cannot carry agent targets")
     for route in config.routes.values():
         if route.fallbacks:
             raise ValueError("preview model routes cannot have fallbacks")

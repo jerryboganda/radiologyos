@@ -47,6 +47,21 @@ The token is only ever read by the worker process; it is never logged, stored in
 the database, or sent to the browser. Subscription use covers the owner's own
 tenant only (ADR 0010).
 
+### Free-first bulk ingest (ADR 0027)
+
+- Save the Mistral key (free Experiment plan) with
+  `bash /opt/radiologyos/set-mistral-key.sh`. The script checks the key with
+  Mistral before saving it. Then recreate `api` and `worker`.
+- PDF pages with a good text layer and no picture keep their native text and
+  make no model call. The worker logs `text_first ... native_pages=N vision_pages=M`
+  for each PDF.
+- `page_parse`, `paper_topics`, `knowledge_extract`, and `topic_classify` run on
+  Mistral first and fall back to Claude (see `agents:` in
+  `packages/models/models.yaml`). To move one agent back to Claude-first,
+  reorder its targets and deploy.
+- If Claude usage rises during a reprocess, Mistral is failing or out of quota.
+  Check the worker log for `mistral` errors and the Mistral console's usage page.
+
 ## Bulk import from the VPS
 
 Large files cannot go through Cloudflare (100 MB request limit), so bulk material is

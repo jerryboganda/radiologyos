@@ -7,9 +7,9 @@ import os
 from apps.worker.app.ingest.db import make_engine
 from apps.worker.app.ingest.steps import Deps
 from packages.library.storage import S3ObjectStore
-from packages.models.claude_code import ClaudeCodeTransport
 from packages.models.embeddings import VoyageEmbedder
 from packages.models.gateway import routing_config
+from packages.models.transports import default_transport
 
 
 def object_store() -> S3ObjectStore:
@@ -23,15 +23,11 @@ def object_store() -> S3ObjectStore:
 
 
 def build_deps() -> Deps:
-    transport = ClaudeCodeTransport(os.environ.get("CLAUDE_CODE_BIN", "claude"))
-    has_token = bool(
-        os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY")
-    )
     config = routing_config().embeddings
     return Deps(
         engine=make_engine(),
         store=object_store(),
-        transport=transport if transport.available() and has_token else None,
+        transport=default_transport(),  # Claude and/or Mistral (ADR 0027)
         embedder=VoyageEmbedder(config.document, config.dimensions) if config else None,
         budget=config.budget if config else None,
     )
