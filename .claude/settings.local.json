@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(gh workflow run:*)",
+      "Bash(gh run:*)",
+      "Bash(gh api:*)"
+    ]
+  }
+}

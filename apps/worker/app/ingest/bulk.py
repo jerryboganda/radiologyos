@@ -23,7 +23,7 @@ from uuid import UUID
 from apps.api.app.library import service
 from apps.api.app.security.principal import Principal
 from apps.worker.app.celery_app import celery_app
-from apps.worker.app.ingest.db import make_engine
+from apps.worker.app.ingest.db import make_engine, tenant_tx
 from apps.worker.app.ingest.runtime import object_store
 from packages.library.formats import UnsupportedUpload
 from sqlalchemy import text
@@ -110,18 +110,13 @@ FROM sources s WHERE s.id = p.source_id AND s.uploaded_by = :u
 
 
 async def reprocess(engine: AsyncEngine, principal: Principal) -> None:
-    session = await tenant_session(engine, principal.tenant_id)
-    try:
+    # One tenant transaction each: the tenant setting is transaction-local, so a
+    # commit between the statements would leave the selection with no tenant and
+    # RLS would hide every row.
+    async with tenant_tx(engine, principal.tenant_id) as session:
         retried: Any = await session.execute(text(RETRY_FAILED_SQL), {"u": principal.user_id})
-        await session.commit()
-        rows = (
-            await session.execute(
-                text(REPROCESS_SQL),
-                {"u": principal.user_id},
-            )
-        ).all()
-    finally:
-        await session.close()
+    async with tenant_tx(engine, principal.tenant_id) as session:
+        rows = (await session.execute(text(REPROCESS_SQL), {"u": principal.user_id})).all()
     print(f"failed pages reset for retry: {retried.rowcount or 0}", flush=True)
     for (job_id,) in rows:
         enqueue(principal.tenant_id, UUID(str(job_id)))
