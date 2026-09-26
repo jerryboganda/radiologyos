@@ -19,6 +19,32 @@ export const ask = (event: RequestEvent, body: AskRequest) =>
   sendJson<AskResponse>(event, '/v1/tutor/ask', 'POST', body, { timeoutMs: 300_000 });
 
 /**
+ * Stream a multipart image upload to POST /v1/tutor/images (ADR 0025). The API
+ * sniffs, size-checks, and re-encodes it; its status and JSON body pass through.
+ */
+export async function uploadImage(event: RequestEvent): Promise<Response> {
+  const contentType = event.request.headers.get('content-type') ?? '';
+  if (!contentType.startsWith('multipart/form-data') || !event.request.body) {
+    return json({ detail: 'multipart/form-data upload required' }, 415);
+  }
+  let upstream: Response;
+  try {
+    upstream = await apiFetch(event, '/v1/tutor/images', {
+      method: 'POST',
+      headers: { 'content-type': contentType },
+      body: event.request.body,
+      duplex: 'half'
+    } as RequestInit);
+  } catch {
+    return json({ detail: 'The tutor service is unreachable.' }, 502);
+  }
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers: { 'content-type': upstream.headers.get('content-type') ?? 'application/json', 'cache-control': 'no-store' }
+  });
+}
+
+/**
  * Proxy the SSE progress stream untouched. Anything that is not an event
  * stream (auth failure, validation, proxy error) becomes a JSON error with
  * the upstream status, so the page can fall back to the JSON route.

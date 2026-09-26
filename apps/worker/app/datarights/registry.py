@@ -65,6 +65,9 @@ OWNED: tuple[Owned, ...] = (
     Owned("tutor_threads", "t.user_id = :u", "direct"),
     Owned("tutor_messages", "t.thread_id IN (SELECT id FROM tutor_threads WHERE user_id = :u)",
           "direct"),
+    # Images attached to tutor questions; their objects live under
+    # storage.tutor_image_prefix and are exported and erased with the rows (ADR 0025).
+    Owned("tutor_images", "t.user_id = :u", "direct"),
     Owned("study_profiles", "t.user_id = :u", "direct"),
     Owned("study_plans", "t.user_id = :u", "direct"),
     Owned("cards", "t.user_id = :u", "direct"),
@@ -95,7 +98,7 @@ EXEMPT: dict[str, str] = {
 DIRECT_DELETE_ORDER: tuple[str, ...] = (
     "grading_jobs", "item_stats", "baseline_tests", "weekly_reports",
     "card_reviews", "attempts", "exams", "cards", "questions", "study_plans",
-    "study_profiles", "tutor_messages", "tutor_threads", "topic_weights",
+    "study_profiles", "tutor_messages", "tutor_threads", "tutor_images", "topic_weights",
     "topic_frequencies", "push_subscriptions", "notification_settings",
 )
 

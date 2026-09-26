@@ -35,6 +35,8 @@ from evals.checks._data_rights_support import (  # noqa: E402
     seed_content,
     seed_identity,
     seed_objects,
+    seed_tutor_image_object,
+    tutor_image_id,
 )
 from packages.library.storage import MemoryObjectStore, export_key  # noqa: E402
 
@@ -91,6 +93,8 @@ async def _export(deps: DataDeps, runtime: Any, store: MemoryObjectStore,
         assert chunk["embedding"] is not None  # derived data and embeddings are exported
         assert zf.read(f"files/{sa}/chest notes.pdf") == b"%PDF-synthetic"
         assert zf.read(f"figures/{sa}/00001-000.png") == b"figure-png"
+        assert zf.read(f"tutor-images/{tutor_image_id(ua)}.png") == b"tutor-png"
+        assert len(json.loads(zf.read("data/tutor_images.json"))) == 1
         cards_md = zf.read("notes/cards.md").decode()
         assert "Synthetic front?" in cards_md and "Synthetic chest notes, p. 1" in cards_md
         assert "Synthetic claim 1" in zf.read("notes/claims.md").decode()
@@ -170,6 +174,7 @@ async def _run() -> None:
             await seed_identity(admin, ids[t], ids[u], ids[s], held)
             await seed_content(runtime, ids[t], ids[u], ids[s])
             seed_objects(store, ids[t], ids[s])
+            seed_tutor_image_object(store, ids[t], ids[u])
         await _isolation(runtime, ids)
         await _export(deps, runtime, store, ids)
         await _expiry(deps, runtime, store, ids)

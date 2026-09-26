@@ -2,11 +2,17 @@
   import { enhance } from '$app/forms';
   import { goto } from '$app/navigation';
   import AnswerView from '$lib/components/AnswerView.svelte';
+  import Icon from '$lib/components/Icon.svelte';
   import LoadIssue from '$lib/components/LoadIssue.svelte';
   import Notice from '$lib/components/Notice.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import TutorProgress from '$lib/components/TutorProgress.svelte';
+  import DraftAnswer from '$lib/components/tutor/DraftAnswer.svelte';
+  import ImageAttach from '$lib/components/tutor/ImageAttach.svelte';
+  import ImageReading from '$lib/components/tutor/ImageReading.svelte';
+  import { readerHref } from '$lib/citations';
   import { formatDate } from '$lib/format';
+  import { applyDraft, emptyDrafts } from '$lib/tutor-drafts';
   import { readTutorStream } from '$lib/tutor-stream';
   import type { SubmitFunction } from '@sveltejs/kit';
   import type { ActionData, PageData } from './$types';
@@ -15,14 +21,24 @@
   let asking = $state(false);
   let allowWeb = $state(true);
   let stages = $state<string[]>([]);
+  let drafts = $state(emptyDrafts());
   let pending = $state('');
   let streamError = $state<string | null>(null);
   let questionBox = $state<HTMLTextAreaElement | null>(null);
+  let imageId = $state('');
+  let attach = $state<ImageAttach | null>(null);
+  let focusCleared = $state(false);
   let threadId = $derived(data.thread?.id ?? '');
   let messages = $derived(data.thread?.messages ?? []);
+  let focus = $derived(focusCleared ? null : data.focus);
 
-  // Stream progress over SSE; 'fallback' means the stream itself failed and
-  // the JSON form action should answer instead.
+  function threadHref(id: string): string {
+    const keep = focus ? `&source=${encodeURIComponent(focus.source_id)}&page=${focus.page_no}` : '';
+    return `/tutor?thread=${encodeURIComponent(id)}${keep}`;
+  }
+
+  // Stream progress and draft text over SSE; 'fallback' means the stream
+  // itself failed and the JSON form action should answer instead.
   async function streamAsk(formData: FormData): Promise<'handled' | 'fallback'> {
     let response: Response;
     try {
@@ -32,21 +48,29 @@
         body: JSON.stringify({
           question: formData.get('question'),
           thread_id: formData.get('thread_id'),
-          allow_web: formData.get('allow_web') === 'on'
+          allow_web: formData.get('allow_web') === 'on',
+          image_id: formData.get('image_id'),
+          focus_source: formData.get('focus_source'),
+          focus_page: formData.get('focus_page')
         })
       });
     } catch {
       return 'fallback';
     }
     if (!response.ok || !response.body) return 'fallback';
-    const outcome = await readTutorStream(response.body, (stage) => (stages = [...stages, stage]));
+    const outcome = await readTutorStream(
+      response.body,
+      (stage) => (stages = [...stages, stage]),
+      (op) => (drafts = applyDraft(drafts, op))
+    );
     if (outcome.kind === 'broken') return 'fallback';
     if (outcome.kind === 'error') {
       streamError = outcome.message;
       return 'handled';
     }
-    await goto(`/tutor?thread=${encodeURIComponent(outcome.answer.thread_id)}`, { invalidateAll: true, noScroll: true });
+    await goto(threadHref(outcome.answer.thread_id), { invalidateAll: true, noScroll: true });
     if (questionBox) questionBox.value = '';
+    attach?.clear();
     return 'handled';
   }
 
@@ -54,9 +78,11 @@
     asking = true;
     streamError = null;
     stages = [];
+    drafts = emptyDrafts();
     pending = String(formData.get('question') ?? '').trim();
     const streamed = await streamAsk(formData);
     stages = [];
+    drafts = emptyDrafts();
     pending = '';
     if (streamed === 'handled') {
       cancel();
@@ -91,6 +117,7 @@
   <div class="flex min-w-0 flex-col gap-5">
     {#each messages as message (message.id)}
       {#if message.role === 'user'}
+        <ImageReading imageId={message.image_id} reading={message.image_reading ?? null} />
         <p class="self-end rounded-2xl rounded-br-md bg-surface-2 px-4 py-2.5 text-[0.9375rem] text-ink">{message.content}</p>
       {:else}
         <AnswerView segments={message.segments} grounding={message.grounding} fallback={message.content} judge={message.judge ?? null} />
@@ -98,6 +125,7 @@
     {/each}
 
     {#if asking && stages.length}<TutorProgress question={pending} stages={stages} />{/if}
+    {#if asking}<DraftAnswer {drafts} />{/if}
     {#if streamError}<Notice tone="warn">{streamError}</Notice>{:else if form?.error}<Notice tone="warn">{form.error}</Notice>{/if}
 
     <form
@@ -107,6 +135,18 @@
       use:enhance={submit}
     >
       <input type="hidden" name="thread_id" value={threadId} />
+      <input type="hidden" name="image_id" value={imageId} />
+      {#if focus}
+        <input type="hidden" name="focus_source" value={focus.source_id} />
+        <input type="hidden" name="focus_page" value={focus.page_no} />
+        <p class="flex flex-wrap items-center gap-2 text-sm text-ink-2">
+          <span class="label">Asking about</span>
+          <a href={readerHref(focus.source_id, focus.page_no)} class="truncate text-accent hover:underline">{focus.title} · p.{focus.page_no}</a>
+          <button type="button" class="text-muted hover:text-ink" aria-label="Stop asking about this page" onclick={() => (focusCleared = true)}>
+            <Icon name="x" size={14} />
+          </button>
+        </p>
+      {/if}
       <label for="question" class="sr-only">Your question</label>
       <textarea
         id="question"
@@ -116,10 +156,15 @@
         required
         minlength="3"
         maxlength="2000"
-        placeholder={threadId ? 'Ask a follow-up…' : 'e.g. What distinguishes a Bosniak IIF from a III cyst on CT?'}
+        placeholder={focus
+          ? 'e.g. Explain the key point of this page'
+          : threadId
+            ? 'Ask a follow-up…'
+            : 'e.g. What distinguishes a Bosniak IIF from a III cyst on CT?'}
         class="field resize-y text-[0.9375rem]"
         value={form?.question ?? ''}
       ></textarea>
+      <ImageAttach bind:this={attach} bind:imageId disabled={asking} />
       <div class="flex flex-wrap items-center justify-between gap-3">
         <label class="flex items-center gap-2 text-sm text-ink-2">
           <input type="checkbox" name="allow_web" bind:checked={allowWeb} class="h-4 w-4 accent-[var(--accent)]" />

@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     # Switching it off is an explicit deployment decision; answers are then
     # labelled "not verified" rather than presented as judged.
     tutor_grounding_judge: bool = True
+    # ADR 0025: stream labelled draft text while the tutor writes. Drafts are
+    # never stored and are always replaced by the judged answer; off = the
+    # stream carries progress only and every call is schema-enforced JSON.
+    tutor_stream_drafts: bool = True
     # Shared with the web server only; signs backend-for-frontend assertions.
     web_api_secret: str = ""
     library_enabled: bool = True

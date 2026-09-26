@@ -2,10 +2,12 @@
 
 1. If anything was retrieved, ``tutor_answer`` (no tools) answers only from the
    numbered excerpts (``S1``..) and described figures (``F1``..) and reports
-   its coverage.
+   its coverage. Non-citable context (rolling thread summary, the AI reading of
+   an attached image, the page being read) rides along, labelled (ADR 0025).
 2. If coverage is not full and the caller allows it, ``tutor_web`` (WebSearch
    and WebFetch only) researches the question on authoritative radiology sites.
-   It receives the question and earlier questions only — never excerpt text —
+   It receives the question, earlier questions, and at most the structured
+   findings of an attached image — never excerpt text or the thread summary —
    so uploaded content cannot steer web requests.
 3. ``grounding`` verifies every citation and drops anything uncited.
 4. ``judge`` (``grounding_judge``, no tools) checks that each segment is
@@ -13,8 +15,10 @@
 
 Runs synchronously (the transport blocks for minutes); API callers run it in a
 threadpool and may pass ``on_status`` to report progress (``answering``,
-``web_research``, ``judging``). Nothing here logs question, excerpt, or answer
-text (hard rule 4).
+``web_research``, ``judging``) and ``on_draft`` to receive draft text while the
+answer and web steps are written (ADR 0025). Drafts are unverified and are
+always superseded by the returned, judged answer. Nothing here logs question,
+excerpt, or answer text (hard rule 4).
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ from typing import cast
 
 from packages.models.claude_code import ModelCallError
 from packages.models.gateway import Transport, load_agent, run_agent
+from packages.tutor.draft import DraftCallback, DraftTracker
 from packages.tutor.grounding import (
     Excerpt,
     FigureExcerpt,
@@ -35,90 +40,55 @@ from packages.tutor.grounding import (
 )
 from packages.tutor.judge import JUDGE_AGENT, StatusCallback, judge_segments
 from packages.tutor.models import GroundedAnswer, Segment, SourceAnswer, WebAnswer
+from packages.tutor.prompts import Context, Turn, source_prompt, web_prompt
+
+__all__ = ["Context", "Turn", "answer_question", "source_prompt", "web_prompt"]
 
 SOURCE_AGENT = "tutor_answer"
 WEB_AGENT = "tutor_web"
-EXCERPT_CHARS = 4000
-HISTORY_CHARS = 1500
 WEB_UNAVAILABLE = "Web research was unavailable, so only your sources were used."
-
-
-@dataclass(frozen=True, slots=True)
-class Turn:
-    role: str
-    content: str
-
-
-def _escape(text: str) -> str:
-    return text.replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-
-
-def _history_block(history: Sequence[Turn], questions_only: bool) -> str:
-    turns = [t for t in history if t.role == "user" or not questions_only]
-    if not turns:
-        return ""
-    lines = [f"{t.role}: {_escape(t.content[:HISTORY_CHARS])}" for t in turns]
-    return ("<conversation note=\"earlier turns, for context only; not citable\">\n"
-            + "\n".join(lines) + "\n</conversation>\n\n")
-
-
-def _figure_block(figures: Sequence[FigureExcerpt]) -> str:
-    if not figures:
-        return ""
-    blocks = [
-        f'<figure id="{f.label}" source="{_escape(f.source_title)}" page="{f.page_no}" '
-        f'modality="{_escape(f.modality)}" anatomy="{_escape(f.anatomy)}" '
-        f'caption="{_escape(f.caption)}">\n{_escape(f.description[:EXCERPT_CHARS])}\n</figure>'
-        for f in figures
-    ]
-    return ("<figures note=\"AI-generated descriptions of images in the candidate's "
-            "material; citable by id\">\n" + "\n".join(blocks) + "\n</figures>\n\n")
-
-
-def source_prompt(
-    question: str, excerpts: Sequence[Excerpt], history: Sequence[Turn],
-    figures: Sequence[FigureExcerpt] = (),
-) -> str:
-    blocks = []
-    for e in excerpts:
-        pages = str(e.page_from) if e.page_from == e.page_to else f"{e.page_from}-{e.page_to}"
-        blocks.append(
-            f'<excerpt id="{e.label}" source="{_escape(e.source_title)}" pages="{pages}" '
-            f'heading="{_escape(e.heading)}">\n{_escape(e.text[:EXCERPT_CHARS])}\n</excerpt>'
-        )
-    return (
-        _history_block(history, questions_only=False)
-        + "<excerpts>\n" + "\n".join(blocks) + "\n</excerpts>\n\n"
-        + _figure_block(figures)
-        + f"<question>\n{_escape(question)}\n</question>"
-    )
-
-
-def web_prompt(question: str, history: Sequence[Turn]) -> str:
-    return (_history_block(history, questions_only=True)
-            + f"<question>\n{_escape(question)}\n</question>")
 
 
 def agent_version(*names: str) -> str:
     return "+".join(load_agent(name).key for name in names)
 
 
+def _run_drafted(
+    transport: Transport, agent: str, prompt: str, phase: str, on_draft: DraftCallback | None
+) -> object:
+    tracker = DraftTracker(phase, on_draft) if on_draft is not None else None
+    parsed, _ = run_agent(transport, agent, prompt, on_delta=tracker)
+    if tracker is not None:
+        tracker.flush()
+    return parsed
+
+
+@dataclass(frozen=True, slots=True)
+class _Ask:
+    """One question with everything the agents see."""
+
+    question: str
+    excerpts: Sequence[Excerpt]
+    figures: Sequence[FigureExcerpt]
+    history: Sequence[Turn]
+    context: Context
+
+
 def _ask_sources(
-    transport: Transport, question: str, excerpts: Sequence[Excerpt],
-    figures: Sequence[FigureExcerpt], history: Sequence[Turn],
+    transport: Transport, ask: _Ask, on_draft: DraftCallback | None
 ) -> tuple[list[Segment], int, str]:
-    prompt = source_prompt(question, excerpts, history, figures)
-    parsed, _ = run_agent(transport, SOURCE_AGENT, prompt)
-    answer = cast(SourceAnswer, parsed)
-    segments, dropped = ground_sources(answer, excerpts, figures)
+    prompt = source_prompt(ask.question, ask.excerpts, ask.history, ask.figures, ask.context)
+    answer = cast(SourceAnswer, _run_drafted(transport, SOURCE_AGENT, prompt, "sources",
+                                             on_draft))
+    segments, dropped = ground_sources(answer, ask.excerpts, ask.figures)
     return segments, dropped, answer.coverage if segments else "none"
 
 
 def _ask_web(
-    transport: Transport, question: str, history: Sequence[Turn]
+    transport: Transport, ask: _Ask, on_draft: DraftCallback | None
 ) -> tuple[list[Segment], int, dict[str, str]]:
-    parsed, _ = run_agent(transport, WEB_AGENT, web_prompt(question, history))
-    answer = cast(WebAnswer, parsed)
+    prompt = web_prompt(ask.question, ask.history, ask.context.image)
+    answer = cast(WebAnswer, _run_drafted(transport, WEB_AGENT, prompt, "web", on_draft))
     segments, dropped = ground_web(answer)
     return segments, dropped, page_summaries(answer)
 
@@ -139,24 +109,22 @@ class _Draft:
 
 
 def _draft(
-    transport: Transport, question: str, excerpts: Sequence[Excerpt],
-    figures: Sequence[FigureExcerpt], history: Sequence[Turn], allow_web: bool,
-    on_status: StatusCallback | None,
+    transport: Transport, ask: _Ask, allow_web: bool,
+    on_status: StatusCallback | None, on_draft: DraftCallback | None,
 ) -> tuple[_Draft, bool]:
     """Steps 1-3: source answer, optional web research, structural citation checks."""
     draft = _Draft(source=[], web=[], dropped=0, summaries={}, used=[])
     coverage = "none"
-    if excerpts or figures:
+    if ask.excerpts or ask.figures:
         _report(on_status, "answering")
         draft.used.append(SOURCE_AGENT)
-        draft.source, draft.dropped, coverage = _ask_sources(
-            transport, question, excerpts, figures, history)
+        draft.source, draft.dropped, coverage = _ask_sources(transport, ask, on_draft)
     web_attempted = allow_web and coverage != "full"
     if web_attempted:
         _report(on_status, "web_research")
         draft.used.append(WEB_AGENT)
         try:
-            draft.web, web_dropped, draft.summaries = _ask_web(transport, question, history)
+            draft.web, web_dropped, draft.summaries = _ask_web(transport, ask, on_draft)
             draft.dropped += web_dropped
         except ModelCallError:  # includes UsageLimitError; keep a source answer if any
             if not draft.source:
@@ -175,14 +143,16 @@ def answer_question(
     figures: Sequence[FigureExcerpt] = (),
     judge: bool = True,
     on_status: StatusCallback | None = None,
+    context: Context | None = None,
+    on_draft: DraftCallback | None = None,
 ) -> GroundedAnswer:
     """Return a grounded, judged answer; raises ModelCallError if the answer step fails.
 
     ``judge=False`` is honoured only because the caller passes an explicit
     deployment setting; skipped segments are labelled "not verified".
     """
-    draft, web_attempted = _draft(transport, question, excerpts, figures, history,
-                                  allow_web, on_status)
+    ask = _Ask(question, excerpts, figures, history, context or Context())
+    draft, web_attempted = _draft(transport, ask, allow_web, on_status, on_draft)
     segments, stats = judge_segments(
         transport, [*draft.source, *draft.web], [*excerpts, *figures], draft.summaries,
         enabled=judge, on_status=on_status,

@@ -63,7 +63,16 @@
       {#if reader?.vision_status}<span class="label">vision: {reader.vision_status}</span>{/if}
     </div>
   </div>
-  <PageNav sourceId={source.id} pageNo={data.pageNo} {pageCount} />
+  <div class="flex flex-wrap items-center gap-2">
+    <a
+      href="/tutor?source={encodeURIComponent(source.id)}&page={data.pageNo}"
+      class="btn btn-ghost min-h-9 px-2.5 py-1.5 text-sm"
+      title="Open the tutor with this page's text and figures retrieved first"
+    >
+      <Icon name="tutor" size={16} /> Ask about this page
+    </a>
+    <PageNav sourceId={source.id} pageNo={data.pageNo} {pageCount} />
+  </div>
 </div>
 
 {#if processing && source.steps.length}

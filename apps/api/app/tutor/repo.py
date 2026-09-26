@@ -9,6 +9,10 @@ migration 0005 constrains to an array): the segments in order, then — since AD
 0013 v2 — one trailing ``{"kind": "judge_stats", "judge": {...},
 "dropped_segments": n}`` element. Rows written before v2 have no such element;
 ``stored_answer`` reads both, so no migration is needed.
+
+Since ADR 0025 a user message may name the image it asked about (``image_id``),
+and a thread keeps a rolling summary of its older messages (``memory_*``
+columns, migration 0017); the summary is context only, never a citation.
 """
 
 from __future__ import annotations
@@ -17,13 +21,17 @@ import json
 from typing import Any
 from uuid import UUID
 
+from packages.tutor.memory import MemoryState, MemoryUpdate
 from packages.tutor.models import GroundedAnswer
-from packages.tutor.orchestrator import Turn
+from packages.tutor.prompts import Turn
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 TITLE_CHARS = 120
 HISTORY_MESSAGES = 6
+# At most this many uncovered messages are read per ask; memory folds keep it small.
+UNCOVERED_CAP = 200
+MEMORY_CHARS = 4000
 
 
 JUDGE_STATS = "judge_stats"
@@ -88,11 +96,43 @@ async def list_threads(session: AsyncSession, user_id: UUID) -> list[dict[str, A
 
 async def thread_messages(session: AsyncSession, thread_id: UUID) -> list[dict[str, Any]]:
     rows = await session.execute(
-        text("SELECT id, role, content, citations, grounding, agent_version, created_at "
-             "FROM tutor_messages WHERE thread_id = :t ORDER BY created_at, id"),
+        text("SELECT m.id, m.role, m.content, m.citations, m.grounding, m.agent_version, "
+             "m.created_at, m.image_id, i.reading AS image_reading "
+             "FROM tutor_messages m LEFT JOIN tutor_images i "
+             "ON i.id = m.image_id AND i.tenant_id = m.tenant_id "
+             "WHERE m.thread_id = :t ORDER BY m.created_at, m.id"),
         {"t": thread_id},
     )
     return [dict(row) for row in rows.mappings()]
+
+
+async def memory_state(session: AsyncSession, thread_id: UUID) -> MemoryState:
+    """The thread's rolling summary and every message it does not cover yet (ADR 0025)."""
+    row = (
+        await session.execute(
+            text("SELECT memory_summary, memory_covered FROM tutor_threads WHERE id = :t"),
+            {"t": thread_id},
+        )
+    ).mappings().first()
+    if row is None:
+        return MemoryState()
+    covered = int(row["memory_covered"])
+    rows = await session.execute(
+        text("SELECT role, content FROM tutor_messages WHERE thread_id = :t "
+             "ORDER BY created_at, id OFFSET :n LIMIT :cap"),
+        {"t": thread_id, "n": covered, "cap": UNCOVERED_CAP},
+    )
+    turns = tuple(Turn(role=r["role"], content=r["content"]) for r in rows.mappings())
+    return MemoryState(summary=str(row["memory_summary"]), covered=covered, uncovered=turns)
+
+
+async def save_memory(session: AsyncSession, thread_id: UUID, update: MemoryUpdate) -> None:
+    await session.execute(
+        text("UPDATE tutor_threads SET memory_summary = :s, memory_covered = :n, "
+             "memory_version = :v WHERE id = :t AND memory_covered < :n"),
+        {"t": thread_id, "s": update.summary[:MEMORY_CHARS], "n": update.covered,
+         "v": update.agent_version},
+    )
 
 
 async def recent_history(session: AsyncSession, thread_id: UUID) -> list[Turn]:
@@ -118,13 +158,16 @@ async def create_thread(
 
 async def add_exchange(
     session: AsyncSession, tenant_id: UUID, thread_id: UUID, question: str,
-    answer: GroundedAnswer,
+    answer: GroundedAnswer, image_id: UUID | None = None,
 ) -> UUID:
-    """Store the question and its grounded answer; return the answer's id."""
+    """Store the question (with its attached image, if any) and grounded answer.
+
+    Returns the answer's id.
+    """
     await session.execute(
-        text("INSERT INTO tutor_messages (tenant_id, thread_id, role, content) "
-             "VALUES (:t, :th, 'user', :c)"),
-        {"t": tenant_id, "th": thread_id, "c": question},
+        text("INSERT INTO tutor_messages (tenant_id, thread_id, role, content, image_id) "
+             "VALUES (:t, :th, 'user', :c, :img)"),
+        {"t": tenant_id, "th": thread_id, "c": question, "img": image_id},
     )
     stored = stored_citations(answer)
     row = await session.execute(

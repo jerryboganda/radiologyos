@@ -761,6 +761,131 @@
         }
       }
     },
+    "/v1/library/figures/{figure_id}/similar": {
+      "get": {
+        "tags": [
+          "library"
+        ],
+        "summary": "Similar Figures",
+        "description": "The caller's figures nearest to one of theirs, by figure embedding (ADR 0025).",
+        "operationId": "similar_figures_v1_library_figures__figure_id__similar_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "figure_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Figure Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 24,
+              "minimum": 1,
+              "default": 8,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FigureHit"
+                  },
+                  "title": "Response Similar Figures V1 Library Figures  Figure Id  Similar Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/library/search": {
       "post": {
         "tags": [
@@ -1846,7 +1971,7 @@
         },
         "responses": {
           "200": {
-            "description": "Server-Sent Events: status*, then answer + done, or one error.",
+            "description": "Server-Sent Events: status* and draft*, then answer + done, or one error.",
             "content": {
               "text/event-stream": {
                 "schema": {
@@ -2062,6 +2187,220 @@
                 "schema": {
                   "$ref": "#/components/schemas/ThreadDetail"
                 }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tutor/images": {
+      "post": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Upload Image",
+        "operationId": "upload_image_v1_tutor_images_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_image_v1_tutor_images_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageUploadResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tutor/images/{image_id}": {
+      "get": {
+        "tags": [
+          "tutor"
+        ],
+        "summary": "Image Bytes",
+        "operationId": "image_bytes_v1_tutor_images__image_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "image_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Image Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -12110,6 +12449,29 @@
             "type": "boolean",
             "title": "Allow Web",
             "default": true
+          },
+          "image_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Id",
+            "description": "An image uploaded with POST /v1/tutor/images."
+          },
+          "focus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Focus"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -12184,6 +12546,29 @@
                 "type": "null"
               }
             ]
+          },
+          "image_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Id"
+          },
+          "image_reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageCase"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI reading of the attached image; context, never a citation."
           }
         },
         "type": "object",
@@ -12598,6 +12983,20 @@
           "status"
         ],
         "title": "BillingResultResponse"
+      },
+      "Body_upload_image_v1_tutor_images_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_image_v1_tutor_images_post"
       },
       "Body_upload_source_v1_library_sources_post": {
         "properties": {
@@ -13929,6 +14328,29 @@
         ],
         "title": "FigureHit"
       },
+      "Focus": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Id"
+          },
+          "page_no": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Page No"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_id",
+          "page_no"
+        ],
+        "title": "Focus",
+        "description": "The Reader page a question is about: its excerpts are retrieved first."
+      },
       "GenerateIn": {
         "properties": {
           "source_id": {
@@ -14040,6 +14462,19 @@
             "minimum": 1.0,
             "title": "Count",
             "default": 3
+          },
+          "figure_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Figure Id",
+            "description": "Quiz on this figure (ADR 0025): it becomes F1 and, with no topic, its caption and description steer retrieval."
           }
         },
         "additionalProperties": false,
@@ -14124,6 +14559,113 @@
           "environment"
         ],
         "title": "HealthResponse"
+      },
+      "ImageCase": {
+        "properties": {
+          "modality": {
+            "type": "string",
+            "title": "Modality"
+          },
+          "anatomy": {
+            "type": "string",
+            "title": "Anatomy"
+          },
+          "visible_text": {
+            "type": "string",
+            "title": "Visible Text",
+            "description": "Any text burned into or printed on the image."
+          },
+          "findings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "impression": {
+            "type": "string",
+            "title": "Impression",
+            "description": "Most likely diagnosis, or '' if not determinable."
+          },
+          "differentials": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Differentials"
+          },
+          "teaching_points": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Teaching Points"
+          },
+          "topics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Topics"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "modality",
+          "anatomy",
+          "visible_text",
+          "findings",
+          "impression",
+          "differentials",
+          "teaching_points",
+          "topics",
+          "confidence"
+        ],
+        "title": "ImageCase"
+      },
+      "ImageUploadResponse": {
+        "properties": {
+          "image_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Image Id"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "byte_size": {
+            "type": "integer",
+            "title": "Byte Size"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          }
+        },
+        "type": "object",
+        "required": [
+          "image_id",
+          "content_type",
+          "byte_size",
+          "width",
+          "height"
+        ],
+        "title": "ImageUploadResponse"
       },
       "ItemStatOut": {
         "properties": {
@@ -17607,6 +18149,28 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/JudgeStats"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "image_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Id"
+          },
+          "image_reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageCase"
               },
               {
                 "type": "null"

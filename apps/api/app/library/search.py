@@ -149,3 +149,86 @@ async def hybrid_search(
                      "matched": {"lexical": any(r["id"] == chunk_id for r in lex),
                                  "dense": any(r["id"] == chunk_id for r in vec)}})
     return hits
+
+
+async def source_title(session: AsyncSession, user_id: UUID, source_id: UUID) -> str | None:
+    """The title of one of the caller's own, non-deleted sources, or None."""
+    row = await session.execute(
+        text("SELECT title FROM sources WHERE id = :s AND uploaded_by = :u "
+             "AND deleted_at IS NULL"),
+        {"s": source_id, "u": user_id},
+    )
+    title = row.scalar_one_or_none()
+    return str(title) if title is not None else None
+
+
+async def page_chunks(
+    session: AsyncSession, user_id: UUID, source_id: UUID, page_no: int, limit: int
+) -> list[dict[str, Any]]:
+    """Chunks covering one page of the caller's source (Reader "ask about this page")."""
+    rows = await session.execute(
+        text(
+            """
+            SELECT c.id, c.source_id, s.title AS source_title, c.page_from, c.page_to,
+                   c.heading, c.text, c.block_refs
+            FROM chunks c JOIN sources s ON s.id = c.source_id AND s.tenant_id = c.tenant_id
+            WHERE c.source_id = :s AND s.uploaded_by = :u AND s.deleted_at IS NULL
+              AND :p BETWEEN c.page_from AND c.page_to
+            ORDER BY c.chunk_no
+            LIMIT :n
+            """
+        ),
+        {"s": source_id, "u": user_id, "p": page_no, "n": limit},
+    )
+    return [dict(row) for row in rows.mappings()]
+
+
+async def page_figures(
+    session: AsyncSession, user_id: UUID, source_id: UUID, page_no: int, limit: int
+) -> list[dict[str, Any]]:
+    """Described figures on one page of the caller's source, in page order."""
+    rows = await session.execute(
+        text(
+            f"SELECT {_FIGURE_COLUMNS} "  # nosec B608 - constant fragment; values are bound
+            "FROM figures f JOIN sources s ON s.id = f.source_id AND s.tenant_id = f.tenant_id "
+            "WHERE f.source_id = :s AND f.page_no = :p AND s.uploaded_by = :u "
+            "AND s.deleted_at IS NULL ORDER BY f.figure_no LIMIT :n"
+        ),
+        {"s": source_id, "u": user_id, "p": page_no, "n": limit},
+    )
+    return [dict(row) for row in rows.mappings()]
+
+
+async def similar_figures(
+    session: AsyncSession, user_id: UUID, figure_id: UUID, limit: int
+) -> list[dict[str, Any]] | None:
+    """Nearest figures by embedding, else by keywords; None if not the caller's figure."""
+    base = (
+        await session.execute(
+            text(
+                "SELECT f.embedding IS NOT NULL AS dense, f.caption, f.description, "
+                "f.modality, f.anatomy FROM figures f JOIN sources s ON s.id = f.source_id "
+                "AND s.tenant_id = f.tenant_id WHERE f.id = :id AND s.uploaded_by = :u "
+                "AND s.deleted_at IS NULL"
+            ),
+            {"id": figure_id, "u": user_id},
+        )
+    ).mappings().first()
+    if base is None:
+        return None
+    if not base["dense"]:
+        words = " ".join([base["modality"], base["anatomy"], base["caption"],
+                          base["description"]]).split()[:30]
+        hits = await search_figures(session, user_id, " or ".join(words), limit + 1)
+        return [h for h in hits if h["id"] != figure_id][:limit]
+    rows = await session.execute(
+        text(
+            f"SELECT {_FIGURE_COLUMNS}, 1 - (f.embedding <=> q.embedding) AS score "  # nosec B608 - constant fragment; values are bound
+            "FROM figures f JOIN sources s ON s.id = f.source_id AND s.tenant_id = f.tenant_id, "
+            "(SELECT embedding FROM figures WHERE id = :id) q "
+            "WHERE f.embedding IS NOT NULL AND f.id <> :id AND s.uploaded_by = :u "
+            "AND s.deleted_at IS NULL ORDER BY f.embedding <=> q.embedding LIMIT :n"
+        ),
+        {"id": figure_id, "u": user_id, "n": limit},
+    )
+    return [dict(row) for row in rows.mappings()]

@@ -18,6 +18,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel, ValidationError
 
 from packages.models.claude_code import ModelCall, ModelCallError, ModelResult
+from packages.models.claude_stream import DeltaCallback, StreamOutputInvalid, StreamUnsupported
 from packages.models.routing import ModelRoutingConfig, load_model_routing_config
 from packages.prompts.contracts import PromptFile, load_prompt
 
@@ -85,15 +86,45 @@ def build_call(
     )
 
 
+def _streamed(
+    transport: Transport, agent: Agent, call: ModelCall, on_delta: DeltaCallback
+) -> tuple[BaseModel, ModelResult] | None:
+    """A streamed, validated answer, or None when the caller should make a plain call.
+
+    Model failures (usage limit, errors) propagate: retrying them would only
+    spend more of the usage window.
+    """
+    stream = getattr(transport, "run_stream", None)
+    if stream is None:
+        return None
+    try:
+        result: ModelResult = stream(call, on_delta)
+        return agent.output_model.model_validate(result.output), result
+    except (StreamUnsupported, StreamOutputInvalid, ValidationError):
+        return None
+
+
 def run_agent(
     transport: Transport,
     name: str,
     user_prompt: str,
     files: Sequence[tuple[str, bytes]] = (),
     effort: str | None = None,
+    on_delta: DeltaCallback | None = None,
 ) -> tuple[BaseModel, ModelResult]:
+    """Run one agent; ``on_delta`` receives raw output deltas when the transport streams.
+
+    Deltas are unvalidated model output: callers may only show them as a
+    labelled draft. A streamed answer is validated like any other; if the
+    transport cannot stream or the streamed object is invalid, one ordinary
+    schema-enforced call is made instead.
+    """
     agent = load_agent(name)
     call = build_call(agent, user_prompt, files, effort)
+    if on_delta is not None:
+        streamed = _streamed(transport, agent, call, on_delta)
+        if streamed is not None:
+            return streamed
     result = transport.run(call)
     try:
         parsed = agent.output_model.model_validate(result.output)

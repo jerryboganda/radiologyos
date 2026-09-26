@@ -4,8 +4,9 @@ Two groups live here:
 
 * agent outputs (``SourceAnswer`` for ``tutor_answer``, ``WebAnswer`` /
   ``WebAnswerWithPages`` for ``tutor_web``, ``JudgeVerdicts`` for
-  ``grounding_judge``) — the JSON Schema passed to the model is generated from
-  them and every output is validated against them before use;
+  ``grounding_judge``, ``ThreadMemory`` for ``tutor_memory``) — the JSON Schema
+  passed to the model is generated from them and every output is validated
+  against them before use;
 * the grounded result (``GroundedAnswer``) that code builds after checking
   every citation. Model citations are never trusted as-is: a source label must
   name an excerpt that was actually retrieved for this question, and a web URL
@@ -114,6 +115,18 @@ class JudgeVerdicts(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     verdicts: list[SegmentVerdict] = Field(max_length=80)
+
+
+class ThreadMemory(BaseModel):
+    """Output of ``tutor_memory``: a rolling summary of older turns (context only)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(
+        max_length=3000,
+        description="What the candidate asked and was taught so far, in plain prose; "
+                    "no citations, labels, or URLs.",
+    )
 
 
 class JudgeStats(BaseModel):
