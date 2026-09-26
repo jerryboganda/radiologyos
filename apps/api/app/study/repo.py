@@ -14,6 +14,8 @@ from typing import Any
 from uuid import UUID
 
 from apps.api.app.study.depth_sql import StudyDepthSql
+from apps.api.app.study.insights_sql import InsightsSql
+from apps.api.app.study.session_sql import SessionSql
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,7 +39,7 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
 
 
-class SqlStudyRepo(StudyDepthSql):
+class SqlStudyRepo(StudyDepthSql, SessionSql, InsightsSql):
     def __init__(self, session: AsyncSession, tenant_id: UUID) -> None:
         self.session = session
         self.tenant_id = tenant_id
@@ -205,7 +207,7 @@ class SqlStudyRepo(StudyDepthSql):
             {**card, "u": user_id},
         )
         assert row is not None
-        await self.session.execute(
+        inserted = await self.session.execute(
             text(
                 """
                 INSERT INTO card_reviews (tenant_id, user_id, card_id, rating, reviewed_at,
@@ -213,12 +215,13 @@ class SqlStudyRepo(StudyDepthSql):
                     difficulty_after, retrievability)
                 VALUES (:t, :u, :id, :rating, :reviewed_at, :elapsed_days,
                     :scheduled_days, :state_before, :stability, :difficulty, :retrievability)
+                RETURNING id
                 """
             ),
             {**review, "u": user_id, "t": self.tenant_id, "id": card["id"],
              "stability": card["stability"], "difficulty": card["difficulty"]},
         )
-        return row
+        return {**row, "review_id": inserted.scalar_one()}
 
     async def topic_cards(self, user_id: UUID) -> list[dict[str, Any]]:
         return await self._all(

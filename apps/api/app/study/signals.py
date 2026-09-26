@@ -42,6 +42,12 @@ def curriculum_systems() -> tuple[CurriculumNode, ...]:
     return tuple(node for node in pack.nodes if node.level == "system")
 
 
+@lru_cache(maxsize=1)
+def curriculum_nodes() -> tuple[CurriculumNode, ...]:
+    """Every node of the pack, any depth (section, system, topic, subtopic ...)."""
+    return tuple(load_curriculum_pack(CURRICULUM).nodes)
+
+
 def curriculum_codes() -> frozenset[str]:
     return frozenset(node.code for node in curriculum_systems())
 

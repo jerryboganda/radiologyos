@@ -67,6 +67,8 @@ class AttemptRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     selected_option: int | None = Field(default=None, ge=0, le=4)
     answer_text: str | None = Field(default=None, min_length=1, max_length=8000)
+    confidence: int | None = Field(default=None, ge=1, le=3,
+                                   description="Self-rated confidence: 1 low, 2 medium, 3 high")
 
 
 class AttemptResponse(BaseModel):

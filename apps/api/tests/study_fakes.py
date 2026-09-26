@@ -21,6 +21,7 @@ class MemoryStudyRepo:
         self.baselines: list[tuple[UUID, dict[str, Any]]] = []
         self.exams: dict[UUID, dict[str, Any]] = {}
         self.reports: dict[tuple[UUID, date], dict[str, Any]] = {}
+        self.lapses: list[tuple[UUID, UUID, UUID]] = []
         self.commits = 0
 
     def add_question(self, owner: UUID, code: str | None, status: str = "active") -> UUID:
@@ -126,9 +127,15 @@ class MemoryStudyRepo:
         owner, row = self.cards[card["id"]]
         assert owner == user_id
         row.update(card)
-        self.reviews.append({**review, "user_id": user_id, "card_id": card["id"],
-                             "curriculum_code": row["curriculum_code"]})
-        return row
+        review_id = uuid4()
+        self.reviews.append({**review, "id": review_id, "user_id": user_id,
+                             "card_id": card["id"], "curriculum_code": row["curriculum_code"]})
+        return {**row, "review_id": review_id}
+
+    async def record_lapse(
+        self, user_id: UUID, card: dict[str, Any], review_id: UUID, now: datetime
+    ) -> None:
+        self.lapses.append((user_id, card["id"], review_id))
 
     async def topic_cards(self, user_id: UUID) -> list[dict[str, Any]]:
         return self._mine(user_id)
