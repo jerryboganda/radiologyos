@@ -88,7 +88,7 @@ def test_any_inspector_failure_sends_pages_to_vision(monkeypatch: pytest.MonkeyP
 
 
 def _call(**kw: Any) -> ModelCall:
-    base: dict[str, Any] = {"model": "mistral-large-2512", "effort": "low", "system_prompt": "s",
+    base: dict[str, Any] = {"model": "mistral-medium-2604", "effort": "low", "system_prompt": "s",
                             "user_prompt": "u", "output_schema": {"type": "object"},
                             "files": (("page-00001.png", b"\x89PNG"),), "backend": "mistral"}
     return ModelCall(**{**base, **kw})
@@ -190,3 +190,64 @@ def test_bulk_agents_are_mistral_first_and_image_case_stays_on_claude() -> None:
         backends = [c.backend for c in build_calls(load_agent(name), "p")]
         assert backends == ["mistral", "claude_code"], name
     assert [c.backend for c in build_calls(load_agent("image_case"), "p")] == ["claude_code"]
+
+
+# --- quality gates ("no lapses") -------------------------------------------
+
+NATIVE = " ".join(f"radiology{i} finding{i} sign{i}" for i in range(12))
+
+
+def _page(text: str, bbox: list[float] | None = None) -> Any:
+    from packages.library.parse_models import PageParse
+
+    return PageParse.model_validate({
+        "page_type": "text", "topics": [], "figures": [],
+        "blocks": [{"kind": "paragraph", "text": text, "bbox": bbox or [0.1, 0.1, 0.9, 0.2]}]})
+
+
+def test_page_gate_rejects_low_coverage_empty_and_bad_boxes() -> None:
+    from packages.library.quality import page_parse_problem
+
+    assert page_parse_problem(_page(NATIVE), NATIVE) is None
+    assert page_parse_problem(_page("radiology0 finding0"), NATIVE) == "low_text_coverage"
+    assert page_parse_problem(_page(" "), NATIVE) == "empty_reading_of_text_page"
+    assert page_parse_problem(_page(NATIVE, [10, 20, 300, 400]), NATIVE) == "bbox_out_of_range"
+    assert page_parse_problem(_page(NATIVE, [0.5, 0.1, 0.4, 0.2]), NATIVE) == "bbox_out_of_range"
+    assert page_parse_problem(_page("anything"), "short slide") is None  # too thin to judge
+
+
+def test_extraction_gate_rejects_mostly_unsupported_claims() -> None:
+    from packages.library.quality import extraction_problem
+
+    assert extraction_problem(rejected_claims=0, kept_claims=5) is None
+    assert extraction_problem(rejected_claims=1, kept_claims=2) is None  # too few to judge
+    assert extraction_problem(rejected_claims=3, kept_claims=3) == "unsupported_claims"
+
+
+def _page_dict(text: str) -> dict[str, Any]:
+    return {"page_type": "text", "topics": [], "figures": [],
+            "blocks": [{"kind": "paragraph", "text": text, "bbox": [0.1, 0.1, 0.9, 0.2]}]}
+
+
+def test_gateway_redoes_a_rejected_free_reading_with_claude() -> None:
+    from packages.library.quality import page_parse_problem
+
+    mistral, claude = _Backend(_page_dict("radiology0")), _Backend(_page_dict(NATIVE))
+    parsed, result = run_agent(MultiTransport({"mistral": mistral, "claude_code": claude}),
+                               "page_parse", "prompt",
+                               accept=lambda p: page_parse_problem(p, NATIVE))
+    assert result.backend == "claude_code" and (mistral.calls, claude.calls) == (1, 1)
+    assert page_parse_problem(parsed, NATIVE) is None
+
+
+def test_gateway_keeps_the_last_targets_output_when_nothing_better_exists() -> None:
+    claude = _Backend(_page_dict("radiology0"))
+    _, result = run_agent(MultiTransport({"claude_code": claude}), "page_parse", "p",
+                          accept=lambda _: "low_text_coverage")
+    assert result.backend == "claude_code" and claude.calls == 1
+
+
+def test_page_parse_claude_fallback_reads_hard_pages_at_medium_effort() -> None:
+    calls = build_calls(load_agent("page_parse"), "p")
+    assert [(c.backend, c.effort) for c in calls] == [("mistral", "low"),
+                                                       ("claude_code", "medium")]

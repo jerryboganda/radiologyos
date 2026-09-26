@@ -17,6 +17,7 @@ import argparse
 import asyncio
 import os
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from apps.api.app.library import service
@@ -99,9 +100,20 @@ WHERE s.uploaded_by = :u AND s.deleted_at IS NULL AND j.kind = 'ingest_source' A
 """
 
 
+# A manual reprocess retries pages that failed earlier (never inside a pass,
+# where a page that always fails would loop).
+RETRY_FAILED_SQL = """
+UPDATE source_pages p SET vision_status = 'pending'
+FROM sources s WHERE s.id = p.source_id AND s.uploaded_by = :u
+  AND s.deleted_at IS NULL AND p.vision_status = 'failed'
+"""
+
+
 async def reprocess(engine: AsyncEngine, principal: Principal) -> None:
     session = await tenant_session(engine, principal.tenant_id)
     try:
+        retried: Any = await session.execute(text(RETRY_FAILED_SQL), {"u": principal.user_id})
+        await session.commit()
         rows = (
             await session.execute(
                 text(REPROCESS_SQL),
@@ -110,6 +122,7 @@ async def reprocess(engine: AsyncEngine, principal: Principal) -> None:
         ).all()
     finally:
         await session.close()
+    print(f"failed pages reset for retry: {retried.rowcount or 0}", flush=True)
     for (job_id,) in rows:
         enqueue(principal.tenant_id, UUID(str(job_id)))
     print(f"requeued {len(rows)} jobs", flush=True)

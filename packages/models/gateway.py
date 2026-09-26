@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import importlib
 import json
-from collections.abc import Sequence
+import logging
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -24,6 +25,9 @@ from packages.prompts.contracts import PromptFile, load_prompt
 ROOT = Path(__file__).resolve().parents[2]
 PROMPT_ROOT = ROOT / "packages" / "prompts"
 MODELS_YAML = ROOT / "packages" / "models" / "models.yaml"
+log = logging.getLogger("radbrain.models")
+# Returns a fixed reason string when an output is not good enough (ADR 0027).
+Accept = Callable[[BaseModel], str | None]
 
 
 class Transport(Protocol):
@@ -78,7 +82,8 @@ def build_calls(
     return [
         ModelCall(
             model=target.model,
-            effort=effort or agent.prompt.effort or target.effort or "high",
+            effort=effort or (target.effort if override else None) or agent.prompt.effort
+            or target.effort or "high",
             system_prompt=agent.prompt.system_prompt,
             user_prompt=user_prompt,
             output_schema=agent.schema,
@@ -109,12 +114,15 @@ def run_agent(
     user_prompt: str,
     files: Sequence[tuple[str, bytes]] = (),
     effort: str | None = None,
+    accept: Accept | None = None,
 ) -> tuple[BaseModel, ModelResult]:
-    """Try each target the transport can serve; the first valid output wins.
+    """Try each target the transport can serve; the first good output wins.
 
-    A failure, usage limit, or schema-invalid output moves to the next target;
-    when every target fails, the last error is raised (a ``UsageLimitError``
-    from the last target still pauses the caller's job).
+    A failure, usage limit, schema-invalid output, or an output the ``accept``
+    quality gate rejects moves to the next target. The last target's valid
+    output is returned even if the gate rejects it (it is the strongest
+    available), with a warning. When every target fails, the last error is
+    raised (a ``UsageLimitError`` from the last target pauses the caller's job).
     """
     agent = load_agent(name)
     served = getattr(transport, "backends", None)
@@ -123,13 +131,24 @@ def run_agent(
     if not calls:
         raise ModelCallError(f"{agent.key} has no target this transport can serve")
     last: ModelCallError | None = None
-    for call in calls:
+    for n, call in enumerate(calls):
         try:
             result = transport.run(call)
-            return agent.output_model.model_validate(result.output), result
+            parsed = agent.output_model.model_validate(result.output)
         except ValidationError:
             last = ModelCallError(f"{agent.key} output failed schema validation")
+            continue
         except ModelCallError as exc:
             last = exc
+            continue
+        reason = accept(parsed) if accept else None
+        if reason is None:
+            return parsed, result
+        final = n == len(calls) - 1
+        log.warning("quality gate agent=%s backend=%s reason=%s action=%s",
+                    agent.key, call.backend, reason, "kept_last" if final else "fallback")
+        if final:
+            return parsed, result
+        last = ModelCallError(f"{agent.key} output rejected: {reason}")
     assert last is not None
     raise last
