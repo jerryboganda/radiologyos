@@ -35,16 +35,55 @@ class ModelTarget(BaseModel):
     base_url: str | None = None
 
 
-class EmbeddingConfig(BaseModel):
-    """Embedding provider for dense retrieval (ADR 0010: Voyage AI)."""
+class EmbeddingTarget(BaseModel):
+    """One embedding backend: the Voyage API or the local voyage-4-nano service."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    backend: Literal["voyage", "mock"]
+    backend: Literal["voyage", "local", "mock"]
     model: str = Field(min_length=1)
-    dimensions: int = Field(ge=1)
     api_key_env: str | None = None
     base_url: str | None = None
+
+
+FREE_TIER_TOKENS = 200_000_000
+
+
+class EmbeddingBudget(BaseModel):
+    """Lifetime Voyage token guard (ADR 0019): amber at warn, hard stop at cap."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    hard_cap_tokens: int = Field(ge=1, le=FREE_TIER_TOKENS)
+    warn_tokens: int = Field(ge=1)
+
+    @model_validator(mode="after")
+    def warn_below_cap(self) -> EmbeddingBudget:
+        if self.warn_tokens >= self.hard_cap_tokens:
+            raise ValueError("warn_tokens must be below hard_cap_tokens")
+        return self
+
+
+class EmbeddingConfig(BaseModel):
+    """Documents via the paid API, queries via the free local model (ADR 0019).
+
+    Both models are in the Voyage 4 shared embedding space, so a query vector
+    from voyage-4-nano is directly comparable with document vectors from
+    voyage-4-large.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    dimensions: int = Field(ge=1)
+    document: EmbeddingTarget
+    query: EmbeddingTarget
+    budget: EmbeddingBudget
+
+    @model_validator(mode="after")
+    def paid_documents_need_a_budget(self) -> EmbeddingConfig:
+        if self.query.backend == "voyage":
+            raise ValueError("queries must not use the paid API (ADR 0019)")
+        return self
 
 
 class ModelRoute(BaseModel):

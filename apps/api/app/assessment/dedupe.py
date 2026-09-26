@@ -36,20 +36,20 @@ class DedupeOutcome:
 
 
 def embed_stems(stems: Sequence[str]) -> tuple[list[list[float]] | None, str | None]:
-    """Document embeddings for stems, or (None, None) when Voyage is unavailable."""
-    from packages.models.embeddings import EmbeddingError, VoyageEmbedder
+    """Stem embeddings from the free local voyage-4-nano service (ADR 0019).
+
+    Returns (None, None) when the local service is unavailable; dedupe then
+    falls back to trigram similarity. No paid Voyage call is made here.
+    """
+    from packages.models.embeddings import LocalEmbedder
     from packages.models.gateway import routing_config
 
     config = routing_config().embeddings
     if config is None or not stems:
         return None, None
-    embedder = VoyageEmbedder(config, timeout_s=20.0)
-    if not embedder.available():
-        return None, None
-    try:
-        return embedder.embed(list(stems), "document"), config.model
-    except EmbeddingError:
-        return None, None
+    vectors = LocalEmbedder(config.query, config.dimensions, timeout_s=20.0).embed(
+        list(stems), "document")
+    return (vectors, config.query.model) if vectors else (None, None)
 
 
 async def nearest_by_embedding(

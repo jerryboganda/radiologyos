@@ -207,7 +207,8 @@ async def search_library(
 ) -> SearchResponse:
     vector = await run_in_threadpool(query_vector, body.query)
     hits = await search.hybrid_search(session, principal.user_id, body.query, vector, body.limit)
-    figures = await search.search_figures(session, principal.user_id, body.query)
+    figures = await search.search_figures(session, principal.user_id, body.query,
+                                          query_vector=vector)
     return SearchResponse(
         query=body.query,
         dense=vector is not None,
@@ -233,16 +234,17 @@ async def search_library(
 
 
 def query_vector(query: str) -> list[float] | None:
-    from packages.models.embeddings import EmbeddingError, VoyageEmbedder
+    """Query embedding from the free local voyage-4-nano service (ADR 0019).
+
+    Same Voyage 4 embedding space as the voyage-4-large document vectors, so no
+    paid API call is ever made for a search, tutor question, or topic. Returns
+    None (keyword-only search) when the local service is unavailable.
+    """
+    from packages.models.embeddings import LocalEmbedder
     from packages.models.gateway import routing_config
 
     config = routing_config().embeddings
     if config is None:
         return None
-    embedder = VoyageEmbedder(config, timeout_s=10.0)
-    if not embedder.available():
-        return None
-    try:
-        return embedder.embed([query], "query")[0]
-    except EmbeddingError:
-        return None
+    vectors = LocalEmbedder(config.query, config.dimensions).embed([query], "query")
+    return vectors[0] if vectors else None

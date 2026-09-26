@@ -160,7 +160,9 @@ def tutor_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any]]:
         state["search"] = (user_id, query, limit)
         return state["hits"]
 
-    async def fake_figures(_s: Any, user_id: UUID, query: str, limit: int = 12) -> Any:
+    async def fake_figures(
+        _s: Any, user_id: UUID, query: str, limit: int = 12, query_vector: Any = None
+    ) -> Any:
         state["figure_search"] = (user_id, query, limit)
         return state["figures"]
 

@@ -869,6 +869,205 @@
         }
       }
     },
+    "/v1/admin/embedding-usage": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Embedding Usage",
+        "operationId": "embedding_usage_v1_admin_embedding_usage_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmbeddingUsage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/alerts/{alert_id}/ack": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Acknowledge Alert",
+        "operationId": "acknowledge_alert_v1_admin_alerts__alert_id__ack_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Alert Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/notifications/vapid-public-key": {
       "get": {
         "tags": [
@@ -12425,6 +12624,48 @@
         ],
         "title": "Body_upload_source_v1_library_sources_post"
       },
+      "BudgetAlert": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "amber",
+              "red"
+            ],
+            "title": "Level"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "level",
+          "created_at",
+          "acknowledged_at"
+        ],
+        "title": "BudgetAlert"
+      },
       "CardCitation": {
         "properties": {
           "source_id": {
@@ -13185,6 +13426,77 @@
           "citation"
         ],
         "title": "EdgeOut"
+      },
+      "EmbeddingUsage": {
+        "properties": {
+          "document_model": {
+            "type": "string",
+            "title": "Document Model"
+          },
+          "query_model": {
+            "type": "string",
+            "title": "Query Model"
+          },
+          "tokens_used": {
+            "type": "integer",
+            "title": "Tokens Used"
+          },
+          "hard_cap_tokens": {
+            "type": "integer",
+            "title": "Hard Cap Tokens"
+          },
+          "warn_tokens": {
+            "type": "integer",
+            "title": "Warn Tokens"
+          },
+          "free_tier_tokens": {
+            "type": "integer",
+            "title": "Free Tier Tokens"
+          },
+          "free_tier_remaining": {
+            "type": "integer",
+            "title": "Free Tier Remaining"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "amber",
+              "red"
+            ],
+            "title": "Status"
+          },
+          "list_price_usd_equivalent": {
+            "type": "number",
+            "title": "List Price Usd Equivalent"
+          },
+          "billed_estimate_usd": {
+            "type": "number",
+            "title": "Billed Estimate Usd"
+          },
+          "alerts": {
+            "items": {
+              "$ref": "#/components/schemas/BudgetAlert"
+            },
+            "type": "array",
+            "title": "Alerts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_model",
+          "query_model",
+          "tokens_used",
+          "hard_cap_tokens",
+          "warn_tokens",
+          "free_tier_tokens",
+          "free_tier_remaining",
+          "status",
+          "list_price_usd_equivalent",
+          "billed_estimate_usd",
+          "alerts"
+        ],
+        "title": "EmbeddingUsage"
       },
       "ErrorResponse": {
         "properties": {

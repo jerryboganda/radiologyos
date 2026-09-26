@@ -31,7 +31,7 @@ Then on the VPS (`ssh vps`), add both values to `/opt/radiologyos/app.env`
 
 ```bash
 CLAUDE_CODE_OAUTH_TOKEN=<token from claude setup-token>
-VOYAGE_API_KEY=<key from dashboard.voyageai.com>
+VOYAGE_API_KEY=<key from dashboard.voyageai.com>   # see embeddings.md: cost, 195M hard stop
 ```
 
 Apply without a code deploy, then resume every job so pending pages get parsed:
@@ -75,3 +75,6 @@ finished the vision pass.
 
 Deleting a source removes its rows (cascade: pages, blocks, figures, chunks, jobs)
 and every object under its storage prefix, and writes an audit entry.
+
+Embedding cost, the local query model, and the 195M-token hard stop are in
+[`embeddings.md`](embeddings.md) (ADR 0019).

@@ -32,5 +32,6 @@ def build_deps() -> Deps:
         engine=make_engine(),
         store=object_store(),
         transport=transport if transport.available() and has_token else None,
-        embedder=VoyageEmbedder(config) if config is not None else None,
+        embedder=VoyageEmbedder(config.document, config.dimensions) if config else None,
+        budget=config.budget if config else None,
     )

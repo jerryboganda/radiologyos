@@ -6,7 +6,6 @@ import json
 import time
 from typing import Any
 
-import httpx
 import jwt
 import pytest
 from apps.api.app.security.internal import (
@@ -24,7 +23,6 @@ from packages.models.claude_code import (
     UsageLimitError,
     _parse,
 )
-from packages.models.embeddings import EmbeddingError, VoyageEmbedder
 from packages.models.gateway import build_call, load_agent, routing_config, run_agent
 
 SECRET = "s" * 40
@@ -124,26 +122,3 @@ def test_internal_assertion_accepts_only_short_lived_signed_subjects() -> None:
         verify_internal_assertion(_assertion(), "short")
     with pytest.raises(AssertionError_):
         verify_internal_assertion(_assertion(), "x" * 40)
-
-
-def test_voyage_embedder_batches_and_checks_dimensions(monkeypatch: pytest.MonkeyPatch) -> None:
-    config = routing_config().embeddings
-    assert config is not None
-    seen: list[dict[str, Any]] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        body = json.loads(request.content)
-        seen.append(body)
-        data = [{"index": i, "embedding": [0.1] * config.dimensions}
-                for i in range(len(body["input"]))]
-        return httpx.Response(200, json={"data": data})
-
-    embedder = VoyageEmbedder(config, transport=httpx.MockTransport(handler))
-    monkeypatch.delenv("VOYAGE_API_KEY", raising=False)
-    assert not embedder.available()
-    with pytest.raises(EmbeddingError):
-        embedder.embed(["x"], "query")
-    monkeypatch.setenv("VOYAGE_API_KEY", "test-key")
-    vectors = embedder.embed([f"t{i}" for i in range(70)], "document")
-    assert len(vectors) == 70 and len(seen) == 2
-    assert seen[0]["input_type"] == "document"

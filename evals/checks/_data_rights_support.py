@@ -13,7 +13,8 @@ ADMIN = "RADBRAIN_RLS_ADMIN_DATABASE_URL"
 RUNTIME = "RADBRAIN_RLS_RUNTIME_DATABASE_URL"
 # Children first, so the admin cleanup never trips a foreign key.
 ALL_TABLES = (
-    "data_jobs", "grading_jobs", "item_stats", "baseline_tests", "weekly_reports",
+    "embedding_cache", "data_jobs", "grading_jobs", "item_stats", "baseline_tests",
+    "weekly_reports",
     "card_reviews", "attempts", "exams", "cards", "questions", "study_plans",
     "study_profiles", "tutor_messages", "tutor_threads", "topic_weights", "topic_frequencies",
     "push_subscriptions", "notification_settings", "knowledge_conflicts", "concept_edges",
@@ -82,9 +83,13 @@ async def _library(conn: Any, t: UUID, u: UUID, s: UUID) -> dict[str, Any]:
         "VALUES ($1,$2,1,0,'{0,0,1,1}',$3,'Synthetic figure')",
         t, s, storage.figure_image_key(t, s, 1, 0))
     chunk = await conn.fetchval(
-        "INSERT INTO chunks (tenant_id, source_id, chunk_no, page_from, page_to, text, embedding) "
-        "VALUES ($1,$2,0,1,1,'Synthetic chunk text',"
-        "array_fill(0.01::real, ARRAY[1024])::vector) RETURNING id", t, s)
+        "INSERT INTO chunks (tenant_id, source_id, chunk_no, page_from, page_to, text, embedding, "
+        "content_sha256) VALUES ($1,$2,0,1,1,'Synthetic chunk text',"
+        "array_fill(0.01::real, ARRAY[1024])::vector, repeat('a', 64)) RETURNING id", t, s)
+    await conn.execute(
+        "INSERT INTO embedding_cache (tenant_id, content_sha256, model, dimensions, embedding) "
+        "VALUES ($1, repeat('a', 64), 'voyage-4-large', 1024, "
+        "array_fill(0.01::real, ARRAY[1024])::vector)", t)
     await conn.execute("INSERT INTO audit_log (tenant_id, actor_user_id, action, target_type, "
                        "target_id) VALUES ($1,$2,'source.uploaded','source',$3)", t, u, str(s))
     return {"chunk": chunk}

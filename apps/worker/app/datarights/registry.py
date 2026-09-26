@@ -19,6 +19,11 @@ Erasure = Literal["direct", "sources", "source_cascade", "exports", "identity"]
 
 MY_SOURCES = "SELECT id FROM sources WHERE uploaded_by = :u"
 MY_CLAIMS = f"SELECT id FROM claims WHERE source_id IN ({MY_SOURCES})"  # nosec B608
+MY_EMBEDDED_TEXT = (
+    f"t.content_sha256 IN (SELECT content_sha256 FROM chunks WHERE source_id IN "  # nosec B608
+    f"({MY_SOURCES})) OR t.content_sha256 IN (SELECT content_sha256 FROM figures "
+    f"WHERE source_id IN ({MY_SOURCES}))"
+)
 # Constant subqueries; the only value is the bound :u.
 MY_CONCEPTS = (
     f"SELECT concept_id FROM claims WHERE source_id IN ({MY_SOURCES}) "  # nosec B608
@@ -45,6 +50,9 @@ OWNED: tuple[Owned, ...] = (
     Owned("source_blocks", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
     Owned("figures", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
     Owned("chunks", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
+    # Cached vectors of this user's texts; purge_source_rows garbage-collects
+    # cache rows no chunk or figure of the tenant still uses (ADR 0019).
+    Owned("embedding_cache", MY_EMBEDDED_TEXT, "source_cascade"),
     Owned("concepts", f"t.id IN ({MY_CONCEPTS})", "source_cascade"),
     Owned("claims", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
     Owned("concept_edges", f"t.source_id IN ({MY_SOURCES})", "source_cascade"),
@@ -77,6 +85,9 @@ OWNED: tuple[Owned, ...] = (
 EXEMPT: dict[str, str] = {
     "tenants": "tenant row; erase_user_identity renames and marks it deleted when "
                "its last user is erased",
+    "embedding_usage": "per-tenant daily token counters for the Voyage budget; numbers "
+                       "only, no user content (ADR 0019)",
+    "ops_alerts": "tenant budget alerts with numeric detail only; no user content",
 }
 
 # Children before parents, so no foreign key blocks a delete. Rows of held

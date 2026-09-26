@@ -1,9 +1,11 @@
 """Resumable, idempotent ingestion steps (spec section 4, ADR 0010).
 
-Order: render pages (native text) -> chunk -> embed -> ready, so a source is
-searchable within minutes; then the vision pass parses each page with the
-``page_parse`` agent, crops and describes radiology figures with
-``image_case``, and re-chunks and re-embeds. Each step records its status in
+Order: render pages (native text) -> chunk -> ready (keyword-searchable
+within minutes); then the vision pass parses each page with the ``page_parse``
+agent, crops and describes radiology figures with ``image_case``, and
+re-chunks. Documents are embedded once, on their final text (ADR 0019): while a
+vision pass is still pending, embedding waits; unchanged text is reused from
+the tenant's embedding cache. Each step records its status in
 ``job_steps``; a re-run skips succeeded steps and pages already parsed, so a
 crash or a subscription usage-limit pause resumes where it stopped.
 """
@@ -16,14 +18,17 @@ from typing import Any
 from uuid import UUID
 
 from apps.worker.app.ingest import db, db_content
+from apps.worker.app.ingest.embedding import embed_pending
 from packages.library import storage
 from packages.library.chunking import BlockInput, build_chunks, looks_like_heading
 from packages.library.formats import SourceKind
 from packages.library.parse_models import ImageCase, PageParse
 from packages.library.render import RenderError, crop_png, iter_pages
+from packages.models.budget import EmbeddingBudgetExhausted
 from packages.models.claude_code import ModelCallError, UsageLimitError
 from packages.models.embeddings import EmbeddingError, VoyageEmbedder
 from packages.models.gateway import Transport, run_agent
+from packages.models.routing import EmbeddingBudget
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 log = logging.getLogger("radbrain.ingest")
@@ -35,6 +40,7 @@ class Deps:
     store: storage.ObjectStore
     transport: Transport | None
     embedder: VoyageEmbedder | None
+    budget: EmbeddingBudget | None = None
 
 
 class Deferred(Exception):
@@ -67,12 +73,12 @@ async def run_ingest(deps: Deps, tenant_id: UUID, job_id: UUID) -> str:
     try:
         await _step(deps, job, "render_pages", lambda: _render(deps, job, source))
         if source["status"] != "ready":
-            # Native-text pass: searchable quickly. Later runs (vision
+            # Native-text pass: keyword-searchable quickly. Later runs (vision
             # continuations, reprocess) skip it; the vision pass re-chunks.
-            await _chunk_and_embed(deps, job)
+            await _chunk(deps, job)
             await _set_ready(deps, job, "ready")
-        else:
-            await _embed(deps, job)  # only embeds chunks that have no vector yet
+        if not await _awaiting_vision(deps, job):
+            await _embed(deps, job)  # final text only; cached text costs nothing
         await _vision_pass(deps, job, source)
     except Deferred:
         return "deferred"
@@ -134,7 +140,7 @@ async def _render(deps: Deps, job: dict[str, Any], source: dict[str, Any]) -> st
     return f"pages:{count}"
 
 
-async def _chunk_and_embed(deps: Deps, job: dict[str, Any]) -> None:
+async def _chunk(deps: Deps, job: dict[str, Any]) -> None:
     tenant_id, source_id = job["tenant_id"], job["entity_id"]
     async with db.tenant_tx(deps.engine, tenant_id) as session:
         await db.mark_step(session, job, "chunk", "running")
@@ -143,24 +149,33 @@ async def _chunk_and_embed(deps: Deps, job: dict[str, Any]) -> None:
         total = await db_content.replace_chunks(session, tenant_id, source_id, chunks)
         await db.mark_step(session, job, "chunk", "succeeded", output_ref=f"chunks:{total}")
         await db.mark_step(session, job, "extract_tables", "skipped", "tables_are_blocks")
-    await _embed(deps, job)
+
+
+async def _awaiting_vision(deps: Deps, job: dict[str, Any]) -> bool:
+    """True while a vision pass will still rewrite this source's text."""
+    if deps.transport is None:
+        return False
+    async with db.tenant_tx(deps.engine, job["tenant_id"]) as session:
+        pages = await db_content.pages(session, job["entity_id"])
+    return any(p["vision_status"] == "pending" for p in pages)
 
 
 async def _embed(deps: Deps, job: dict[str, Any]) -> None:
     tenant_id, source_id = job["tenant_id"], job["entity_id"]
-    if deps.embedder is None or not deps.embedder.available():
-        async with db.tenant_tx(deps.engine, tenant_id) as session:
-            await db.mark_step(session, job, "embed_index", "skipped", "no_embedding_key")
-        return
+    step, status, code, ref = "embed_index", "succeeded", None, None
+    if deps.embedder is None or deps.budget is None or not deps.embedder.available():
+        status, code = "skipped", "no_embedding_key"
+    else:
+        try:
+            ref = await embed_pending(deps.engine, deps.embedder, deps.budget,
+                                      tenant_id, source_id)
+        except EmbeddingBudgetExhausted:
+            status, code = "skipped", "embedding_budget_exhausted"
+        except EmbeddingError:
+            # Paid batches are already saved; a later run embeds the rest.
+            status, code = "failed", "embedding_error"
     async with db.tenant_tx(deps.engine, tenant_id) as session:
-        pending = await db_content.unembedded_chunks(session, source_id)
-    texts = [f"{row['heading']}\n{row['text']}".strip() for row in pending]
-    vectors = deps.embedder.embed(texts, "document") if texts else []
-    async with db.tenant_tx(deps.engine, tenant_id) as session:
-        for row, vector in zip(pending, vectors, strict=True):
-            await db_content.set_embedding(session, row["id"], vector, deps.embedder.config.model)
-        await db.mark_step(session, job, "embed_index", "succeeded",
-                           output_ref=f"embedded:{len(vectors)}")
+        await db.mark_step(session, job, step, status, code, output_ref=ref)
 
 
 async def _set_ready(deps: Deps, job: dict[str, Any], status: str) -> None:
@@ -185,9 +200,16 @@ async def _vision_pass(deps: Deps, job: dict[str, Any], source: dict[str, Any]) 
     if len(todo) > PAGES_PER_RUN:
         raise Continue
     async with db.tenant_tx(deps.engine, tenant_id) as session:
+        first_time = await db.step_status(session, job["id"], "parse_layout") != "succeeded"
+        parsed_any = any(p["vision_status"] == "done"
+                         for p in await db_content.pages(session, source_id))
         await db.mark_step(session, job, "parse_layout", "succeeded")
         await db.mark_step(session, job, "extract_figures", "succeeded")
-    await _chunk_and_embed(deps, job)
+    if first_time and parsed_any:
+        await _chunk(deps, job)  # vision rewrote the text
+    await _embed(deps, job)
+    if not first_time:
+        return  # reprocess of a finished source: nothing else to redo
     async with db.tenant_tx(deps.engine, tenant_id) as session:
         await db.mark_step(session, job, "knowledge_extraction", "pending")
     # Knowledge slice (ADR 0016): hand the parsed source to radbrain.knowledge_extract.

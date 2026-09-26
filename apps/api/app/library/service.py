@@ -189,8 +189,30 @@ async def purge_source_rows(session: AsyncSession, source_id: UUID) -> None:
             {"id": source_id},
         )
     ).scalars().all()
+    hashes: Sequence[Any] = (
+        await session.execute(
+            text(
+                "SELECT content_sha256 FROM chunks WHERE source_id = :id "
+                "AND content_sha256 IS NOT NULL UNION "
+                "SELECT content_sha256 FROM figures WHERE source_id = :id "
+                "AND content_sha256 IS NOT NULL"
+            ),
+            {"id": source_id},
+        )
+    ).scalars().all()
     await session.execute(text("DELETE FROM jobs WHERE entity_id = :id"), {"id": source_id})
     await session.execute(text("DELETE FROM sources WHERE id = :id"), {"id": source_id})
+    if hashes:
+        # Embeddings are derived data: drop cached vectors no other chunk or
+        # figure of this tenant still uses (ADR 0019).
+        await session.execute(
+            text(
+                "DELETE FROM embedding_cache e WHERE e.content_sha256 = ANY(:h) "
+                "AND NOT EXISTS (SELECT 1 FROM chunks c WHERE c.content_sha256 = e.content_sha256) "
+                "AND NOT EXISTS (SELECT 1 FROM figures f WHERE f.content_sha256 = e.content_sha256)"
+            ),
+            {"h": list(hashes)},
+        )
     if concepts:
         await session.execute(
             text(

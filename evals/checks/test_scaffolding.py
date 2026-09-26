@@ -177,9 +177,14 @@ def test_model_routes_follow_adr_0010() -> None:
             # The subscription token is inherited from the environment, never
             # named or stored in configuration.
             assert target.api_key_env is None
-    assert config.embeddings is not None
-    assert config.embeddings.backend == "voyage"
-    assert config.embeddings.dimensions == 1024
+    embeddings = config.embeddings
+    assert embeddings is not None
+    assert embeddings.dimensions == 1024
+    # ADR 0019: paid API for documents only; queries run on the free local model.
+    assert (embeddings.document.backend, embeddings.document.model) == ("voyage", "voyage-4-large")
+    assert (embeddings.query.backend, embeddings.query.model) == ("local", "voyage-4-nano")
+    assert embeddings.budget.hard_cap_tokens == 195_000_000
+    assert embeddings.budget.warn_tokens == 150_000_000
 
 
 def test_mock_gate_still_rejects_network_capable_targets() -> None:

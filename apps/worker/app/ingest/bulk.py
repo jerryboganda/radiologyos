@@ -6,7 +6,7 @@ Usage (inside the worker container, files mounted read-only):
 
 Uses the same upload path as the API (content sniffing, DICOM refusal,
 SHA-256 dedupe, tenant-prefixed keys, audit), so re-running is safe: files
-already imported are skipped. ``--reprocess`` re-queues every job for the user,
+already imported are skipped. ``--reprocess`` re-queues only the user's jobs that still have work,
 which resumes pending steps such as the vision pass once the model token or
 embedding key is configured. Only counts and ids are printed, never content.
 """
@@ -85,16 +85,26 @@ async def import_dir(engine: AsyncEngine, principal: Principal, directory: Path)
     print(f"done {counts}", flush=True)
 
 
+# Only jobs with real work left: never re-run (and re-pay for) finished sources.
+REPROCESS_SQL = """
+SELECT j.id FROM jobs j JOIN sources s ON s.id = j.entity_id
+WHERE s.uploaded_by = :u AND s.deleted_at IS NULL AND j.kind = 'ingest_source' AND (
+    j.status <> 'succeeded'
+    OR EXISTS (SELECT 1 FROM source_pages p
+               WHERE p.source_id = s.id AND p.vision_status = 'pending')
+    OR EXISTS (SELECT 1 FROM chunks c WHERE c.source_id = s.id AND c.embedding IS NULL)
+    OR EXISTS (SELECT 1 FROM figures f WHERE f.source_id = s.id AND f.embedding IS NULL
+               AND length(f.caption || f.description) >= 20)
+)
+"""
+
+
 async def reprocess(engine: AsyncEngine, principal: Principal) -> None:
     session = await tenant_session(engine, principal.tenant_id)
     try:
         rows = (
             await session.execute(
-                text(
-                    "SELECT j.id FROM jobs j JOIN sources s ON s.id = j.entity_id "
-                    "WHERE s.uploaded_by = :u AND s.deleted_at IS NULL "
-                    "AND j.kind = 'ingest_source'"
-                ),
+                text(REPROCESS_SQL),
                 {"u": principal.user_id},
             )
         ).all()

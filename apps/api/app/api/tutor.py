@@ -160,7 +160,8 @@ async def _prepare(session: AsyncSession, principal: Principal, body: AskRequest
     vector = await run_in_threadpool(query_vector, body.question)
     query = lexical_query(body.question)
     hits = await search.hybrid_search(session, principal.user_id, query, vector, RETRIEVE)
-    figures = await search.search_figures(session, principal.user_id, query, FIGURE_CANDIDATES)
+    figures = await search.search_figures(session, principal.user_id, query, FIGURE_CANDIDATES,
+                                          query_vector=vector)
     await session.rollback()  # hold no transaction or connection during the model calls
     return Prepared(history, excerpts_from_hits(hits), figures_from_hits(figures))
 
