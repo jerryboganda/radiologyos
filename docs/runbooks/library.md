@@ -47,20 +47,18 @@ The token is only ever read by the worker process; it is never logged, stored in
 the database, or sent to the browser. Subscription use covers the owner's own
 tenant only (ADR 0010).
 
-### Free-first bulk ingest (ADR 0027)
+### Page reading and quality gates (ADR 0027, ADR 0033)
 
-- Save the Mistral key (free Experiment plan) with
-  `bash /opt/radiologyos/set-mistral-key.sh`. The script checks the key with
-  Mistral before saving it. Then recreate `api` and `worker`.
-- PDF pages with a good text layer and no picture keep their native text and
-  make no model call. The worker logs `text_first ... native_pages=N vision_pages=M`
-  for each PDF.
-- `page_parse`, `paper_topics`, `knowledge_extract`, and `topic_classify` run on
-  Mistral first and fall back to Claude (see `agents:` in
-  `packages/models/models.yaml`). To move one agent back to Claude-first,
-  reorder its targets and deploy.
-- If Claude usage rises during a reprocess, Mistral is failing or out of quota.
-  Check the worker log for `mistral` errors and the Mistral console's usage page.
+- PDF pages with a good single-column text layer, no table, and no picture keep
+  their native text and make no model call. The worker logs
+  `text_first ... native_pages=N vision_pages=M` for each PDF.
+- `page_parse` reads pages with Claude Sonnet 5 at high effort. A page that fails
+  the quality gates (under 80% of the page's own words, an empty reading, or
+  out-of-range boxes) is redone by Opus 5.5 at medium. The worker logs
+  `quality gate agent=... reason=... action=fallback`. The targets are in
+  `agents:` in `packages/models/models.yaml`.
+- `--reprocess` also retries pages that failed earlier.
+- Mistral is not used (ADR 0033). Its key was removed from `app.env`.
 
 ## Bulk import from the VPS
 

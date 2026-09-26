@@ -1,6 +1,6 @@
 # 0027 — Free-first bulk ingest: text-first PDFs, Mistral, Claude fallback
 
-- Status: accepted
+- Status: accepted; Mistral part superseded by ADR 0033 (text-first routing and quality gates stand)
 - Date: 2026-09-26
 - Related: ADR 0010 (Claude subscription routes), ADR 0012 (library pipeline), ADR 0021 (quota-aware effort)
 

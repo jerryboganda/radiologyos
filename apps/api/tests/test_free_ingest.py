@@ -166,30 +166,47 @@ class _Backend:
 VALID_PAGE = {"page_type": "text", "blocks": [], "figures": [], "topics": []}
 
 
+class _ByModel:
+    """One claude_code transport whose outcome depends on the model called."""
+
+    backends = ("claude_code",)
+
+    def __init__(self, outcomes: dict[str, Any]) -> None:
+        self.outcomes, self.models = outcomes, []
+
+    def run(self, call: ModelCall) -> ModelResult:
+        self.models.append(call.model)
+        outcome = self.outcomes[call.model]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return ModelResult(output=outcome, duration_ms=1, cost_usd=0.0, backend=call.backend)
+
+
 @pytest.mark.parametrize("failure", [UsageLimitError("quota"), ModelCallError("boom"),
                                      {"not": "a page"}])
-def test_gateway_falls_back_from_mistral_to_claude(failure: Any) -> None:
-    mistral, claude = _Backend(failure), _Backend(VALID_PAGE)
-    transport = MultiTransport({"mistral": mistral, "claude_code": claude})
-    _, result = run_agent(transport, "page_parse", "prompt")
-    assert (mistral.calls, claude.calls, result.backend) == (1, 1, "claude_code")
+def test_gateway_falls_back_from_sonnet_to_opus(failure: Any) -> None:
+    transport = _ByModel({"claude-sonnet-5": failure, "claude-opus-5-5": VALID_PAGE})
+    run_agent(transport, "page_parse", "prompt")
+    assert transport.models == ["claude-sonnet-5", "claude-opus-5-5"]
 
 
 def test_gateway_uses_only_backends_the_transport_serves() -> None:
     claude = _Backend(VALID_PAGE)
     _, result = run_agent(MultiTransport({"claude_code": claude}), "page_parse", "prompt")
     assert result.backend == "claude_code" and claude.calls == 1
+    with pytest.raises(ModelCallError):  # nothing this transport can serve
+        run_agent(MultiTransport({"mistral": _Backend(VALID_PAGE)}), "page_parse", "prompt")
     with pytest.raises(UsageLimitError):  # every target exhausted: the job pauses
-        run_agent(MultiTransport({"mistral": _Backend(UsageLimitError("q")),
-                                  "claude_code": _Backend(UsageLimitError("q"))}),
-                  "page_parse", "prompt")
+        run_agent(_ByModel({"claude-sonnet-5": UsageLimitError("q"),
+                            "claude-opus-5-5": UsageLimitError("q")}), "page_parse", "p")
 
 
-def test_bulk_agents_are_mistral_first_and_image_case_stays_on_claude() -> None:
-    for name in ("page_parse", "paper_topics", "knowledge_extract", "topic_classify"):
-        backends = [c.backend for c in build_calls(load_agent(name), "p")]
-        assert backends == ["mistral", "claude_code"], name
-    assert [c.backend for c in build_calls(load_agent("image_case"), "p")] == ["claude_code"]
+def test_page_parse_is_sonnet_high_then_opus_medium_and_no_agent_uses_mistral() -> None:
+    calls = build_calls(load_agent("page_parse"), "p")
+    assert [(c.backend, c.model, c.effort) for c in calls] == [
+        ("claude_code", "claude-sonnet-5", "high"), ("claude_code", "claude-opus-5-5", "medium")]
+    for name in ("paper_topics", "knowledge_extract", "topic_classify", "image_case"):
+        assert {c.backend for c in build_calls(load_agent(name), "p")} == {"claude_code"}, name
 
 
 # --- quality gates ("no lapses") -------------------------------------------
@@ -229,25 +246,19 @@ def _page_dict(text: str) -> dict[str, Any]:
             "blocks": [{"kind": "paragraph", "text": text, "bbox": [0.1, 0.1, 0.9, 0.2]}]}
 
 
-def test_gateway_redoes_a_rejected_free_reading_with_claude() -> None:
+def test_gateway_redoes_a_rejected_sonnet_reading_with_opus() -> None:
     from packages.library.quality import page_parse_problem
 
-    mistral, claude = _Backend(_page_dict("radiology0")), _Backend(_page_dict(NATIVE))
-    parsed, result = run_agent(MultiTransport({"mistral": mistral, "claude_code": claude}),
-                               "page_parse", "prompt",
-                               accept=lambda p: page_parse_problem(p, NATIVE))
-    assert result.backend == "claude_code" and (mistral.calls, claude.calls) == (1, 1)
+    transport = _ByModel({"claude-sonnet-5": _page_dict("radiology0"),
+                          "claude-opus-5-5": _page_dict(NATIVE)})
+    parsed, _ = run_agent(transport, "page_parse", "prompt",
+                          accept=lambda p: page_parse_problem(p, NATIVE))
+    assert transport.models == ["claude-sonnet-5", "claude-opus-5-5"]
     assert page_parse_problem(parsed, NATIVE) is None
 
 
 def test_gateway_keeps_the_last_targets_output_when_nothing_better_exists() -> None:
-    claude = _Backend(_page_dict("radiology0"))
-    _, result = run_agent(MultiTransport({"claude_code": claude}), "page_parse", "p",
-                          accept=lambda _: "low_text_coverage")
-    assert result.backend == "claude_code" and claude.calls == 1
-
-
-def test_page_parse_claude_fallback_reads_hard_pages_at_medium_effort() -> None:
-    calls = build_calls(load_agent("page_parse"), "p")
-    assert [(c.backend, c.effort) for c in calls] == [("mistral", "low"),
-                                                       ("claude_code", "medium")]
+    transport = _ByModel({"claude-sonnet-5": _page_dict("a"), "claude-opus-5-5": _page_dict("b")})
+    parsed, _ = run_agent(transport, "page_parse", "p", accept=lambda _: "low_text_coverage")
+    assert transport.models == ["claude-sonnet-5", "claude-opus-5-5"]
+    assert parsed.blocks[0].text == "b"  # the strongest target's reading is kept

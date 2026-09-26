@@ -75,14 +75,13 @@ def test_unknown_effort_is_rejected() -> None:
         _call(effort="extreme")
 
 
-def test_page_parse_agent_uses_low_effort_and_generated_schema() -> None:
+def test_page_parse_agent_routes_and_generated_schema() -> None:
     agent = load_agent("page_parse")
     assert agent.schema == inline_schema(PageParse)
     calls = build_calls(agent, "prompt")
-    # ADR 0027: free Mistral first, Claude Opus 5.5 at low effort as fallback.
-    assert [(c.backend, c.model) for c in calls] == [
-        ("mistral", "mistral-medium-2604"), ("claude_code", "claude-opus-5-5")]
-    assert [c.effort for c in calls] == ["low", "medium"]  # hard pages reach Claude
+    # ADR 0033: Sonnet 5 high reads pages; Opus 5.5 medium redoes gate failures.
+    assert [(c.model, c.effort) for c in calls] == [
+        ("claude-sonnet-5", "high"), ("claude-opus-5-5", "medium")]
     assert all(c.tools == ("Read",) for c in calls)
 
 
