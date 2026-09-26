@@ -51,6 +51,35 @@ class RenderError(RuntimeError):
 
 
 def office_to_pdf(data: bytes, extension: str, soffice: str = "soffice") -> bytes:
+    """Convert DOCX/PPTX to PDF; retry once with a normalised archive.
+
+    Some real decks are valid ZIPs that LibreOffice still refuses to load
+    (observed with a 117 MB compiled PPTX); rewriting the archive with
+    standard deflate and [Content_Types].xml first makes them loadable.
+    """
+    try:
+        return _soffice_convert(data, extension, soffice)
+    except RenderError:
+        return _soffice_convert(repack_office_zip(data), extension, soffice)
+
+
+def repack_office_zip(data: bytes) -> bytes:
+    import zipfile
+
+    try:
+        source = zipfile.ZipFile(io.BytesIO(data))
+        names = source.namelist()
+    except zipfile.BadZipFile as exc:
+        raise RenderError("document is not a readable archive") from exc
+    buffer = io.BytesIO()
+    first = [n for n in names if n == "[Content_Types].xml"]
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as target:
+        for name in first + [n for n in names if n not in first]:
+            target.writestr(name, source.read(name))
+    return buffer.getvalue()
+
+
+def _soffice_convert(data: bytes, extension: str, soffice: str) -> bytes:
     binary = shutil.which(soffice)
     if binary is None:
         raise RenderError("LibreOffice (soffice) is not installed")
@@ -61,7 +90,7 @@ def office_to_pdf(data: bytes, extension: str, soffice: str = "soffice") -> byte
             [binary, "--headless", "--norestore", "--convert-to", "pdf", "--outdir", work,
              str(source)],
             capture_output=True,
-            timeout=900,
+            timeout=1800,
             check=False,
         )
         output = Path(work) / "input.pdf"

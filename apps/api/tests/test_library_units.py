@@ -133,3 +133,20 @@ def test_long_text_splits_under_the_word_ceiling() -> None:
 
 def test_empty_blocks_make_no_chunks() -> None:
     assert build_chunks([BlockInput(1, 0, "paragraph", "   ")]) == []
+
+
+def test_repack_puts_content_types_first_and_keeps_every_part() -> None:
+    import zipfile
+
+    from packages.library.render import repack_office_zip
+
+    raw = io.BytesIO()
+    with zipfile.ZipFile(raw, "w", zipfile.ZIP_STORED) as z:
+        z.writestr("ppt/slides/slide1.xml", "<s/>")
+        z.writestr("[Content_Types].xml", "<Types/>")
+    repacked = zipfile.ZipFile(io.BytesIO(repack_office_zip(raw.getvalue())))
+    assert repacked.namelist()[0] == "[Content_Types].xml"
+    assert repacked.read("ppt/slides/slide1.xml") == b"<s/>"
+    assert all(i.compress_type == zipfile.ZIP_DEFLATED for i in repacked.infolist())
+    with pytest.raises(RenderError):
+        repack_office_zip(b"not a zip")
