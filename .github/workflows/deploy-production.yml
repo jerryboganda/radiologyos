@@ -173,8 +173,15 @@ jobs:
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "root@${VPS_SSH_HOST}" bash -s <<'REMOTE'
           set -euo pipefail
           echo "--- api health ---"
-          docker exec radiologyos-api-1 python -c \
-            "import urllib.request,json; r=urllib.request.urlopen('http://127.0.0.1:8000/health/live'); print(r.status, r.read().decode()[:200])"
+          # The API may still be starting after `up -d`; retry for up to 90 s.
+          for attempt in $(seq 1 30); do
+            if docker exec radiologyos-api-1 python -c \
+              "import urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=5); print(r.status, r.read().decode()[:200])"; then
+              break
+            fi
+            if [ "$attempt" = 30 ]; then echo "api never became live" >&2; exit 1; fi
+            sleep 3
+          done
           echo "--- containers ---"
           docker ps --filter name=radiologyos- --format '{{.Names}} | {{.Status}} | {{.Ports}}'
           REMOTE
