@@ -1,10 +1,11 @@
 # Remaining-work goal: M0 acceptance through M7
 
-> **2026-09-26:** the status tables below are stale. The audited gap list and the
-> execution plan are in [`completion-plan.md`](completion-plan.md).
+> **2026-09-26:** [`completion-plan.md`](completion-plan.md) is the tracking document:
+> it has the audited gap list (G1–G35) and the phased plan. This file keeps the A–Z
+> slice history and the definition of done; the checkpoint below is refreshed.
 
-Status: **Active goal — M0 production evidence pending; M1–M7 implementation,
-eval gates, and runbooks complete as non-release preview**
+Status: **Active goal — M0 evidence record pending; durable M1–M6 slices run in
+production for the owner's tenant; nothing accepted yet (see `completion-plan.md`)**
 Scope: all remaining product slices A–Z, in strict milestone order
 Owner: autonomous engineering execution, with substantive product/provider decisions preserved
 Last reviewed: **2026-09-26**
@@ -36,27 +37,29 @@ claimed complete before the preceding milestone passes its authoritative exit ev
 
 ## Current checkpoint
 
-- Remote `main`: `5ece59d` is deployed. CI, Build images, Deploy production,
-  Verify production RLS and Verify production identity are green on it. From ADR
-  0011 onward a push to `main` builds but never deploys; each deploy needs the
-  owner's explicit OK and is dispatched for one exact SHA.
-- **Priority (ADR 0011): personal-first.** The next work is a real, usable study
-  loop for the owner's tenant (upload, parsing, cited search, tutor, planner,
-  questions) on the production VPS, with models per ADR 0010.
-- **Known blocker:** the public host returns Cloudflare HTTP 525 and the OIDC
-  issuer is internal only, so no browser can sign in yet.
-- Production runs on the shared platform VPS under ADR 0007. Postgres, Redis, and
-  MinIO come from the shared `platform` project; radbrain starts no backing service
-  and publishes no host port. See [`runbooks/production-deploy.md`](runbooks/production-deploy.md).
-- The live database is at alembic head `20260925_0003`: 8 tables, 7 with RLS
-  enforced, runtime role `NOBYPASSRLS` and owning nothing.
-- The two-tenant runtime-role RLS proof passes against the deployed database.
-- `platform-backup` covers `radiologyos` from the first night; the restore drill is
-  verified end to end (RPO 0h, RTO 1s). See [`runbooks/backup-restore.md`](runbooks/backup-restore.md).
-- `check-compliance.sh` reports zero violations attributable to radbrain.
-- **No M1–M7 feature has been accepted.** M0 is not accepted: the same-commit
-  production deployment, OIDC, RLS, backup, security, and compliance evidence still
-  needs to be captured and recorded. Preview tests and deployment alone are not
+- Deployed revision: `0a18f2c`. CI, Build images, Deploy production, Verify
+  production RLS and Verify production identity are green on it. A push to `main`
+  builds but never deploys (ADR 0011); each deploy needs the owner's explicit OK and
+  is dispatched for one exact SHA.
+- **Priority (ADR 0011): personal-first.** A usable study loop for the owner's
+  tenant on the production VPS, with models per ADR 0010.
+- Sign-in works in the browser. The OIDC issuer is public
+  (`https://radiologyos.polytronx.com/auth/realms/radbrain`); JWKS and the token
+  exchange stay on the internal Keycloak address.
+- Production runs on the shared platform VPS under ADR 0007; see
+  [`runbooks/production-deploy.md`](runbooks/production-deploy.md). The preview
+  surface is **off** in production (`PREVIEW_ENABLED=false`) since 2026-09-26.
+- The live database is at alembic head `20260926_0014` with 38 tenant tables, all
+  ENABLE + FORCE RLS. The runtime role is `NOBYPASSRLS` and owns nothing.
+- Schema evidence is derived, not hand-written (ADR 0022). The production RLS proof
+  now covers every `tenant_id` table from the catalog, and the restore drill asserts
+  the head, RLS and extensions. Both need a fresh run on the deployed head before
+  they count as evidence.
+- Nightly platform dumps and an off-host Google Drive copy (databases and objects)
+  exist; see [`runbooks/backup-restore.md`](runbooks/backup-restore.md).
+- **No M1–M7 feature has been accepted.** M0 is not accepted: it needs its same-SHA
+  evidence record in `docs/evidence/m0.md` (generated with
+  `scripts/evidence_record.py`), plus the drill output and compliance result. Preview tests and deployment alone are not
   acceptance evidence.
 
 ## A–Z execution queue
@@ -71,9 +74,9 @@ decision or required release evidence.
 | Slice | Milestone | Outcome | State |
 | --- | --- | --- | --- |
 | A | M0 | Deploy one exact candidate revision and capture redacted production health evidence | **blocked** — candidate evidence pending |
-| B | M0 | Verify production OIDC identity, membership, role denial, and logout behavior | **blocked** — verification run pending |
-| C | M0 | Run production RLS proof as the non-privileged application role | **blocked** — verification run pending |
-| D | M0 | Complete same-commit backup, security, compliance, and M0 evidence record | **blocked** — evidence bundle pending |
+| B | M0 | Verify production OIDC identity, membership, role denial, and logout behavior | **impl** — `verify-oidc.py` checks logout, tenant-switch denial and role denial (ADR 0022); run on the deployed head pending |
+| C | M0 | Run production RLS proof as the non-privileged application role | **impl** — catalog-driven proof over every `tenant_id` table (ADR 0022); run on the deployed head pending |
+| D | M0 | Complete same-commit backup, security, compliance, and M0 evidence record | **blocked** — asserting drill ready; `docs/evidence/m0.md` pending |
 | E | M1 | Ingestion schema, migrations, private object-key policy, resumable job state | **durable** (0004, ADR 0012) — tenant-prefixed object keys, jobs/job_steps written, resumable, 25-page run budget; live RLS proof |
 | F | M1 | Parsing pipeline steps 1–7 for PDF/DOCX and supported formats | **durable** — pdfium render + LibreOffice for DOCX/PPTX (repack fallback), native text first, Opus 5.5 `page_parse` vision pass; 393 owner sources ingested |
 | G | M1 | Library screen, reader, page/bounding-box/figure provenance | **durable** — web Library + reader with real normalised bboxes, figure crops, 1:1 zoom, cited-block deep links |
@@ -83,12 +86,12 @@ decision or required release evidence.
 | K | M2 | Claims, explicit conflicts, curriculum seed/mapping, concept pages | **durable** — claims, explicit `knowledge_conflicts`, curriculum mapping (<0.7 → review) |
 | L | M2 | Editor queues for mappings/conflicts with authorization and audit | **durable** — conflict resolve, weight approval, and the curriculum-mapping review queue (`/knowledge/review`, ADR 0018) are audited APIs + UI |
 | M | M3 | Query planner, explicit retrieval stages, hybrid fusion, reranking config | **durable** — explicit lexical + dense stages fused by RRF; reranker not yet configured |
-| N | M3 | Grounding judge, citations, figure cards, image-question upload | **durable** (0005, ADR 0013) — code-verified citations, allow-listed web fallback; semantic judge is a follow-up |
+| N | M3 | Grounding judge, citations, figure cards, image-question upload | **durable** (0005, ADR 0013) — code-verified citations, allow-listed web fallback, semantic grounding judge on by default; image-question upload still missing (G7) |
 | O | M3 | Tutor thread memory, “not in your sources,” tenant-aware cache boundaries | **durable** — persisted threads, explicit not-found response, no cross-tenant cache |
-| P | M4 | Exam-date onboarding, baseline test, planner, phases, Today runner | **durable** (0006, ADR 0014) — exam-date onboarding, phases, sized daily plan; no baseline test yet |
-| Q | M4 | FSRS-style cards, mastery, weekly report, reminders, nightly replan | **durable** — in-house FSRS-5, mastery, push reminders (0009); no weekly report or nightly replan job |
+| P | M4 | Exam-date onboarding, baseline test, planner, phases, Today runner | **durable** (0006, ADR 0014) — exam-date onboarding, phases, sized daily plan, baseline test (0010); Today session runner still missing (G4) |
+| Q | M4 | FSRS-style cards, mastery, weekly report, reminders, nightly replan | **durable** — in-house FSRS-5, mastery, push reminders (0009), weekly report and nightly replan jobs (0010) |
 | R | M5 | SBA, SEQ, image-case, and viva generation with versioned prompts/evals | **durable** (0007, ADR 0015) — SBA/SEQ/image-case/viva generation with checker gate and versioned prompts |
-| S | M5 | Practice, Exam mode, autosave/resume, grader, review queue, statistics | **durable** — exam mode with server deadline, revision autosave, idempotent submit, per-topic results; exams are SBA-only |
+| S | M5 | Practice, Exam mode, autosave/resume, grader, review queue, statistics | **durable** — exam mode with server deadline, revision autosave, idempotent submit, per-topic results; mixed SBA and free-text papers with a grader (0011) |
 | T | M6 | Stripe test-mode billing, portal, webhooks, caps, degradation, org/superadmin | **parked** (ADR 0011) — in-memory service and routes exist but answer 404 unless `BILLING_ENABLED=true`; plan values are placeholders pending an owner pricing decision |
 | U | M6 | Export/delete across data, derived artifacts, caches, queues, and observability | **durable** (0012, ADR 0018) — export ZIP job with 7-day expiry, resumable account delete across rows, embeddings, and objects, legal-hold aware; live proof in CI. Scheduled 24-month retention purge built, **off by default** (0014, ADR 0020; dry-run command, audited, legal-hold/Core/exempt-safe; live proof in CI). Open: IdP session revocation, provider-log purge, backup expiry |
 | V | M6 | Load tests, security scans, backup/restore drill, RPO/RTO runbook | impl · eval · runbook (load + scans + drill all green) |
@@ -112,9 +115,10 @@ Each gate is a standalone pytest module run by CI, using synthetic data only.
 | `evals/checks/test_m6_billing.py`, `test_m6_billing_http.py` | T | 52 |
 | `evals/checks/test_m7_portability.py` | W, X | 15 |
 
-Plus `test_preview_determinism.py`, `test_scaffolding.py`, and
-`test_rls_live.py` (the last is opt-in and runs against a live database in
-`Verify production RLS`).
+Plus `test_preview_determinism.py`, `test_scaffolding.py`, and the opt-in
+`*_live.py` proofs, which CI runs against a migrated database. `test_rls_live.py`
+also runs against production in `Verify production RLS`. It covers every
+`tenant_id` table from the catalog (ADR 0022).
 
 ## Definition of done for the overall goal
 
@@ -131,10 +135,9 @@ Plus `test_preview_determinism.py`, `test_scaffolding.py`, and
 
 ## Immediate pursuit
 
-Personal-first (ADR 0011): fix public sign-in, then replace the in-memory preview
-with the real pipeline for the owner's tenant (storage, RLS tables, worker jobs,
-parsing, embeddings, retrieval, tutor, planner, questions). The remaining
-acceptance work is A–D, then the product-decision slices, then Z. A–D require one exact production candidate and its automated evidence;
-provider, privacy, pricing, curriculum, and legal decisions still require explicit
-decisions with ADRs. Those are recorded as open rather than simulated, and the
-implementation deliberately refuses instead of faking them.
+Follow [`completion-plan.md`](completion-plan.md). Phase 1 accepts M0: run the
+extended identity and RLS verification and the asserting restore drill on the deployed
+head, then write `docs/evidence/m0.md`. After that come the product-decision phases,
+then Z. Provider, privacy, pricing, curriculum and legal decisions still need explicit
+decisions with ADRs. They stay open rather than simulated, and the implementation
+refuses rather than fakes them.

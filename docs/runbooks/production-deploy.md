@@ -58,9 +58,12 @@ docker exec radiologyos-api-1 python -c \
 ```
 
 Expect `api`, `web` and `worker` healthy, `migrate` exited 0, and no published
-ports in the `PORTS` column. The two-tenant runtime-role RLS proof runs in
-`Verify production RLS`, tunnelling `127.0.0.1:15433` to the host's Postgres
-loopback port.
+ports in the `PORTS` column. The runtime-role RLS proof runs in `Verify production
+RLS`, tunnelling `127.0.0.1:15433` to the host's Postgres loopback port. It covers
+every `tenant_id` table from the catalog as well as the two-tenant M0 matrix (ADR
+0022). `Verify production identity` runs `infra/ops/verify-oidc.py`. That script
+checks the login, tokens, forged credentials, role denial, tenant-switch denial and
+logout. Collect the same-SHA run table with `python scripts/evidence_record.py <sha>`.
 
 ## Common failures
 
@@ -109,8 +112,8 @@ forward fix.
 - **Identity is self-hosted Keycloak (ADR 0009)**, deployed as the separate
   `radbrain-keycloak` compose project and configured by the root-run scripts in
   `infra/ops/` (`build-keycloak-env.sh`, `keycloak-bootstrap.sh`,
-  `provision-tenant.sh`, `wire-oidc.sh`). Its issuer is internal only
-  (`http://radbrain-keycloak-keycloak-1:8080`) until the public hostname is routed.
+  `provision-tenant.sh`, `wire-oidc.sh`). Its issuer is public (see **Issuer**
+  below); browser sign-in works through `radiologyos.polytronx.com/auth`.
 - **Public hostname.** `radiologyos.polytronx.com` is served by the
   nginx-proxy-manager container through a hand-managed file,
   `infra/proxy/radiologyos-manual.conf`, copied to
@@ -129,8 +132,10 @@ forward fix.
   token exchange stay on `http://radbrain-keycloak-keycloak-1:8080/realms/radbrain`. `app.env` must
   set `OIDC_ISSUER` to the public issuer and `OIDC_JWKS_URL` /
   `OIDC_INTERNAL_ISSUER` to the internal one (`infra/ops/wire-oidc.sh`).
-- **Preview stays off in production.** `PREVIEW_ENABLED=false`, per ADR 0006.
-- **Object storage is not mirrored off-host.** Platform backups cover
-  databases nightly; MinIO buckets are not part of that job, and the platform
-  has no off-host replication configured at all.
-- `bin/backup.sh` is on-box only. A disk loss loses the nightly dumps.
+- **Preview is off in production** (`PREVIEW_ENABLED=false` since 2026-09-26, ADR
+  0006/0011). `infra/ops/wire-oidc.sh` sets it to `false`; never turn it back on.
+- **Backups.** The platform's `bin/backup.sh` dumps databases nightly, on the box
+  only. `infra/ops/offsite-backup-gdrive.sh` (host cron) copies the `radiologyos`
+  and `keycloak` dumps and mirrors the MinIO bucket to the owner's Google Drive.
+  See [backup and restore](backup-restore.md). Off-host dumps are not client-side
+  encrypted.
