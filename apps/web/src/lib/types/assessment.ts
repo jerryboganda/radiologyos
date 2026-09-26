@@ -1,6 +1,7 @@
 // Assessment API contract (apps/api/app/assessment/contracts.py,
 // packages/assessment/grading.py). Keys and explanations never appear on a
 // question before it is answered; they arrive in an attempt or exam result.
+import type { ExamReview } from './results';
 import type { LooseCitation } from './citation';
 import type { ExamTarget } from './study';
 
@@ -41,7 +42,11 @@ export interface GenerateQuestionsIn {
   count?: number;
   /** Quiz on this figure (ADR 0025): it is the item's F1. */
   figure_id?: string | null;
+  /** SBA from verified claims with graph-neighbour distractors (ADR 0029). */
+  basis?: GenerationBasis;
 }
+
+export type GenerationBasis = 'auto' | 'claims' | 'chunks';
 
 export interface RejectedItem {
   index: number;
@@ -56,6 +61,8 @@ export interface GenerateQuestionsOut {
   rejected: RejectedItem[];
   excerpt_count: number;
   duplicate_method?: 'embedding' | 'trigram';
+  basis?: 'claims' | 'chunks';
+  graph_neighbours?: number;
 }
 
 export interface AttemptIn {
@@ -78,6 +85,8 @@ export interface SchemePoint {
   status: string;
   justification: string;
   citations: LooseCitation[];
+  /** Set when an accepted grade dispute raised this point's award (ADR 0029). */
+  adjusted?: { dispute_id: string; awarded_before: number };
 }
 
 export interface AttemptOut {
@@ -121,6 +130,10 @@ export interface AutosaveIn {
   /** null clears an answer. */
   answers: Record<string, number | null>;
   text_answers?: Record<string, string | null>;
+  /** Active seconds per item so far (only ever grows). */
+  item_seconds?: Record<string, number>;
+  /** Optional confidence per item: 1 low, 2 medium, 3 high; null clears. */
+  confidence?: Record<string, number | null>;
 }
 
 export interface AutosaveOut {
@@ -129,6 +142,8 @@ export interface AutosaveOut {
   deadline_at: string | null;
   answers: Answers;
   text_answers?: TextAnswers;
+  item_seconds?: Record<string, number>;
+  confidence?: Record<string, number>;
 }
 
 export type ItemStatus = 'graded' | 'pending' | 'failed';
@@ -146,6 +161,8 @@ export interface SbaResultItem {
   explanation: string;
   option_explanations: OptionExplanation[];
   citations: LooseCitation[];
+  time_seconds?: number | null;
+  confidence?: number | null;
 }
 
 export interface WrittenResultItem {
@@ -166,6 +183,8 @@ export interface WrittenResultItem {
   error?: string;
   /** Staged image cases: marks per stage, from stage-tagged scheme points. */
   stage_scores?: { stage: string; score: number; max_score: number }[];
+  time_seconds?: number | null;
+  confidence?: number | null;
 }
 
 export type ExamResultItem = SbaResultItem | WrittenResultItem;
@@ -195,6 +214,8 @@ export interface ExamResult {
   /** Total deducted for wrong SBA answers under negative marking. */
   penalty?: number;
   negative_marking?: { enabled: boolean; penalty: number };
+  /** Time per item and confidence calibration (ADR 0029); absent on older exams. */
+  review?: ExamReview;
 }
 
 export type ExamStatus = 'active' | 'expired' | 'submitted';
@@ -211,6 +232,8 @@ export interface ExamView {
   revision: number;
   answers: Answers;
   text_answers?: TextAnswers;
+  item_seconds?: Record<string, number>;
+  confidence?: Record<string, number>;
   questions: QuestionPublic[];
   result: ExamResult | null;
 }

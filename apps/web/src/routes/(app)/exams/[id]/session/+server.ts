@@ -25,19 +25,26 @@ function entriesOf(value: unknown): [string, unknown][] | null {
 
 const isOption = (v: unknown) => v === null || (Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 4);
 const isText = (v: unknown) => v === null || (typeof v === 'string' && v.length <= MAX_TEXT);
+const isLevel = (v: unknown) => v === null || v === 1 || v === 2 || v === 3;
+const isSeconds = (v: unknown) => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 21_600;
 
 function toAutosave(value: unknown): AutosaveIn | null {
   if (!value || typeof value !== 'object') return null;
-  const body = value as { revision?: unknown; answers?: unknown; text_answers?: unknown };
+  const body = value as { revision?: unknown; answers?: unknown; text_answers?: unknown; confidence?: unknown; item_seconds?: unknown };
   if (!Number.isInteger(body.revision) || (body.revision as number) < 0) return null;
   const options = entriesOf(body.answers ?? {});
   const texts = entriesOf(body.text_answers);
-  if (!options || !texts) return null;
+  const levels = entriesOf(body.confidence);
+  const seconds = entriesOf(body.item_seconds);
+  if (!options || !texts || !levels || !seconds) return null;
   if (!options.every(([, v]) => isOption(v)) || !texts.every(([, v]) => isText(v))) return null;
+  if (!levels.every(([, v]) => isLevel(v)) || !seconds.every(([, v]) => isSeconds(v))) return null;
   return {
     revision: body.revision as number,
     answers: Object.fromEntries(options) as AutosaveIn['answers'],
-    text_answers: Object.fromEntries(texts) as NonNullable<AutosaveIn['text_answers']>
+    text_answers: Object.fromEntries(texts) as NonNullable<AutosaveIn['text_answers']>,
+    confidence: Object.fromEntries(levels) as NonNullable<AutosaveIn['confidence']>,
+    item_seconds: Object.fromEntries(seconds) as NonNullable<AutosaveIn['item_seconds']>
   };
 }
 

@@ -2,7 +2,8 @@
   import Kbd from '$lib/components/Kbd.svelte';
   import { isWritten } from '$lib/exam-session';
   import { optionLetter } from '$lib/questions';
-  import { optionKey } from '$lib/shortcuts';
+  import { examKey } from '$lib/shortcuts';
+  import ConfidencePicker from './ConfidencePicker.svelte';
   import type { QuestionPublic } from '$lib/types/assessment';
   import { mediaUrl } from '$lib/viewer';
   import { composeStaged, splitStaged, STAGE_LABELS, STAGES } from '$lib/viva';
@@ -12,17 +13,21 @@
     number,
     selected,
     text = '',
+    confidence = undefined,
     disabled = false,
     onchoose,
-    ontext
+    ontext,
+    onconfidence = () => {}
   }: {
     question: QuestionPublic;
     number: number;
     selected: number | undefined;
     text?: string;
+    confidence?: number | undefined;
     disabled?: boolean;
     onchoose: (option: number | null) => void;
     ontext: (text: string) => void;
+    onconfidence?: (level: number | null) => void;
   } = $props();
   let image = $derived(mediaUrl(question.figure_image_path));
   let written = $derived(isWritten(question.type));
@@ -48,13 +53,14 @@
     viva: 'Answer as you would to the examiner.'
   };
 
-  // A–E pick an option (ignored while typing, e.g. in a written answer).
+  // A–E pick an option, 1–3 set confidence (ignored while typing, e.g. in a written answer).
   function onKey(event: KeyboardEvent) {
-    if (written || disabled) return;
-    const option = optionKey(event, question.options.length);
-    if (option === null) return;
+    if (disabled) return;
+    const action = examKey(event, question.options.length, written);
+    if (!action) return;
     event.preventDefault();
-    onchoose(option);
+    if (action.kind === 'choose') onchoose(action.option);
+    else onconfidence(confidence === action.level ? null : action.level);
   }
 </script>
 
@@ -127,4 +133,5 @@
       <button type="button" class="link mt-3 text-sm" onclick={() => onchoose(null)}>Clear answer</button>
     {/if}
   {/if}
+  <ConfidencePicker level={confidence} {disabled} onchange={onconfidence} />
 </article>

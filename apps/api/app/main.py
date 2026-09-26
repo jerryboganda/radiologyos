@@ -10,12 +10,14 @@ from apps.api.app.api.billing import router as billing_router
 from apps.api.app.api.blueprints import router as blueprints_router
 from apps.api.app.api.curriculum import router as curriculum_router
 from apps.api.app.api.data_rights import router as data_rights_router
+from apps.api.app.api.disputes import router as disputes_router
 from apps.api.app.api.exams import router as exams_router
 from apps.api.app.api.knowledge import router as knowledge_router
 from apps.api.app.api.library import router as library_router
 from apps.api.app.api.notifications import router as notifications_router
 from apps.api.app.api.question_review import router as question_review_router
 from apps.api.app.api.study import router as study_router
+from apps.api.app.api.study_cards import router as study_cards_router
 from apps.api.app.api.study_sessions import router as study_sessions_router
 from apps.api.app.api.tutor import router as tutor_router
 from apps.api.app.api.tutor_images import router as tutor_images_router
@@ -67,6 +69,8 @@ app.include_router(data_rights_router)
 app.include_router(billing_router)
 app.include_router(blueprints_router)
 app.include_router(curriculum_router)
+app.include_router(disputes_router)
+app.include_router(study_cards_router)
 # Identity routes last, where /v1/me and /v1/tenants/switch always sat in the contract.
 app.include_router(account_router)
 

@@ -158,6 +158,19 @@ in a tenant-scoped session; it is idempotent per user and week.
   `card_generate` agent synchronously through the Claude Code CLI; 503 means the
   CLI is missing or the usage window is exhausted (retry later), 502 means the
   output failed validation. `rejected` counts cards dropped by the guardrails.
+- Cloze and image (ADR 0029, migration `20260926_0102`):
+  `POST /v1/study/cards/from-knowledge {"kind": "cloze"|"image", "topic"?, "source_id"?,
+  "max_cards"<=50}`, or **Cards from your knowledge** on Today. No model is called.
+  Cloze cards come from `active` claims (verbatim evidence, not disputed), two-source
+  `verified` first, with the concept name/alias (else a measurement) blanked; image cards
+  come from figures with a description. `skipped` counts candidates with nothing
+  citable to blank. Each claim and figure gets at most one card per user, so a rerun
+  only picks up new claims and figures. The card's code is the concept's (or the
+  chunk's accepted mapping's) system, else `UNMAPPED`.
+- Reviewing: cloze blanks are underlined and filled in on reveal; image cards load
+  through `/media/figures/{id}` (click the image to zoom). Space reveals, 1–4 rate.
+- If image cards show "image unavailable", the figure crop has no stored image yet
+  (re-run the vision pass for that source); the card still cites the page.
 
 ## Troubleshooting
 

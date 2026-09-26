@@ -1,5 +1,7 @@
 // Exam autosave with revision compare-and-set. Framework-free so node --test
 // can drive it with a fake transport; the exam screen mirrors its snapshot.
+// Per-item seconds and 1–3 confidence (ADR 0029) ride in the same saves.
+import { applyChanges, mergeSeconds, secondsChanges } from './exam-review.ts';
 import { pendingChanges, rebase, saveOutcome, type Changes } from './exam-session.ts';
 import type { Answers, AutosaveOut, ExamView, TextAnswers } from './types/assessment.ts';
 
@@ -8,8 +10,14 @@ export interface HttpReply {
   body: unknown;
 }
 
+/** Results-review fields sent alongside the answers. */
+export interface ReviewExtras {
+  confidence: Changes;
+  item_seconds: Record<string, number>;
+}
+
 export interface AutosaveTransport {
-  save(revision: number, answers: Changes, textAnswers: Changes<string>): Promise<HttpReply>;
+  save(revision: number, answers: Changes, textAnswers: Changes<string>, extras?: ReviewExtras): Promise<HttpReply>;
   load(): Promise<HttpReply>;
 }
 
@@ -18,9 +26,18 @@ export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'retrying' | 'cl
 export interface AutosaveSnapshot {
   answers: Answers;
   textAnswers: TextAnswers;
+  confidence: Record<string, number>;
   revision: number;
   state: SaveState;
   message: string;
+}
+
+export interface AutosaveInitial {
+  answers: Answers;
+  revision: number;
+  textAnswers?: TextAnswers;
+  confidence?: Record<string, number>;
+  itemSeconds?: Record<string, number>;
 }
 
 const MAX_ROUNDS = 5;
@@ -35,6 +52,10 @@ export class ExamAutosave {
   private local: Answers;
   private savedText: TextAnswers;
   private localText: TextAnswers;
+  private savedConf: Record<string, number>;
+  private localConf: Record<string, number>;
+  private savedSecs: Record<string, number>;
+  private localSecs: Record<string, number>;
   private revision: number;
   private state: SaveState = 'idle';
   private message = '';
@@ -43,17 +64,17 @@ export class ExamAutosave {
   private readonly onChange: (snapshot: AutosaveSnapshot) => void;
 
   // No parameter properties: node --experimental-strip-types only erases types.
-  constructor(
-    initial: { answers: Answers; revision: number; textAnswers?: TextAnswers },
-    transport: AutosaveTransport,
-    onChange: (snapshot: AutosaveSnapshot) => void = () => {}
-  ) {
+  constructor(initial: AutosaveInitial, transport: AutosaveTransport, onChange: (snapshot: AutosaveSnapshot) => void = () => {}) {
     this.transport = transport;
     this.onChange = onChange;
     this.saved = { ...initial.answers };
     this.local = { ...initial.answers };
     this.savedText = { ...(initial.textAnswers ?? {}) };
     this.localText = { ...(initial.textAnswers ?? {}) };
+    this.savedConf = { ...(initial.confidence ?? {}) };
+    this.localConf = { ...(initial.confidence ?? {}) };
+    this.savedSecs = { ...(initial.itemSeconds ?? {}) };
+    this.localSecs = { ...(initial.itemSeconds ?? {}) };
     this.revision = initial.revision;
   }
 
@@ -61,6 +82,7 @@ export class ExamAutosave {
     return {
       answers: { ...this.local },
       textAnswers: { ...this.localText },
+      confidence: { ...this.localConf },
       revision: this.revision,
       state: this.state,
       message: this.message
@@ -83,8 +105,27 @@ export class ExamAutosave {
     this.update('dirty', '');
   }
 
+  /** Record 1–3 confidence (null clears it); the caller schedules `flush`. */
+  setConfidence(questionId: string, level: number | null): void {
+    if (this.state === 'closed') return;
+    if (level === null) delete this.localConf[questionId];
+    else if ([1, 2, 3].includes(level)) this.localConf[questionId] = level;
+    this.update('dirty', '');
+  }
+
+  /** Record active seconds per item; counts only grow. Sent with the next save. */
+  setSeconds(seconds: Record<string, number>): void {
+    this.localSecs = mergeSeconds(this.localSecs, seconds);
+  }
+
   hasPending(): boolean {
-    return this.count(pendingChanges(this.saved, this.local)) + this.count(pendingChanges(this.savedText, this.localText)) > 0;
+    return (
+      this.count(pendingChanges(this.saved, this.local)) +
+        this.count(pendingChanges(this.savedText, this.localText)) +
+        this.count(pendingChanges(this.savedConf, this.localConf)) +
+        this.count(secondsChanges(this.savedSecs, this.localSecs)) >
+      0
+    );
   }
 
   private count(changes: Record<string, unknown>): number {
@@ -100,16 +141,23 @@ export class ExamAutosave {
   private async run(): Promise<boolean> {
     for (let round = 0; round < MAX_ROUNDS; round += 1) {
       if (this.state === 'closed') return false;
-      const changes = pendingChanges(this.saved, this.local);
-      const textChanges = pendingChanges(this.savedText, this.localText);
-      if (this.count(changes) + this.count(textChanges) === 0) {
+      if (!this.hasPending()) {
         this.update('saved', 'All answers saved.');
         return true;
       }
       this.update('saving', 'Saving…');
-      const reply = await this.transport.save(this.revision, changes, textChanges);
+      const extras: ReviewExtras = {
+        confidence: pendingChanges(this.savedConf, this.localConf),
+        item_seconds: secondsChanges(this.savedSecs, this.localSecs)
+      };
+      const reply = await this.transport.save(
+        this.revision,
+        pendingChanges(this.saved, this.local),
+        pendingChanges(this.savedText, this.localText),
+        extras
+      );
       const outcome = saveOutcome(reply.status, detailOf(reply.body));
-      if (outcome === 'saved') this.accept(reply.body as AutosaveOut);
+      if (outcome === 'saved') this.accept(reply.body as AutosaveOut, extras);
       else if (outcome === 'stale') {
         if (!(await this.reload())) return false;
       } else if (outcome === 'closed') return this.fail('closed', 'This exam is closed; showing results.');
@@ -119,9 +167,12 @@ export class ExamAutosave {
     return !this.hasPending();
   }
 
-  private accept(out: AutosaveOut): void {
+  private accept(out: AutosaveOut, sent: ReviewExtras): void {
     this.saved = { ...out.answers };
     this.savedText = { ...(out.text_answers ?? this.savedText) };
+    this.savedConf = out.confidence ? { ...out.confidence } : applyChanges(this.savedConf, sent.confidence);
+    // What was sent counts as saved even if the server capped it, so a capped item never re-sends forever.
+    this.savedSecs = mergeSeconds(mergeSeconds(this.savedSecs, sent.item_seconds), out.item_seconds ?? {});
     this.revision = out.revision;
   }
 
@@ -138,6 +189,11 @@ export class ExamAutosave {
     const serverText = exam.text_answers ?? {};
     this.localText = rebase(serverText, this.savedText, this.localText);
     this.savedText = { ...serverText };
+    const serverConf = exam.confidence ?? {};
+    this.localConf = rebase(serverConf, this.savedConf, this.localConf);
+    this.savedConf = { ...serverConf };
+    this.savedSecs = { ...(exam.item_seconds ?? {}) };
+    this.localSecs = mergeSeconds(this.localSecs, this.savedSecs);
     this.revision = exam.revision;
     return true;
   }

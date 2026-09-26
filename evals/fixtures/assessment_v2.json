@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "fixture_set_id": "assessment_v2",
+  "status": "review_required",
+  "data_class": "synthetic",
+  "cases": [
+    {
+      "case_id": "claims-sba-graph-distractors",
+      "prompt": "question_generate/v2.yaml",
+      "route": "reason",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "item_type": "sba",
+        "exam_target": "fcps2_theory",
+        "count": 1,
+        "topic": "pulmonary alveolar proteinosis",
+        "neighbours": [
+          {"name": "Pulmonary oedema", "relation": "differential_of"},
+          {"name": "Pneumocystis pneumonia", "relation": "differential_of"},
+          {"name": "Acute respiratory distress syndrome", "relation": "differential_of"},
+          {"name": "Lipoid pneumonia", "relation": "sibling"}
+        ],
+        "excerpts": [
+          {"ref": "C1", "text": "Claim about pulmonary alveolar proteinosis: shows crazy paving on HRCT. Evidence: crazy paving on HRCT with geographic distribution."},
+          {"ref": "C2", "text": "Claim about pulmonary alveolar proteinosis: whole-lung lavage is the treatment. Evidence: treated with whole-lung lavage."},
+          {"ref": "C3", "text": "Claim about pulmonary alveolar proteinosis: crazy paving spares the periphery in a geographic pattern. Evidence: geographic sparing of lobules."},
+          {"ref": "C4", "text": "Neighbour: Pulmonary oedema. Claim: septal lines with cardiomegaly and effusions. Evidence: cardiomegaly and pleural effusions."}
+        ]
+      },
+      "expected": {"type": "sba", "options": 5, "graph_distractors_min": 2, "cited_subset_of": ["C1", "C2", "C3", "C4"]},
+      "assertions": ["schema_valid", "deterministic_checks_pass", "citations_supplied_only", "distractors_from_graph", "one_best_answer"]
+    },
+    {
+      "case_id": "claims-refuses-when-unsupported",
+      "prompt": "question_generate/v2.yaml",
+      "route": "reason",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "item_type": "sba",
+        "exam_target": "frcr",
+        "count": 3,
+        "topic": "sarcoidosis",
+        "neighbours": [{"name": "Lymphangitis carcinomatosa", "relation": "differential_of"}],
+        "excerpts": [
+          {"ref": "C1", "text": "Claim about sarcoidosis: perilymphatic nodules. Evidence: perilymphatic nodules along bronchovascular bundles."}
+        ]
+      },
+      "expected": {"max_items": 1},
+      "assertions": ["schema_valid", "no_invented_content", "citations_supplied_only"]
+    }
+  ]
+}

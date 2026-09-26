@@ -86,6 +86,8 @@ OWNED: tuple[Owned, ...] = (
     Owned("study_sessions", "t.user_id = :u", "direct"),
     Owned("study_session_steps", "t.user_id = :u", "direct"),
     Owned("weakness_events", "t.user_id = :u", "direct"),
+    # A user's disputes of auto-graded exam points (ADR 0029); resolver ids stay.
+    Owned("grade_disputes", "t.user_id = :u", "direct"),
     Owned("data_jobs", "t.user_id = :u", "exports"),
     # Tenant curriculum/blueprint decisions carry the deciding user's id (ADR 0023).
     Owned("curriculum_reviews", "t.decided_by = :u", "direct"),
@@ -104,7 +106,7 @@ EXEMPT: dict[str, str] = {
 # Children before parents, so no foreign key blocks a delete. Rows of held
 # sources' cascades stay; the user's own study rows never do.
 DIRECT_DELETE_ORDER: tuple[str, ...] = (
-    "viva_turns", "viva_sessions",
+    "grade_disputes", "viva_turns", "viva_sessions",
     "study_session_steps", "study_sessions", "weakness_events",
     "grading_jobs", "item_stats", "baseline_tests", "weekly_reports",
     "card_reviews", "attempts", "exams", "cards", "questions", "study_plans",

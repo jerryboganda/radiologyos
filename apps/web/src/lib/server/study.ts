@@ -5,6 +5,8 @@ import type {
   CardOut,
   GenerateCardsIn,
   GenerateCardsOut,
+  KnowledgeCardsIn,
+  KnowledgeCardsOut,
   PlanOut,
   ProfileIn,
   ProfileOut,
@@ -34,6 +36,10 @@ export const reviewCard = (event: RequestEvent, cardId: string, rating: Rating) 
 /** Model-backed (503 not configured / usage limit, 502 retry). */
 export const generateCards = (event: RequestEvent, body: GenerateCardsIn) =>
   sendJson<GenerateCardsOut>(event, '/v1/study/cards/generate', 'POST', body, { timeoutMs: 300_000 });
+
+/** No model call: cloze cards from verified claims or image cards from figures (ADR 0029). */
+export const cardsFromKnowledge = (event: RequestEvent, body: KnowledgeCardsIn) =>
+  sendJson<KnowledgeCardsOut>(event, '/v1/study/cards/from-knowledge', 'POST', body);
 
 /** 409 until a profile exists. */
 export const getProgress = (event: RequestEvent) => getJson<ProgressOut>(event, '/v1/study/progress');

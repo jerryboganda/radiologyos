@@ -46,6 +46,14 @@
       <input name="topic" maxlength="200" placeholder="e.g. Bosniak classification" class="field mt-1.5" />
     </label>
     <label class="block">
+      <span class="label">SBA basis</span>
+      <select name="basis" class="field mt-1.5">
+        <option value="auto">Verified claims when enough, else passages</option>
+        <option value="claims">Verified claims only (graph distractors)</option>
+        <option value="chunks">Source passages only</option>
+      </select>
+    </label>
+    <label class="block">
       <span class="label">How many (max 5)</span>
       <input name="count" type="number" min="1" max="5" value="3" required class="field mt-1.5 font-mono" />
     </label>

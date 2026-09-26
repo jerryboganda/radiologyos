@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from packages.assessment.exam_review import annotate, review_summary
 from packages.assessment.grading import ExamState, apply_seq_grade, grade_sba
 from packages.assessment.models import SeqGrade
 from packages.assessment.staged_case import stage_scores
@@ -109,6 +110,7 @@ def summarize(items: Sequence[Mapping[str, Any]], question_count: int) -> dict[s
         "grading": "pending" if pending else "complete",
         "question_count": question_count,
         "by_topic": _by_topic(items),
+        "review": review_summary(items),
     }
 
 
@@ -134,6 +136,7 @@ def grade_exam(
             wrong = graded["selected_option"] is not None and not graded["correct"]
             deduction = round(penalty * float(graded["max_score"]), 4) if wrong else 0.0
             items.append({**graded, "type": "sba", "status": "graded", "penalty": deduction})
+    items = [annotate(item, exam.item_seconds, exam.confidence) for item in items]
     result = {**summarize(items, len(exam.question_ids)), "items": items}
     return {**result, "negative_marking": {"enabled": penalty > 0, "penalty": penalty}}
 

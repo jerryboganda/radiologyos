@@ -28,6 +28,8 @@ TYPE_LABELS: dict[str, str] = {
     "viva": "viva voce question chains",
 }
 MAX_ANSWER_CHARS = 8000
+CHUNK_VERSION = 1
+CLAIM_VERSION = 2
 
 
 def generation_prompt(
@@ -75,7 +77,33 @@ def generate(
     topic: str | None = None,
 ) -> GeneratedQuestions:
     prompt = generation_prompt(excerpts, item_type, exam_target, count, topic)
-    parsed, _ = run_agent(transport, "question_generate", prompt)
+    # Chunk-based generation stays on v1; v2 is the claim-based variant (ADR 0029).
+    parsed, _ = run_agent(transport, "question_generate", prompt, version=CHUNK_VERSION)
+    return cast(GeneratedQuestions, parsed)
+
+
+def claim_prompt(
+    excerpts: Sequence[Excerpt], neighbours: str, exam_target: str, count: int, topic: str
+) -> str:
+    return (
+        f"Write {count} {TYPE_LABELS['sba']} (type \"sba\") for {EXAM_TARGETS[exam_target]}.\n"
+        f"Topic focus: {topic}\n"
+        f"Supplied excerpt ids: {', '.join(e.ref for e in excerpts)}.\n"
+        "Test the verified claims; build distractors from the graph neighbours listed.\n\n"
+        f"<neighbours>\n{neighbours}\n</neighbours>\n\n{render_excerpts(excerpts)}"
+    )
+
+
+def generate_from_claims(
+    transport: Transport,
+    excerpts: Sequence[Excerpt],
+    neighbours: str,
+    exam_target: str,
+    count: int,
+    topic: str,
+) -> GeneratedQuestions:
+    prompt = claim_prompt(excerpts, neighbours, exam_target, count, topic)
+    parsed, _ = run_agent(transport, "question_generate", prompt, version=CLAIM_VERSION)
     return cast(GeneratedQuestions, parsed)
 
 

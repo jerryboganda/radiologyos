@@ -34,7 +34,12 @@ export function parseGenerateForm(form: FormData): Parsed<GenerateQuestionsIn> {
   const topic = topicOf(form.get('topic'));
   const sourceIds = [...new Set(form.getAll('source_ids').map(String))].filter((id) => UUID.test(id)).slice(0, 20);
   if (!topic && sourceIds.length === 0) return { ok: false, error: 'Give a topic, choose sources, or both.' };
-  return { ok: true, value: { type, exam_target: target, count, topic, source_ids: sourceIds } };
+  const rawBasis = String(form.get('basis') ?? 'auto');
+  const basis = (['auto', 'claims', 'chunks'] as const).find((b) => b === rawBasis) ?? 'auto';
+  if (basis === 'claims' && (type !== 'sba' || !topic || sourceIds.length > 0)) {
+    return { ok: false, error: 'Claim-based generation needs an SBA topic and no sources.' };
+  }
+  return { ok: true, value: { type, exam_target: target, count, topic, source_ids: sourceIds, basis } };
 }
 
 export function parseExamForm(form: FormData): Parsed<ExamCreate> {

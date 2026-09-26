@@ -21,7 +21,9 @@
   eyebrow="Exams"
   title="Timed mock exams"
   description="Papers are assembled from your checked questions: SBAs are marked on submit, and SEQ, image-case, and viva answers are graded against their cited schemes shortly after. The server keeps the clock and answers autosave as you go."
-/>
+>
+  {#snippet actions()}<a href="/exams/disputes" class="btn btn-ghost">Grade disputes</a>{/snippet}
+</PageHeader>
 
 <div class="flex flex-col gap-8">
   <section class="panel p-5 sm:p-6" aria-labelledby="new-heading">

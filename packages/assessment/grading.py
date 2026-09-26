@@ -101,6 +101,8 @@ class ExamState:
     answers: dict[str, int] = field(default_factory=dict)
     text_answers: dict[str, str] = field(default_factory=dict)
     free_text_ids: frozenset[str] = frozenset()
+    item_seconds: dict[str, int] = field(default_factory=dict)
+    confidence: dict[str, int] = field(default_factory=dict)
 
 
 def exam_status(exam: ExamState, now: datetime) -> str:

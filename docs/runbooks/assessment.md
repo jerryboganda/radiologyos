@@ -128,3 +128,32 @@ Decision record: [ADR 0015](../decisions/0015-assessment-engine.md). Migration
 - Unapproved (draft) blueprints can still be used; the exam config records
   `blueprint.approved = false`.
 - Live proof: `evals/checks/test_curriculum_blueprints_live.py`.
+
+## Results review, disputes, and claim-based SBA (migration `20260926_0102`, ADR 0029)
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| PUT | `/v1/exams/{id}/answers` | also `item_seconds {qid: int}` (only grows; capped at elapsed time) and `confidence {qid: 1-3 or null}`; 422 `invalid_answer` for ids outside the exam or bad levels |
+| POST | `/v1/exams/{id}/disputes` | owner of the exam: `{question_id, point_index, reason}`; 409 `already_disputed`, `point_has_full_marks`, `item_not_graded`, `exam_not_submitted`; 422 for SBA items |
+| GET | `/v1/exams/{id}/disputes` | the caller's disputes on that exam |
+| GET | `/v1/grade-disputes/review` | `org_admin`/`superadmin`: open disputes of the tenant with the point, justification, citations, and answer |
+| POST | `/v1/grade-disputes/{id}/resolve` | `org_admin`/`superadmin`: `{action: accept or reject, awarded?, note?}`; accept raises the point (default full marks) and recomputes the stored exam result; 409 `dispute_closed`, `point_changed_since_dispute`; 422 `award_out_of_range` |
+
+- Results carry `time_seconds` and `confidence` per item and `review.timing` /
+  `review.calibration` in the summary. Exams submitted before `0102` have neither,
+  and the page hides the panels. The web shows the queue at `/exams/disputes`.
+- Disputes are audited as `grade_dispute.opened|accepted|rejected` with ids and
+  numbers only. Accepting never edits `attempts` (append-only); item statistics keep
+  the machine grade.
+- Claim-based SBA: `POST /v1/questions/generate` takes `basis` (`auto` default,
+  `claims`, `chunks`). The response says which `basis` ran and how many
+  `graph_neighbours` were offered. `auto` falls back to chunks when the topic has
+  fewer than 3 usable claims or 2 graph neighbours; `claims` then answers 422.
+  Rejections with `too_few_graph_distractors` mean the model ignored the neighbours;
+  regenerate or use `chunks`. Stored items carry `agent_version`
+  `question_generate/v2+question_check/v1` and `quality.basis = claims`.
+- Grading lease: reading an exam re-queues a pending job untouched for 10 minutes and
+  hands back (sets `pending`) a running job silent for 15 minutes. Reads never touch a
+  live run. If a result stays pending, check the worker and read the exam again after
+  15 minutes.
+- Live proof: `evals/checks/test_cards_results_live.py`.

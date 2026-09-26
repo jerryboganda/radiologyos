@@ -17,7 +17,7 @@ from typing import Annotated, Any, Protocol
 from uuid import UUID
 
 from apps.api.app.api.library import query_vector
-from apps.api.app.assessment import dedupe, exams, generation, retrieval, store
+from apps.api.app.assessment import claim_basis, dedupe, exams, generation, retrieval, store
 from apps.api.app.assessment.contracts import (
     AttemptRequest,
     AttemptResponse,
@@ -38,12 +38,14 @@ from apps.api.app.study import weakness_sql
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.concurrency import run_in_threadpool
 from packages.assessment import agents
+from packages.assessment.claim_questions import Neighbour
 from packages.assessment.grading import (
     ExamError,
     InvalidAnswer,
     apply_seq_grade,
     grade_sba,
 )
+from packages.assessment.validation import Excerpt
 from packages.models.claude_code import (
     ClaudeCodeTransport,
     ModelCall,
@@ -105,13 +107,28 @@ async def _figure_scope(
     return figure, body.topic or retrieval.figure_topic(figure)
 
 
-@router.post("/questions/generate", response_model=GenerateResponse,
-             status_code=status.HTTP_201_CREATED)
-async def generate_questions(
-    body: GenerateRequest, principal: PrincipalDep, session: SessionDep, transport: TransportDep
-) -> GenerateResponse:
-    _require_model(transport)
-    figure, topic = await _figure_scope(session, principal, body)
+async def _claim_scope(
+    session: AsyncSession, principal: Principal, body: GenerateRequest,
+    figure: dict[str, Any] | None, topic: str | None,
+) -> tuple[list[Excerpt], list[Neighbour]] | None:
+    """Claims and graph neighbours for an SBA topic, or None to use chunks (ADR 0029)."""
+    eligible = body.type == "sba" and bool(topic) and figure is None and not body.source_ids
+    if body.basis == "claims" and not eligible:
+        raise HTTPException(status_code=422,
+                            detail="claim-based generation needs an SBA topic only")
+    if body.basis == "chunks" or not eligible or topic is None:
+        return None
+    material = await claim_basis.claim_material(session, principal.user_id, topic)
+    if material is None and body.basis == "claims":
+        raise HTTPException(status_code=422,
+                            detail="too few verified claims or graph neighbours for this topic")
+    return material
+
+
+async def _chunk_excerpts(
+    session: AsyncSession, principal: Principal, body: GenerateRequest,
+    figure: dict[str, Any] | None, topic: str | None,
+) -> list[Excerpt]:
     vector = await query_vector(principal.tenant_id, topic) if topic else None
     excerpts = await retrieval.gather_excerpts(
         session, principal.user_id, topic, body.source_ids, vector,
@@ -121,11 +138,29 @@ async def generate_questions(
         raise HTTPException(status_code=422, detail="no source material matched")
     if body.type == "image_case" and not any(e.figure_id for e in excerpts):
         raise HTTPException(status_code=422, detail="no described figure matched")
+    return excerpts
+
+
+@router.post("/questions/generate", response_model=GenerateResponse,
+             status_code=status.HTTP_201_CREATED)
+async def generate_questions(
+    body: GenerateRequest, principal: PrincipalDep, session: SessionDep, transport: TransportDep
+) -> GenerateResponse:
+    _require_model(transport)
+    figure, topic = await _figure_scope(session, principal, body)
+    material = await _claim_scope(session, principal, body, figure, topic)
+    excerpts = material[0] if material else await _chunk_excerpts(
+        session, principal, body, figure, topic)
     await session.commit()
     try:
-        outcome = await run_in_threadpool(
-            generation.generate_items, transport, excerpts, body.type, body.exam_target,
-            body.count, topic)
+        if material is not None:
+            outcome = await run_in_threadpool(
+                generation.generate_claim_items, transport, excerpts, material[1],
+                body.exam_target, body.count, str(topic))
+        else:
+            outcome = await run_in_threadpool(
+                generation.generate_items, transport, excerpts, body.type, body.exam_target,
+                body.count, topic)
     except ModelCallError as exc:
         raise _model_error(exc) from exc
     stems = [values["stem"] for values in outcome.items]
@@ -146,6 +181,8 @@ async def generate_questions(
         rejected=[RejectedItem(**r) for r in outcome.rejected] + duplicates,
         excerpt_count=len(excerpts),
         duplicate_method="embedding" if stored.method == "embedding" else "trigram",
+        basis="claims" if material else "chunks",
+        graph_neighbours=len(material[1]) if material else 0,
     )
 
 

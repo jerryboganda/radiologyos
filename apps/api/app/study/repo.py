@@ -13,6 +13,7 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
+from apps.api.app.knowledge import claim_select
 from apps.api.app.study.depth_sql import StudyDepthSql
 from apps.api.app.study.insights_sql import InsightsSql
 from apps.api.app.study.session_sql import SessionSql
@@ -24,8 +25,9 @@ PROFILE_COLUMNS = (
     "reminder, updated_at"
 )
 CARD_COLUMNS = (
-    "id, curriculum_code, topic, front, back, origin, source_id, source_chunk_id, citation, "
-    "state, stability, difficulty, due_at, last_review_at, reps, lapses, created_at"
+    "id, curriculum_code, topic, front, back, origin, card_type, claim_id, figure_id, "
+    "source_id, source_chunk_id, citation, state, stability, difficulty, due_at, "
+    "last_review_at, reps, lapses, created_at"
 )
 CHUNK_SELECT = """
     SELECT c.id, c.source_id, s.title AS source_title, c.page_from, c.page_to,
@@ -153,6 +155,35 @@ class SqlStudyRepo(StudyDepthSql, SessionSql, InsightsSql):
         )
         assert row is not None
         return row
+
+    async def insert_knowledge_card(
+        self, user_id: UUID, card: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """A cloze or image card; None when one already exists for that claim or figure."""
+        return await self._one(
+            f"""
+            INSERT INTO cards (tenant_id, user_id, source_id, source_chunk_id, curriculum_code,
+                topic, front, back, origin, card_type, claim_id, figure_id, citation, due_at)
+            VALUES (:t, :u, :source_id, :source_chunk_id, :curriculum_code, :topic, :front,
+                :back, :origin, :card_type, :claim_id, :figure_id, CAST(:citation AS jsonb),
+                :due_at)
+            ON CONFLICT DO NOTHING
+            RETURNING {CARD_COLUMNS}
+            """,  # nosec B608 - constant column list; all values are bound parameters
+            {**card, "u": user_id, "t": self.tenant_id, "citation": _json(card["citation"])},
+        )
+
+    async def cloze_candidates(
+        self, user_id: UUID, source_id: UUID | None, topic: str | None, limit: int
+    ) -> list[dict[str, Any]]:
+        return await claim_select.cloze_candidates(self.session, user_id, source_id, topic,
+                                                   limit)
+
+    async def figure_candidates(
+        self, user_id: UUID, source_id: UUID | None, topic: str | None, limit: int
+    ) -> list[dict[str, Any]]:
+        return await claim_select.figure_candidates(self.session, user_id, source_id, topic,
+                                                    limit)
 
     async def get_card(self, user_id: UUID, card_id: UUID) -> dict[str, Any] | None:
         return await self._one(

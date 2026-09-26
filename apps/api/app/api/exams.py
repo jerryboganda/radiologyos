@@ -31,6 +31,7 @@ from apps.api.app.security.principal import Principal
 from fastapi import APIRouter, HTTPException, status
 from packages.assessment.exam_result import pending_ids
 from packages.assessment.grading import ExamError, InvalidAnswer, exam_status
+from packages.assessment.grading_jobs import STALE_AFTER
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/v1", tags=["assessment"])
@@ -77,6 +78,8 @@ async def _exam_view(session: AsyncSession, principal: Principal,
         config=row["config"], started_at=row["started_at"], deadline_at=row["deadline_at"],
         submitted_at=row["submitted_at"], server_time=now, revision=row["revision"],
         answers=dict(row["answers"] or {}), text_answers=dict(row.get("text_answers") or {}),
+        item_seconds=dict(row.get("item_seconds") or {}),
+        confidence=dict(row.get("confidence") or {}),
         questions=[public_question(found[str(q)]) for q in ids if str(q) in found],
         result=row["result"],
     )
@@ -88,8 +91,9 @@ async def _to_enqueue(session: AsyncSession, principal: Principal,
     pending = pending_ids(row.get("result"))
     if not pending or row.get("just_submitted"):
         return pending
+    now = now_utc()
     stale = await grading_store.stale_pending(
-        session, principal.user_id, row["id"], now_utc() - REQUEUE_AFTER)
+        session, principal.user_id, row["id"], now - REQUEUE_AFTER, now - STALE_AFTER)
     return [str(q) for q in stale]
 
 
@@ -116,7 +120,8 @@ async def autosave_exam(
 ) -> AutosaveResponse:
     try:
         saved = await exams.save_answers(
-            session, principal.user_id, exam_id, body.revision, body.answers, body.text_answers)
+            session, principal.user_id, exam_id, body.revision, body.answers, body.text_answers,
+            {"item_seconds": body.item_seconds, "confidence": body.confidence})
     except ExamError as exc:
         raise _exam_error(exc) from exc
     if saved is None:
@@ -124,7 +129,9 @@ async def autosave_exam(
     await session.commit()
     return AutosaveResponse(exam_id=exam_id, revision=saved["revision"],
                             deadline_at=saved["deadline_at"], answers=saved["answers"],
-                            text_answers=saved["text_answers"])
+                            text_answers=saved["text_answers"],
+                            item_seconds=saved.get("item_seconds") or {},
+                            confidence=saved.get("confidence") or {})
 
 
 async def _finish_view(session: AsyncSession, principal: Principal,

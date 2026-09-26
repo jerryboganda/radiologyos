@@ -76,6 +76,22 @@ export function sbaKey(event: KeyLike, count: number): SbaAction | null {
   return event.key.length === 1 && level >= 1 && level <= 3 ? { kind: 'confidence', level: level as 1 | 2 | 3 } : null;
 }
 
+export type ExamAction = { kind: 'choose'; option: number } | { kind: 'confidence'; level: 1 | 2 | 3 };
+
+/**
+ * Timed exam item (ADR 0029), the same modifier-free scheme as the session SBA
+ * block: A–E choose (option items only), 1–3 set confidence. Letters and digits
+ * never overlap, and neither fires while typing a written answer.
+ */
+export function examKey(event: KeyLike, count: number, written: boolean): ExamAction | null {
+  if (ignoreKey(event) || event.key.length !== 1) return null;
+  const level = Number(event.key);
+  if (level >= 1 && level <= 3) return { kind: 'confidence', level: level as 1 | 2 | 3 };
+  if (written) return null;
+  const option = optionKey(event, count);
+  return option === null ? null : { kind: 'choose', option };
+}
+
 /** `aria-keyshortcuts` values and the visible hint text for each surface. */
 export const HINTS = {
   reveal: { aria: 'Space', label: 'Space' },
