@@ -1,10 +1,11 @@
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { dataOr, isKind, loadProblem } from '$lib/api-state';
 import { isUuid } from '$lib/citations';
 import { parseGenerateForm, questionFilters } from '$lib/questions';
 import { attempt, generateQuestions, listQuestions } from '$lib/server/assessment';
 import { failureMessage, getJson } from '$lib/server/client';
 import type { AttemptIn } from '$lib/types/assessment';
+import { isExamTarget } from '$lib/types/study';
 import type { SourceSummary } from '$lib/types/library';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -50,6 +51,24 @@ export const actions: Actions = {
       return fail(400, { questionId, error });
     }
     return { questionId, chosen: body.selected_option ?? null, result: result.data };
+  },
+  // "Quiz me" on a figure card (ADR 0025): one SBA with that figure as F1.
+  figure: async (event) => {
+    const form = await event.request.formData();
+    const figureId = String(form.get('figure_id') ?? '');
+    const target = form.get('exam_target');
+    if (!isUuid(figureId)) return fail(400, { generateError: 'That figure could not be found.' });
+    const result = await generateQuestions(event, {
+      type: 'sba',
+      exam_target: isExamTarget(target) ? target : 'fcps2_theory',
+      count: 1,
+      figure_id: figureId
+    });
+    if (result.state !== 'ok') return fail(400, { generateError: failureMessage(result) });
+    if (result.data.created.length === 0) {
+      return fail(400, { generateError: 'No question on that figure passed the checks; try again or pick another figure.' });
+    }
+    redirect(303, '/questions?type=sba');
   },
   generate: async (event) => {
     const parsed = parseGenerateForm(await event.request.formData());

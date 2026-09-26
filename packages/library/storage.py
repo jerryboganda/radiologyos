@@ -39,6 +39,17 @@ def export_key(tenant_id: UUID, job_id: UUID) -> str:
     return f"tenants/{tenant_id}/exports/{job_id}.zip"
 
 
+def tutor_image_prefix(tenant_id: UUID, user_id: UUID) -> str:
+    """Every image one user attached to a tutor question (ADR 0025); erased with the user."""
+    return f"tenants/{tenant_id}/tutor-images/{user_id}/"
+
+
+def tutor_image_key(tenant_id: UUID, user_id: UUID, image_id: UUID, extension: str) -> str:
+    if extension not in ("png", "jpg", "webp"):
+        raise ValueError("invalid tutor image extension")
+    return f"{tutor_image_prefix(tenant_id, user_id)}{image_id}.{extension}"
+
+
 def require_tenant_key(tenant_id: UUID, key: str) -> None:
     """Refuse any key that is not inside the caller's tenant prefix."""
     if not key.startswith(f"tenants/{tenant_id}/") or ".." in key:

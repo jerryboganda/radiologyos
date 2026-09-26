@@ -3,7 +3,8 @@
 Layout: ``data/<table>.json`` (the user's own rows of every table in the
 registry, embeddings included), ``notes/cards.md`` and ``notes/claims.md``
 (readable, cited), ``files/<source>/`` (original uploads), ``figures/<source>/``
-(figure crops), ``manifest.json`` (counts), and ``README.md``. The ZIP is
+(figure crops), ``tutor-images/`` (images attached to tutor questions),
+``manifest.json`` (counts), and ``README.md``. The ZIP is
 written to a temporary file, uploaded to ``tenants/<tenant>/exports/<job>.zip``
 and removed locally. Re-running rebuilds the same key, so the job is idempotent.
 """
@@ -35,6 +36,7 @@ This archive holds everything radbrain stores for your account:
   with its source and page citation;
 - `files/<source-id>/` - the original files you uploaded;
 - `figures/<source-id>/` - figure crops extracted from your sources;
+- `tutor-images/` - images you attached to tutor questions;
 - `manifest.json` - row and file counts.
 
 The download link expires 7 days after the export was built.
@@ -114,7 +116,7 @@ async def _write_table(
 
 
 async def _object_files(session: AsyncSession, user_id: UUID) -> list[tuple[str, str]]:
-    """(archive name, object key) for originals and figure crops."""
+    """(archive name, object key) for originals, figure crops, and tutor images."""
     originals = await session.execute(
         text(
             "SELECT id, storage_key, original_filename FROM sources "
@@ -139,6 +141,15 @@ async def _object_files(session: AsyncSession, user_id: UUID) -> list[tuple[str,
         (f"figures/{row['source_id']}/{row['page_no']:05d}-{row['figure_no']:03d}.png",
          str(row["image_key"]))
         for row in crops.mappings()
+    ]
+    attached = await session.execute(
+        text("SELECT id, storage_key FROM tutor_images WHERE user_id = :u ORDER BY created_at"),
+        {"u": user_id},
+    )
+    files += [
+        (f"tutor-images/{row['id']}.{str(row['storage_key']).rsplit('.', 1)[-1]}",
+         str(row["storage_key"]))
+        for row in attached.mappings()
     ]
     return files
 

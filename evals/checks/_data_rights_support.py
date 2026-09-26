@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import pytest
 from packages.library import storage
@@ -18,7 +18,8 @@ ALL_TABLES = (
     "study_session_steps", "study_sessions", "weakness_events", "grading_jobs",
     "item_stats", "baseline_tests", "weekly_reports",
     "card_reviews", "attempts", "exams", "cards", "questions", "study_plans",
-    "study_profiles", "tutor_messages", "tutor_threads", "topic_weights", "topic_frequencies",
+    "study_profiles", "tutor_messages", "tutor_threads", "tutor_images", "topic_weights",
+    "topic_frequencies",
     "push_subscriptions", "notification_settings", "knowledge_conflicts", "concept_edges",
     "claims", "curriculum_mappings", "knowledge_runs", "concepts", "chunks", "figures",
     "source_blocks", "source_pages", "job_steps", "jobs", "audit_log", "sources",
@@ -65,6 +66,17 @@ def seed_objects(store: storage.MemoryObjectStore, tenant: UUID, source: UUID) -
     store.put(storage.original_key(tenant, source, "pdf"), b"%PDF-synthetic", "application/pdf")
     store.put(storage.page_image_key(tenant, source, 1), b"page-png", "image/png")
     store.put(storage.figure_image_key(tenant, source, 1, 0), b"figure-png", "image/png")
+
+
+def tutor_image_id(user: UUID) -> UUID:
+    """The synthetic tutor image seeded for ``user`` (ADR 0025)."""
+    return uuid5(NAMESPACE_URL, f"radbrain-test:tutor-image:{user}")
+
+
+def seed_tutor_image_object(store: storage.MemoryObjectStore, tenant: UUID, user: UUID) -> str:
+    key = storage.tutor_image_key(tenant, user, tutor_image_id(user), "png")
+    store.put(key, b"tutor-png", "image/png")
+    return key
 
 
 async def _library(conn: Any, t: UUID, u: UUID, s: UUID) -> dict[str, Any]:
@@ -170,8 +182,14 @@ async def _study(conn: Any, t: UUID, u: UUID, s: UUID, chunk: UUID) -> None:
         "VALUES ($1,$2,$3,$4,'seq_grade/v1')", t, u, exam, question)
     thread = await conn.fetchval("INSERT INTO tutor_threads (tenant_id, user_id, title) "
                                  "VALUES ($1,$2,'Synthetic thread') RETURNING id", t, u)
-    await conn.execute("INSERT INTO tutor_messages (tenant_id, thread_id, role, content) "
-                       "VALUES ($1,$2,'user','Synthetic question')", t, thread)
+    image = tutor_image_id(u)
+    await conn.execute(
+        "INSERT INTO tutor_images (id, tenant_id, user_id, storage_key, content_type, "
+        "byte_size, width, height, sha256) VALUES ($1,$2,$3,$4,'image/png',9,1,1,repeat('b',64))",
+        image, t, u, storage.tutor_image_key(t, u, image, "png"))
+    await conn.execute("INSERT INTO tutor_messages (tenant_id, thread_id, role, content, "
+                       "image_id) VALUES ($1,$2,'user','Synthetic question',$3)",
+                       t, thread, image)
     await conn.execute(
         "INSERT INTO push_subscriptions (tenant_id, user_id, endpoint, p256dh, auth) "
         "VALUES ($1,$2,$3,repeat('p',20),'authauthauth')",

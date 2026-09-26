@@ -64,6 +64,36 @@ async def _pick_figure(
     return dict(row) if row else None
 
 
+async def exact_figure(
+    session: AsyncSession, user_id: UUID, figure_id: UUID
+) -> dict[str, Any] | None:
+    """One of the caller's own figures, for "quiz me on this figure" (ADR 0025)."""
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT f.id, f.source_id, s.title AS source_title, f.page_no, f.caption,
+                       f.description, f.modality, f.anatomy, f.findings, f.bbox
+                FROM figures f JOIN sources s ON s.id = f.source_id AND s.tenant_id = f.tenant_id
+                WHERE f.id = :id AND s.uploaded_by = :u AND s.deleted_at IS NULL
+                """
+            ),
+            {"id": figure_id, "u": user_id},
+        )
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+def figure_topic(figure: dict[str, Any]) -> str:
+    """A retrieval topic for a figure: its caption, else modality, anatomy, and description."""
+    caption = " ".join(str(figure.get("caption") or "").split())
+    if len(caption) >= 2:
+        return caption[:200]
+    parts = [figure.get("modality") or "", figure.get("anatomy") or "",
+             figure.get("description") or ""]
+    return " ".join(" ".join(parts).split())[:200] or "radiology figure"
+
+
 def chunk_excerpts(rows: Sequence[dict[str, Any]], budget: int = MAX_CHARS) -> list[Excerpt]:
     excerpts: list[Excerpt] = []
     used = 0
@@ -103,13 +133,16 @@ async def gather_excerpts(
     source_ids: Sequence[UUID],
     query_vector: Sequence[float] | None,
     with_figure: bool,
+    figure: dict[str, Any] | None = None,
 ) -> list[Excerpt]:
+    """Numbered excerpts; a given ``figure`` is always F1 (quiz on a figure)."""
     if topic:
         rows = await search.hybrid_search(session, user_id, topic, query_vector, MAX_EXCERPTS * 2)
         rows = [r for r in rows if not source_ids or r["source_id"] in source_ids]
     else:
         rows = await _sample_chunks(session, user_id, source_ids)
-    figure = await _pick_figure(session, user_id, topic, source_ids) if with_figure else None
+    if figure is None and with_figure:
+        figure = await _pick_figure(session, user_id, topic, source_ids)
     budget = MAX_CHARS
     excerpts: list[Excerpt] = []
     if figure is not None:

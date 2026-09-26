@@ -17,7 +17,11 @@ export const POST: RequestHandler = async (event) => {
   } catch {
     return json({ detail: 'Invalid request body.' }, { status: 400 });
   }
-  const input = validateAsk(payload.question, payload.thread_id, payload.allow_web);
+  const input = validateAsk(payload.question, payload.thread_id, payload.allow_web, {
+    image_id: payload.image_id,
+    focus_source: payload.focus_source,
+    focus_page: payload.focus_page
+  });
   if (!input.ok) return json({ detail: input.error }, { status: 400 });
   return askStream(event, input.body);
 };

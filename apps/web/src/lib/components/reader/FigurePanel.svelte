@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PageFigure } from '$lib/types/library';
   import { mediaUrl } from '$lib/viewer';
+  import FigureActions from '$lib/components/FigureActions.svelte';
 
   let { figures, visionStatus }: { figures: PageFigure[]; visionStatus: string | null } = $props();
 </script>
@@ -45,6 +46,7 @@
               {/if}
             </div>
           {/if}
+          <div class="mt-3"><FigureActions figureId={figure.id} /></div>
         </div>
       </li>
     {/each}

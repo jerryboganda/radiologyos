@@ -14,7 +14,7 @@ from apps.api.app.security.context import (
     build_tenant_db_session_dependency,
 )
 from apps.api.app.security.principal import Principal
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import Response
 from packages.library.formats import UnsupportedUpload
 from packages.library.storage import ObjectStore, S3ObjectStore
@@ -192,6 +192,27 @@ async def figure_image(figure_id: UUID, principal: PrincipalDep, session: Sessio
     return _image(principal, key)
 
 
+@router.get("/figures/{figure_id}/similar", response_model=list[FigureHit])
+async def similar_figures(
+    figure_id: UUID, principal: PrincipalDep, session: SessionDep,
+    limit: Annotated[int, Query(ge=1, le=24)] = 8,
+) -> list[FigureHit]:
+    """The caller's figures nearest to one of theirs, by figure embedding (ADR 0025)."""
+    rows = await search.similar_figures(session, principal.user_id, figure_id, limit)
+    if rows is None:
+        raise HTTPException(status_code=404, detail="figure not found")
+    return [_figure_hit(f) for f in rows]
+
+
+def _figure_hit(f: dict[str, Any]) -> FigureHit:
+    return FigureHit(figure_id=f["id"], source_id=f["source_id"],
+                     source_title=f["source_title"], page_no=f["page_no"],
+                     caption=f["caption"], description=f["description"],
+                     modality=f["modality"], anatomy=f["anatomy"],
+                     image_path=f"/v1/library/figures/{f['id']}/image"
+                     if f["image_key"] else None)
+
+
 def _image(principal: Principal, key: str | None) -> Response:
     if key is None:
         raise HTTPException(status_code=404, detail="image not found")
@@ -220,15 +241,7 @@ async def search_library(
             )
             for h in hits
         ],
-        figures=[
-            FigureHit(figure_id=f["id"], source_id=f["source_id"],
-                      source_title=f["source_title"], page_no=f["page_no"],
-                      caption=f["caption"], description=f["description"],
-                      modality=f["modality"], anatomy=f["anatomy"],
-                      image_path=f"/v1/library/figures/{f['id']}/image"
-                      if f["image_key"] else None)
-            for f in figures
-        ],
+        figures=[_figure_hit(f) for f in figures],
     )
 
 

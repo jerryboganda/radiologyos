@@ -39,6 +39,8 @@ export interface GenerateQuestionsIn {
   type: GeneratableType;
   exam_target: ExamTarget;
   count?: number;
+  /** Quiz on this figure (ADR 0025): it is the item's F1. */
+  figure_id?: string | null;
 }
 
 export interface RejectedItem {

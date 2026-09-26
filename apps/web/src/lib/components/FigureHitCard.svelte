@@ -2,8 +2,9 @@
   import { readerHref } from '$lib/citations';
   import type { FigureHit } from '$lib/types/library';
   import { mediaUrl } from '$lib/viewer';
+  import FigureActions from './FigureActions.svelte';
 
-  let { figure }: { figure: FigureHit } = $props();
+  let { figure, actions = true }: { figure: FigureHit; actions?: boolean } = $props();
   let url = $derived(mediaUrl(figure.image_path));
 </script>
 
@@ -33,4 +34,5 @@
       </p>
     </div>
   </a>
+  {#if actions}<div class="px-3 pb-3"><FigureActions figureId={figure.figure_id} /></div>{/if}
 </li>

@@ -26,11 +26,15 @@ class GenerateRequest(BaseModel):
     type: ItemType
     exam_target: ExamTarget
     count: int = Field(default=3, ge=1, le=5)
+    figure_id: UUID | None = Field(
+        default=None,
+        description="Quiz on this figure (ADR 0025): it becomes F1 and, with no topic, its "
+                    "caption and description steer retrieval.")
 
     @model_validator(mode="after")
     def require_scope(self) -> GenerateRequest:
-        if not self.topic and not self.source_ids:
-            raise ValueError("give a topic, source_ids, or both")
+        if not self.topic and not self.source_ids and self.figure_id is None:
+            raise ValueError("give a topic, source_ids, a figure_id, or a combination")
         return self
 
 

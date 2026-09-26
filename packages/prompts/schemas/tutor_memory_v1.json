@@ -1,0 +1,15 @@
+{
+  "additionalProperties": false,
+  "description": "Output of ``tutor_memory``: a rolling summary of older turns (context only).",
+  "properties": {
+    "summary": {
+      "description": "What the candidate asked and was taught so far, in plain prose; no citations, labels, or URLs.",
+      "maxLength": 3000,
+      "type": "string"
+    }
+  },
+  "required": [
+    "summary"
+  ],
+  "type": "object"
+}

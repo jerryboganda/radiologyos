@@ -4,7 +4,8 @@ Steps run in dependency order and are each idempotent, so a crashed or retried
 job resumes by simply running again:
 
 1. ``study_rows``  - the user's own study, tutor, assessment, weight, and push
-   rows, children before parents (registry.DIRECT_DELETE_ORDER);
+   rows, children before parents (registry.DIRECT_DELETE_ORDER), then the
+   objects of images attached to tutor questions (ADR 0025);
 2. ``sources``     - every uploaded source not under legal hold: its object
    prefix first, then the shared per-source purge (pages, blocks, figures,
    chunks and embeddings, claims, mappings, jobs, orphaned concepts);
@@ -39,6 +40,7 @@ async def run_delete(deps: jobs.DataDeps, tenant_id: UUID, job_id: UUID) -> str:
         await jobs.start(session, job_id)
     user_id = UUID(str(job["user_id"]))
     rows = await _delete_study_rows(deps, tenant_id, job_id, user_id)
+    deps.store.delete_prefix(storage.tutor_image_prefix(tenant_id, user_id))  # ADR 0025
     held = await _delete_sources(deps, tenant_id, job_id, user_id)
     exports = await _delete_exports(deps, tenant_id, job_id, user_id)
     async with tenant_tx(deps.engine, tenant_id) as session:

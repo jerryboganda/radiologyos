@@ -91,16 +91,31 @@ def _exam_error(exc: ExamError) -> HTTPException:
     return HTTPException(status_code=code, detail=exc.code)
 
 
+async def _figure_scope(
+    session: AsyncSession, principal: Principal, body: GenerateRequest
+) -> tuple[dict[str, Any] | None, str | None]:
+    """(figure, topic): the caller's figure to quiz on, and the topic that steers retrieval."""
+    if body.figure_id is None:
+        return None, body.topic
+    figure = await retrieval.exact_figure(session, principal.user_id, body.figure_id)
+    if figure is None:
+        raise HTTPException(status_code=404, detail="figure not found")
+    if not (figure["description"] or "").strip():
+        raise HTTPException(status_code=422, detail="figure is not described yet")
+    return figure, body.topic or retrieval.figure_topic(figure)
+
+
 @router.post("/questions/generate", response_model=GenerateResponse,
              status_code=status.HTTP_201_CREATED)
 async def generate_questions(
     body: GenerateRequest, principal: PrincipalDep, session: SessionDep, transport: TransportDep
 ) -> GenerateResponse:
     _require_model(transport)
-    vector = await query_vector(principal.tenant_id, body.topic) if body.topic else None
+    figure, topic = await _figure_scope(session, principal, body)
+    vector = await query_vector(principal.tenant_id, topic) if topic else None
     excerpts = await retrieval.gather_excerpts(
-        session, principal.user_id, body.topic, body.source_ids, vector,
-        with_figure=body.type in ("image_case", "viva"))
+        session, principal.user_id, topic, body.source_ids, vector,
+        with_figure=body.type in ("image_case", "viva"), figure=figure)
     if not any(e.ref.startswith("E") for e in excerpts):
         raise HTTPException(status_code=422, detail="no source material matched")
     if body.type == "image_case" and not any(e.figure_id for e in excerpts):
@@ -109,7 +124,7 @@ async def generate_questions(
     try:
         outcome = await run_in_threadpool(
             generation.generate_items, transport, excerpts, body.type, body.exam_target,
-            body.count, body.topic)
+            body.count, topic)
     except ModelCallError as exc:
         raise _model_error(exc) from exc
     stems = [values["stem"] for values in outcome.items]

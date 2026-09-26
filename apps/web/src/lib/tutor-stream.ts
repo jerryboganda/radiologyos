@@ -1,19 +1,39 @@
 // Server-Sent Events for the tutor (POST /tutor/stream → /v1/tutor/ask/stream).
-// Pure for node --test. Only progress streams: `status` events name a stage,
-// then one `answer` (the JSON route's body) and `done`, or one `error`.
+// Pure for node --test. `status` events name a stage, `draft` events carry
+// unverified text while the answer is written (ADR 0025; see tutor-drafts.ts),
+// then one `answer` (the JSON route's body, which replaces every draft) and
+// `done`, or one `error`.
 import { classifyFailure, failureText } from './api-state.ts';
 import { isUuid } from './citations.ts';
-import type { AskRequest, AskResponse } from './types/tutor.ts';
+import type { AskRequest, AskResponse, Focus } from './types/tutor.ts';
 
 export type AskInput = { ok: true; body: AskRequest } | { ok: false; error: string };
 
+/** Optional context of a question: an uploaded image and the Reader page. */
+export interface AskExtras {
+  image_id?: unknown;
+  focus_source?: unknown;
+  focus_page?: unknown;
+}
+
+/** A Reader page reference, or null unless both parts are valid. */
+export function parseFocus(source: unknown, page: unknown): Focus | null {
+  const pageNo = typeof page === 'number' ? page : typeof page === 'string' && /^\d{1,6}$/.test(page) ? Number(page) : NaN;
+  if (typeof source !== 'string' || !isUuid(source)) return null;
+  return Number.isInteger(pageNo) && pageNo >= 1 && pageNo <= 100_000 ? { source_id: source, page_no: pageNo } : null;
+}
+
 /** Validate a tutor question from a form or JSON body (same rules as the API). */
-export function validateAsk(question: unknown, threadId: unknown, allowWeb: unknown): AskInput {
+export function validateAsk(question: unknown, threadId: unknown, allowWeb: unknown, extras: AskExtras = {}): AskInput {
   const text = typeof question === 'string' ? question.trim() : '';
   if (text.length < 3) return { ok: false, error: 'Ask a full question.' };
   if (text.length > 2000) return { ok: false, error: 'Keep questions under 2,000 characters.' };
   const thread = typeof threadId === 'string' && isUuid(threadId) ? threadId : null;
-  return { ok: true, body: { question: text, thread_id: thread, allow_web: allowWeb === true || allowWeb === 'on' } };
+  const body: AskRequest = { question: text, thread_id: thread, allow_web: allowWeb === true || allowWeb === 'on' };
+  if (typeof extras.image_id === 'string' && isUuid(extras.image_id)) body.image_id = extras.image_id;
+  const focus = parseFocus(extras.focus_source, extras.focus_page);
+  if (focus) body.focus = focus;
+  return { ok: true, body };
 }
 
 export interface SseEvent {
@@ -21,10 +41,12 @@ export interface SseEvent {
   data: string;
 }
 
-export type TutorStage = 'retrieving' | 'answering' | 'web_research' | 'judging';
+export type TutorStage = 'retrieving' | 'reading_image' | 'remembering' | 'answering' | 'web_research' | 'judging';
 
 export const STAGE_LABEL: Record<TutorStage, string> = {
   retrieving: 'Searching your library…',
+  reading_image: 'Reading your image…',
+  remembering: 'Summarising earlier turns of this thread…',
   answering: 'Writing a cited answer from your sources…',
   web_research: 'Researching authoritative radiology sites…',
   judging: 'Checking every sentence against what it cites…'
@@ -89,10 +111,12 @@ function json(data: string): Record<string, unknown> | null {
 export function applyEvent(
   ev: SseEvent,
   state: { answer: AskResponse | null },
-  onStage: (stage: string) => void
+  onStage: (stage: string) => void,
+  onDraft?: (op: Record<string, unknown>) => void
 ): StreamOutcome | null {
   const data = json(ev.data);
   if (ev.event === 'status' && typeof data?.stage === 'string') onStage(data.stage);
+  if (ev.event === 'draft' && data && onDraft) onDraft(data);
   if (ev.event === 'answer' && data && typeof data.thread_id === 'string') {
     state.answer = data as unknown as AskResponse;
   }
@@ -112,7 +136,8 @@ export function applyEvent(
  */
 export async function readTutorStream(
   body: ReadableStream<Uint8Array>,
-  onStage: (stage: string) => void
+  onStage: (stage: string) => void,
+  onDraft?: (op: Record<string, unknown>) => void
 ): Promise<StreamOutcome> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -123,7 +148,7 @@ export async function readTutorStream(
       const { value, done } = await reader.read();
       const text = done ? decoder.decode() : decoder.decode(value, { stream: true });
       for (const ev of push(done ? `${text}\n\n` : text)) {
-        const outcome = applyEvent(ev, state, onStage);
+        const outcome = applyEvent(ev, state, onStage, onDraft);
         if (outcome) {
           await reader.cancel().catch(() => undefined);
           return outcome;

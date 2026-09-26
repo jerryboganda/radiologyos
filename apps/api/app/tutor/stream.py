@@ -1,10 +1,10 @@
 """Server-Sent Events plumbing for the streaming tutor route (ADR 0013 v2).
 
-The model call is one blocking JSON call, so what streams is progress: the
-orchestrator reports stages from its threadpool thread and ``with_progress``
-hands them to the event loop as they happen. A comment line is sent while the
-model works so idle-timeout proxies keep the connection open. Event payloads
-are built by the caller; nothing here logs them (hard rule 4).
+The model calls block in a threadpool thread; the orchestrator reports stage
+names and (ADR 0025) draft operations from that thread, and ``with_progress``
+hands each reported item to the event loop as it happens. A comment line is
+sent while the model works so idle-timeout proxies keep the connection open.
+Event payloads are built by the caller; nothing here logs them (hard rule 4).
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastapi.concurrency import run_in_threadpool
+from packages.tutor.draft import DraftOp
 
 HEARTBEAT_S = 15.0
 HEARTBEAT = ": keep-alive\n\n"
@@ -35,6 +36,15 @@ def error_event(status: int, detail: str) -> str:
     return sse("error", {"status": status, "detail": detail})
 
 
+def progress_event(item: object) -> str:
+    """The SSE frame for one reported item: a stage, a draft operation, or a heartbeat."""
+    if isinstance(item, DraftOp):
+        return sse("draft", item.as_event())
+    if isinstance(item, str):
+        return status_event(item)
+    return HEARTBEAT
+
+
 @dataclass(frozen=True, slots=True)
 class Finished[T]:
     value: T
@@ -46,19 +56,19 @@ def _swallow(task: asyncio.Future[Any]) -> None:
 
 
 async def with_progress[T](
-    work: Callable[[Callable[[str], None]], T], heartbeat: float = HEARTBEAT_S
-) -> AsyncIterator[str | None | Finished[T]]:
-    """Run ``work(report)`` in a thread; yield each reported stage as it arrives.
+    work: Callable[[Callable[[object], None]], T], heartbeat: float = HEARTBEAT_S
+) -> AsyncIterator[object | None | Finished[T]]:
+    """Run ``work(report)`` in a thread; yield each reported item as it arrives.
 
-    Yields a stage name per ``report`` call, ``None`` for each idle heartbeat
-    interval, and finally ``Finished(result)``; an exception raised by ``work``
-    propagates from the iterator.
+    Yields each ``report`` argument (a stage name or a draft operation),
+    ``None`` for each idle heartbeat interval, and finally ``Finished(result)``;
+    an exception raised by ``work`` propagates from the iterator.
     """
     loop = asyncio.get_running_loop()
-    queue: asyncio.Queue[str] = asyncio.Queue()
+    queue: asyncio.Queue[object] = asyncio.Queue()
 
-    def report(stage: str) -> None:
-        loop.call_soon_threadsafe(queue.put_nowait, stage)
+    def report(item: object) -> None:
+        loop.call_soon_threadsafe(queue.put_nowait, item)
 
     task = asyncio.ensure_future(run_in_threadpool(work, report))
     try:

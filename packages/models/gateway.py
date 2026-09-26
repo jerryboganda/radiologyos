@@ -19,6 +19,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel, ValidationError
 
 from packages.models.claude_code import ModelCall, ModelCallError, ModelResult
+from packages.models.claude_stream import DeltaCallback, StreamOutputInvalid, StreamUnsupported
 from packages.models.routing import ModelRoutingConfig, load_model_routing_config
 from packages.prompts.contracts import PromptFile, load_prompt
 
@@ -108,6 +109,24 @@ def build_call(
     return build_calls(agent, user_prompt, files, effort, config)[0]
 
 
+def _streamed(
+    transport: Transport, agent: Agent, call: ModelCall, on_delta: DeltaCallback
+) -> tuple[BaseModel, ModelResult] | None:
+    """A streamed, validated answer, or None when the caller should make a plain call.
+
+    Model failures (usage limit, errors) propagate: retrying them would only
+    spend more of the usage window.
+    """
+    stream = getattr(transport, "run_stream", None)
+    if stream is None:
+        return None
+    try:
+        result: ModelResult = stream(call, on_delta)
+        return agent.output_model.model_validate(result.output), result
+    except (StreamUnsupported, StreamOutputInvalid, ValidationError):
+        return None
+
+
 def run_agent(
     transport: Transport,
     name: str,
@@ -115,6 +134,7 @@ def run_agent(
     files: Sequence[tuple[str, bytes]] = (),
     effort: str | None = None,
     accept: Accept | None = None,
+    on_delta: DeltaCallback | None = None,
 ) -> tuple[BaseModel, ModelResult]:
     """Try each target the transport can serve; the first good output wins.
 
@@ -123,6 +143,11 @@ def run_agent(
     output is returned even if the gate rejects it (it is the strongest
     available), with a warning. When every target fails, the last error is
     raised (a ``UsageLimitError`` from the last target pauses the caller's job).
+
+    ``on_delta`` receives raw output deltas when the first target's transport
+    streams. Deltas are unvalidated: callers may only show them as a labelled
+    draft. A streamed answer is validated (and gated) like any other; otherwise
+    the ordinary schema-enforced calls follow.
     """
     agent = load_agent(name)
     served = getattr(transport, "backends", None)
@@ -130,6 +155,16 @@ def run_agent(
              if served is None or c.backend in served]
     if not calls:
         raise ModelCallError(f"{agent.key} has no target this transport can serve")
+    if on_delta is not None:
+        streamed = _streamed(transport, agent, calls[0], on_delta)
+        if streamed is not None and (accept is None or accept(streamed[0]) is None):
+            return streamed
+    return _run_targets(transport, agent, calls, accept)
+
+
+def _run_targets(
+    transport: Transport, agent: Agent, calls: list[ModelCall], accept: Accept | None
+) -> tuple[BaseModel, ModelResult]:
     last: ModelCallError | None = None
     for n, call in enumerate(calls):
         try:
