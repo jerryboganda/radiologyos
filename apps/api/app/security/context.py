@@ -21,6 +21,7 @@ from uuid import UUID
 
 from apps.api.app.core.config import Settings, get_settings
 from apps.api.app.db.session import get_system_session, tenant_context, tenant_session
+from apps.api.app.security.internal import AssertionError_, verify_internal_assertion
 from apps.api.app.security.oidc import (
     OIDCVerificationError,
     OIDCVerifier,
@@ -80,6 +81,7 @@ def build_principal_from_request(
         x_user_id: str = Header(default=""),
         x_tenant_id: str = Header(default=""),
         x_role: str = Header(default=""),
+        x_radbrain_assertion: str = Header(default=""),
     ) -> Principal:
         """Authenticate OIDC access and resolve current membership from the database.
 
@@ -95,6 +97,18 @@ def build_principal_from_request(
                 principal = await resolve_current_membership(session, identity.subject)
             except OIDCVerificationError as exc:
                 raise HTTPException(status_code=401, detail="invalid access token") from exc
+            request.state.tenant_id = principal.tenant_id
+            request.state.requires_tenant_session = True
+            return principal
+
+        if x_radbrain_assertion:
+            try:
+                internal = verify_internal_assertion(
+                    x_radbrain_assertion, settings.web_api_secret
+                )
+                principal = await resolve_current_membership(session, internal.subject)
+            except (AssertionError_, OIDCVerificationError) as exc:
+                raise HTTPException(status_code=401, detail="invalid web assertion") from exc
             request.state.tenant_id = principal.tenant_id
             request.state.requires_tenant_session = True
             return principal

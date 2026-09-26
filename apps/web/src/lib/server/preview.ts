@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 import type { RequestEvent } from '@sveltejs/kit';
-import { previewUserId } from './preview-identity';
+import { apiFetch } from './api';
 
 export async function previewFetch(
   event: RequestEvent,
@@ -26,12 +26,5 @@ export async function previewFetch(
   };
   const path = routes[resource];
   if (!path) return new Response(JSON.stringify({ detail: 'unknown preview resource' }), { status: 404 });
-  const headers = new Headers(init.headers);
-  headers.set('x-user-id', previewUserId(user.subject));
-  headers.set('x-tenant-id', user.tenantId);
-  headers.set('x-role', user.tenantRole);
-  return fetch(`${env.API_INTERNAL_URL ?? 'http://localhost:8000'}${path}`, {
-    ...init,
-    headers
-  });
+  return apiFetch(event, path, init);
 }

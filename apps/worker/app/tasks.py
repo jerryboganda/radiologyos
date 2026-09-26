@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import asyncio
+import logging
+import os
 from typing import TypedDict
+from uuid import UUID
 
 from apps.worker.app.celery_app import celery_app
+
+log = logging.getLogger("radbrain.worker")
+DEFER_SECONDS = 30 * 60
 
 
 class HealthResult(TypedDict):
@@ -15,3 +22,30 @@ def health() -> HealthResult:
     """Return process liveness without contacting a model or database."""
 
     return {"status": "ok", "service": "worker"}
+
+
+@celery_app.task(  # type: ignore[untyped-decorator]
+    name="radbrain.ingest_source", bind=True, acks_late=True, max_retries=5
+)
+def ingest_source(self: object, tenant_id: str, job_id: str) -> str:
+    """Run (or resume) the ingestion pipeline for one job.
+
+    Idempotent on (tenant, source, step, pipeline version): succeeded steps and
+    parsed pages are skipped on re-run. A usage-limit pause re-queues the task.
+    """
+    from apps.worker.app.ingest.runtime import build_deps
+    from apps.worker.app.ingest.steps import run_ingest
+
+    async def run() -> str:
+        deps = build_deps()
+        try:
+            return await run_ingest(deps, UUID(tenant_id), UUID(job_id))
+        finally:
+            await deps.engine.dispose()
+
+    outcome = asyncio.run(run())
+    log.info("ingest job=%s outcome=%s", job_id, outcome)
+    if outcome == "deferred":
+        delay = int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS))
+        ingest_source.apply_async(args=[tenant_id, job_id], countdown=delay)
+    return outcome

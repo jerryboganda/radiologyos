@@ -46,6 +46,7 @@ async def preview_principal_context(
     x_user_id: Annotated[str | None, Header()] = None,
     x_tenant_id: Annotated[str | None, Header()] = None,
     x_role: Annotated[str | None, Header()] = None,
+    x_radbrain_assertion: Annotated[str | None, Header()] = None,
 ) -> AsyncIterator[Principal]:
     from apps.api.app.main import principal_from_request
 
@@ -56,6 +57,7 @@ async def preview_principal_context(
         x_user_id=x_user_id,
         x_tenant_id=x_tenant_id,
         x_role=x_role,
+        x_radbrain_assertion=x_radbrain_assertion or "",
     )
     if getattr(request.state, "requires_tenant_session", False):
         async with tenant_session(principal.tenant_id):

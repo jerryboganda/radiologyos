@@ -159,38 +159,33 @@ def test_migration_defines_rls_and_role_separation() -> None:
     assert "GRANT UPDATE, DELETE ON audit_log" not in sql
 
 
-def test_model_routes_are_stable_and_mock_only() -> None:
+def test_model_routes_follow_adr_0010() -> None:
     config = load_model_routing_config(MODEL_CONFIG)
 
     assert set(config.routes) == set(RouteName)
-    assert config.default_backend == "mock"
-    assert config.provider_gate.status == "blocked"
-    assert config.provider_gate.external_egress_allowed is False
+    assert config.default_backend == "claude_code"
+    assert config.provider_gate.status == "approved"
+    assert config.provider_gate.approved_by_adr
+    assert (ROOT / config.provider_gate.approved_by_adr).is_file()
     assert config.allow_ungrounded_default is False
-    require_mock_routes(config)
     for route in config.routes.values():
         assert route.fallbacks == ()
-        assert route.targets
         for target in route.targets:
-            assert target.backend == "mock"
-            assert target.model == "mock-only"
+            assert target.backend == "claude_code"
+            assert target.model == "claude-opus-5-5"
+            assert target.effort == "high"
+            # The subscription token is inherited from the environment, never
+            # named or stored in configuration.
             assert target.api_key_env is None
-            assert target.base_url is None
+    assert config.embeddings is not None
+    assert config.embeddings.backend == "voyage"
+    assert config.embeddings.dimensions == 1024
 
 
-def test_preview_model_gate_rejects_network_capable_targets() -> None:
+def test_mock_gate_still_rejects_network_capable_targets() -> None:
     config = load_model_routing_config(MODEL_CONFIG)
-    route = config.routes[RouteName.REASON]
-    target = route.targets[0].model_copy(
-        update={"backend": "http", "base_url": "https://example.invalid"}
-    )
-    unsafe_route = route.model_copy(update={"targets": (target,)})
-    unsafe_config = config.model_copy(
-        update={"routes": {**config.routes, RouteName.REASON: unsafe_route}}
-    )
-
     with pytest.raises(ValueError, match="mock-only"):
-        require_mock_routes(unsafe_config)
+        require_mock_routes(config)
 
 
 @pytest.mark.parametrize("route", list(RouteName))

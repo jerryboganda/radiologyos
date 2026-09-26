@@ -82,17 +82,16 @@ def test_no_local_mode_endpoint_exists() -> None:
     assert client.get("/v1/preview/local-mode", headers=BASE).status_code == 404
 
 
-def test_checked_in_routes_are_still_mock_only_and_egress_is_closed() -> None:
-    """Enabling real egress needs a provider key plus the ADR-0009 approval."""
+def test_egress_is_approved_only_by_adr_0010_and_carries_no_credential() -> None:
+    """ADR 0010 opens egress; the subscription token is never in configuration."""
     config = load_model_routing_config(MODEL_CONFIG)
-    assert config.provider_gate.external_egress_allowed is False
-    assert config.provider_gate.status == "blocked"
-    assert config.default_backend == "mock"
+    assert config.provider_gate.status == "approved"
+    assert "0010" in (config.provider_gate.approved_by_adr or "")
     for name in RouteName:
         route = config.routes[name]
         assert route.targets, name
         for target in route.targets:
-            assert target.backend == "mock", name
+            assert target.backend == "claude_code", name
             assert target.api_key_env is None, name
             assert target.base_url is None, name
 

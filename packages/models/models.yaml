@@ -1,47 +1,50 @@
 schema_version: 1
-config_version: m0-mock-v1
+config_version: adr-0010-v1
+# ADR 0010: every route runs on Claude Opus 5.5 through the owner's Claude
+# subscription via Claude Code headless; embeddings use Voyage AI. Concrete
+# names and effort live only here, never in application code.
 provider_gate:
-  status: blocked
-  approved_by_adr: null
-  external_egress_allowed: false
-default_backend: mock
+  status: approved
+  approved_by_adr: docs/decisions/0010-claude-subscription-model-routes.md
+  external_egress_allowed: true
+default_backend: claude_code
 allow_ungrounded_default: false
 routes:
   reason:
     targets:
-      - backend: mock
-        model: mock-only
-        api_key_env: null
-        base_url: null
+      - backend: claude_code
+        model: claude-opus-5-5
+        effort: high
     fallbacks: []
-    timeout_ms: 1000
-    max_retries: 0
+    timeout_ms: 600000
+    max_retries: 2
   extract:
     targets:
-      - backend: mock
-        model: mock-only
-        api_key_env: null
-        base_url: null
+      - backend: claude_code
+        model: claude-opus-5-5
+        effort: high
     fallbacks: []
-    timeout_ms: 1000
-    max_retries: 0
+    timeout_ms: 600000
+    max_retries: 2
   classify:
     targets:
-      - backend: mock
-        model: mock-only
-        api_key_env: null
-        base_url: null
+      - backend: claude_code
+        model: claude-opus-5-5
+        effort: high
     fallbacks: []
-    timeout_ms: 1000
-    max_retries: 0
+    timeout_ms: 300000
+    max_retries: 2
   vision:
     targets:
-      - backend: mock
-        model: mock-only
-        api_key_env: null
-        base_url: null
+      - backend: claude_code
+        model: claude-opus-5-5
+        effort: high
     fallbacks: []
-    timeout_ms: 1000
-    max_retries: 0
-    timeout_ms: 1000
-    max_retries: 0
+    timeout_ms: 600000
+    max_retries: 2
+embeddings:
+  backend: voyage
+  model: voyage-3.5
+  dimensions: 1024
+  api_key_env: VOYAGE_API_KEY
+  base_url: https://api.voyageai.com/v1

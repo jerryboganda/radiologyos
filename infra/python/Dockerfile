@@ -1,8 +1,28 @@
+# Claude Code CLI (ADR 0010): installed in a throwaway Node stage and copied as
+# a single native binary, so the runtime image carries no Node toolchain.
+FROM node:22-bookworm-slim AS claude
+ARG CLAUDE_CODE_VERSION=2.1.283
+RUN npm install -g --omit=dev "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
+    && cp "$(npm root -g)/@anthropic-ai/claude-code/bin/claude.exe" /claude \
+    && /claude --version
+
 FROM python:3.12-slim
 
 WORKDIR /srv
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    DISABLE_AUTOUPDATER=1 \
+    HOME=/srv/home
+
+# LibreOffice converts DOCX/PPTX to PDF for page rendering (headless only).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       libreoffice-impress libreoffice-writer libreoffice-core \
+       fonts-dejavu-core fonts-liberation2 fonts-crosextra-carlito fonts-crosextra-caladea \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /srv/home
+
+COPY --from=claude /claude /usr/local/bin/claude
 
 COPY pyproject.toml ./
 COPY apps/api ./apps/api

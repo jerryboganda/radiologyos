@@ -1,0 +1,119 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "page_type": {
+      "enum": [
+        "text",
+        "slide",
+        "question",
+        "image_case",
+        "table",
+        "mixed",
+        "blank"
+      ],
+      "type": "string"
+    },
+    "blocks": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "heading",
+              "paragraph",
+              "list",
+              "table",
+              "caption",
+              "other"
+            ],
+            "type": "string"
+          },
+          "text": {
+            "description": "Verbatim text as it appears on the page.",
+            "type": "string"
+          },
+          "bbox": {
+            "description": "[x0, y0, x1, y1] normalised 0..1, origin top-left.",
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "text",
+          "bbox"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "figures": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "bbox": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "type": "array"
+          },
+          "is_radiology_image": {
+            "type": "boolean"
+          },
+          "caption": {
+            "description": "Caption or label text visible near the figure; '' if none.",
+            "type": "string"
+          },
+          "modality": {
+            "description": "e.g. CT, MRI, X-ray, US, fluoroscopy, NM, diagram; '' if unclear.",
+            "type": "string"
+          },
+          "anatomy": {
+            "type": "string"
+          },
+          "description": {
+            "description": "What is visibly shown, in radiology language.",
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "bbox",
+          "is_radiology_image",
+          "caption",
+          "modality",
+          "anatomy",
+          "description",
+          "findings"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "topics": {
+      "description": "Radiology topics covered, most specific first.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "page_type",
+    "blocks",
+    "figures",
+    "topics"
+  ],
+  "type": "object"
+}

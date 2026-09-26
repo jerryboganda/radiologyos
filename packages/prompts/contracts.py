@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from packages.models.routing import RouteName
 
@@ -24,7 +24,11 @@ class PromptSafety(BaseModel):
 
 
 class PromptFile(BaseModel):
-    """Strict schema for ``packages/prompts/<agent>/vN.yaml``."""
+    """Strict schema for ``packages/prompts/<agent>/vN.yaml``.
+
+    Several agents may share one route; ``effort`` overrides the route default
+    (ADR 0010), and ``output_model`` names the Pydantic model that validates it.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -40,11 +44,9 @@ class PromptFile(BaseModel):
     fixture: str = Field(pattern=r"^evals/fixtures/.+\.json$")
     safety: PromptSafety
 
-    @model_validator(mode="after")
-    def require_route_agent_match(self) -> PromptFile:
-        if self.route.value != self.agent:
-            raise ValueError("prompt agent must match its stable model route")
-        return self
+    effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
+    output_model: str | None = Field(default=None, pattern=r"^[a-z_.]+:[A-Za-z]+$")
+    tools: tuple[Literal["Read", "WebSearch", "WebFetch"], ...] = ()
 
 
 def load_prompt(path: Path) -> PromptFile:

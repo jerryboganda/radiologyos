@@ -36,6 +36,19 @@ class Settings(BaseSettings):
     preview_enabled: bool = False
     # ADR 0011: billing is parked; its routes answer 404 unless this is set.
     billing_enabled: bool = False
+    # Private object storage (platform MinIO in production, RustFS locally).
+    s3_endpoint: str = "http://localhost:9000"
+    s3_bucket: str = "radbrain"
+    s3_access_key: str = ""
+    s3_secret_key: str = ""
+    s3_region: str = "us-east-1"
+    signed_url_seconds: int = Field(default=300, ge=30, le=900)
+    max_upload_bytes: int = Field(default=300 * 1024 * 1024, ge=1)
+    # ADR 0010: models run through Claude Code headless; embeddings via Voyage.
+    claude_code_bin: str = "claude"
+    # Shared with the web server only; signs backend-for-frontend assertions.
+    web_api_secret: str = ""
+    library_enabled: bool = True
     core_tenant_id: UUID = UUID("00000000-0000-0000-0000-000000000001")
 
     @field_validator("api_prefix")

@@ -24,12 +24,25 @@ class RouteName(StrEnum):
 
 
 class ModelTarget(BaseModel):
-    """A deployment target; checked-in defaults are deliberately mock-only."""
+    """A deployment target: backend, concrete model, and effort (ADR 0010)."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     backend: str = Field(min_length=1)
     model: str = Field(min_length=1)
+    effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
+    api_key_env: str | None = None
+    base_url: str | None = None
+
+
+class EmbeddingConfig(BaseModel):
+    """Embedding provider for dense retrieval (ADR 0010: Voyage AI)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    backend: Literal["voyage", "mock"]
+    model: str = Field(min_length=1)
+    dimensions: int = Field(ge=1)
     api_key_env: str | None = None
     base_url: str | None = None
 
@@ -41,7 +54,7 @@ class ModelRoute(BaseModel):
 
     targets: tuple[ModelTarget, ...] = Field(min_length=1)
     fallbacks: tuple[RouteName, ...] = ()
-    timeout_ms: int = Field(default=1_000, ge=1, le=300_000)
+    timeout_ms: int = Field(default=1_000, ge=1, le=1_800_000)
     max_retries: int = Field(default=0, ge=0, le=10)
 
 
@@ -74,6 +87,7 @@ class ModelRoutingConfig(BaseModel):
     default_backend: str = Field(min_length=1)
     allow_ungrounded_default: Literal[False] = False
     routes: dict[RouteName, ModelRoute]
+    embeddings: EmbeddingConfig | None = None
 
     @model_validator(mode="after")
     def require_all_stable_routes(self) -> ModelRoutingConfig:

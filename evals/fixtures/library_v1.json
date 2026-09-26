@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "fixture_set_id": "library_v1",
+  "status": "review_required",
+  "data_class": "synthetic",
+  "cases": [
+    {
+      "case_id": "page-parse-two-line-slide",
+      "prompt": "page_parse/v1.yaml",
+      "route": "vision",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {"native_text": "Pulmonary alveolar proteinosis\nCrazy paving pattern on HRCT", "source_title": "Synthetic chest deck", "page_no": 1},
+      "expected": {"page_type": "slide", "min_blocks": 2, "heading": "Pulmonary alveolar proteinosis"},
+      "assertions": ["schema_valid", "verbatim_blocks", "bbox_normalised"]
+    },
+    {
+      "case_id": "page-parse-blank",
+      "prompt": "page_parse/v1.yaml",
+      "route": "vision",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {"native_text": "", "source_title": "Synthetic blank", "page_no": 2},
+      "expected": {"page_type": "blank", "blocks": [], "figures": []},
+      "assertions": ["schema_valid", "no_invented_content"]
+    },
+    {
+      "case_id": "image-case-schema",
+      "prompt": "image_case/v1.yaml",
+      "route": "vision",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {"source_title": "Synthetic spotter"},
+      "expected": {"confidence_in": ["low", "medium", "high"]},
+      "assertions": ["schema_valid", "visible_evidence_only"]
+    }
+  ]
+}

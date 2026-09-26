@@ -148,7 +148,7 @@ jobs:
         env:
           RADBRAIN_RLS_ADMIN_DATABASE_URL: postgresql://radbrain_bootstrap:radbrain_bootstrap@127.0.0.1:5432/radbrain
           RADBRAIN_RLS_RUNTIME_DATABASE_URL: postgresql://radbrain_app:radbrain_app@127.0.0.1:5432/radbrain
-        run: python -m pytest -q evals/checks/test_rls_live.py
+        run: python -m pytest -q evals/checks/test_rls_live.py evals/checks/test_library_live.py
       - name: Stop PostgreSQL
         if: always()
         run: docker compose down -v
