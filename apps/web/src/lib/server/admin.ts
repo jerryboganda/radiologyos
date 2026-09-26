@@ -1,0 +1,47 @@
+// Admin API client: embedding budget usage and its alerts (org_admin / superadmin).
+import type { RequestEvent } from '@sveltejs/kit';
+import { isKind, loadProblem, type LoadProblem } from '$lib/api-state';
+import { isAdminRole, isEmbeddingUsage, selectBanner } from '$lib/admin-usage';
+import type { AdminBanner, EmbeddingUsage } from '$lib/types/admin';
+import { getJson, sendJson, type CallOptions } from './client';
+
+/** The shell check must never hold a page back for long. */
+const BANNER_TIMEOUT_MS = 1500;
+
+export const getEmbeddingUsage = (event: RequestEvent, options?: CallOptions) =>
+  getJson<EmbeddingUsage>(event, '/v1/admin/embedding-usage', options);
+
+/** 204 on success. */
+export const acknowledgeAlert = (event: RequestEvent, id: string) =>
+  sendJson<void>(event, `/v1/admin/alerts/${encodeURIComponent(id)}/ack`, 'POST');
+
+export type UsageCard = { usage: EmbeddingUsage; problem: null } | { usage: null; problem: LoadProblem };
+
+/**
+ * Settings card data. null hides the card: the session role is not an admin
+ * role (skips a pointless call) or the API answered 403.
+ */
+export async function loadUsageCard(event: RequestEvent): Promise<UsageCard | null> {
+  if (!isAdminRole(event.locals.user?.tenantRole)) return null;
+  const result = await getEmbeddingUsage(event);
+  if (isKind(result, 'forbidden')) return null;
+  if (result.state !== 'ok') return { usage: null, problem: loadProblem(result) ?? { offline: true, message: '' } };
+  if (!isEmbeddingUsage(result.data)) {
+    return { usage: null, problem: { offline: false, message: 'The usage report had an unexpected format.' } };
+  }
+  return { usage: result.data, problem: null };
+}
+
+/**
+ * The app-shell banner, or null for non-admins and on any failure (403, 404,
+ * network, timeout, unexpected body). Never throws.
+ */
+export async function loadAdminBanner(event: RequestEvent): Promise<AdminBanner | null> {
+  if (!isAdminRole(event.locals.user?.tenantRole)) return null;
+  try {
+    const result = await getEmbeddingUsage(event, { timeoutMs: BANNER_TIMEOUT_MS });
+    return result.state === 'ok' && isEmbeddingUsage(result.data) ? selectBanner(result.data) : null;
+  } catch {
+    return null;
+  }
+}

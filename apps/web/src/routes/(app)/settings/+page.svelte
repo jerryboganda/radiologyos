@@ -5,6 +5,7 @@
   import PushSetup from '$lib/components/settings/PushSetup.svelte';
   import DataExport from '$lib/components/settings/DataExport.svelte';
   import DeleteAccount from '$lib/components/settings/DeleteAccount.svelte';
+  import EmbeddingUsage from '$lib/components/settings/EmbeddingUsage.svelte';
   import InstallApp from '$lib/components/settings/InstallApp.svelte';
   import ReminderForm from '$lib/components/settings/ReminderForm.svelte';
   import ThemeToggle from '$lib/components/shell/ThemeToggle.svelte';
@@ -40,6 +41,13 @@
     <p class="mt-1 mb-4 text-sm text-ink-2">Light for reading, dark for the reading room. System follows your device. Image viewers always use a dark stage.</p>
     <ThemeToggle variant="segmented" />
   </section>
+
+  {#if data.usageCard}
+    <section id="ai-usage" class="panel scroll-mt-20 p-5 sm:p-6" aria-labelledby="ai-usage-heading">
+      <h2 id="ai-usage-heading" class="text-xl font-semibold text-ink">AI usage</h2>
+      <EmbeddingUsage usage={data.usageCard.usage} problem={data.usageCard.problem} />
+    </section>
+  {/if}
 
   <section class="panel p-5 sm:p-6" aria-labelledby="profile-heading">
     <h2 id="profile-heading" class="text-xl font-semibold text-ink">Study profile</h2>

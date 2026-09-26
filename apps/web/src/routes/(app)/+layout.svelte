@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AdminAlertBanner from '$lib/components/shell/AdminAlertBanner.svelte';
   import BottomNav from '$lib/components/shell/BottomNav.svelte';
   import Brand from '$lib/components/shell/Brand.svelte';
   import Sidebar from '$lib/components/shell/Sidebar.svelte';
@@ -25,6 +26,7 @@
         <div class="flex h-14 items-center"><Brand /></div>
         <ThemeToggle />
       </header>
+      {#if data.adminBanner}<AdminAlertBanner banner={data.adminBanner} />{/if}
       <main id="main" class="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-10 lg:pt-10 lg:pb-16">
         {@render children()}
       </main>
