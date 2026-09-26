@@ -24,6 +24,7 @@ page, and block, or to an allow-listed web URL.
 | Search | `apps/api/app/library/search.py` | tsvector + pgvector, RRF k=60, cited hits and figures |
 | Tutor | `packages/tutor/`, `apps/api/app/api/tutor.py` | sources first, allow-listed web research second; code-verified citations (ADR 0013) |
 | Assessment | `packages/assessment/`, `apps/api/app/assessment/` | SBA/SEQ/TOACS/viva generation, checker gate, exams (ADR 0015) |
+| Study | `packages/study/`, `apps/api/app/study/`, `apps/worker/app/study_jobs.py` | FSRS cards, approved-weight planner, baseline test, weekly reports, nightly replan (ADR 0014) |
 | Reminders | `packages/notifications/`, `apps/worker/app/reminders.py` | Web Push via VAPID, per-user time and timezone |
 | Models | `packages/models/` | Claude Code headless transport, agent gateway, Voyage embeddings (ADR 0010) |
 
@@ -34,7 +35,7 @@ gates but is superseded by the durable routes above.
 
 Every tenant-scoped table has `tenant_id`, ENABLE + FORCE RLS, and a two-tenant
 negative proof run as `radbrain_app` in CI (`evals/checks/*_live.py`). Migrations
-0001–0009 are expand-only.
+0001–0010 are expand-only.
 
 ## Runtime
 

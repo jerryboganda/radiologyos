@@ -1,7 +1,7 @@
 // Study helpers: onboarding detection, profile form parsing, plan block copy.
 // Pure for node --test.
 import { isKind, type ApiResult } from './api-state.ts';
-import { isExamTarget, type ExamTarget, type PlanBlock, type ProfileIn, type ProfileOut } from './types/study.ts';
+import { EXAM_TARGETS, isExamTarget, type ExamTarget, type PlanBlock, type ProfileIn, type ProfileOut } from './types/study.ts';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -78,4 +78,11 @@ export function blockView(block: PlanBlock): BlockView {
     default:
       return { title: String((block as { kind: string }).kind), href: '/', details: [] };
   }
+}
+
+/** Plain-language weight basis: approved past-paper weights (and for which exams) or equal. */
+export function weightBasisLabel(policy: string, targets: readonly string[] = []): string {
+  if (policy !== 'past_paper_approved') return 'Equal weights (no approved past-paper weights yet)';
+  const names = targets.map((t) => (t === 'all' ? 'all papers' : (EXAM_TARGETS.find((e) => e.value === t)?.label ?? t)));
+  return names.length ? `Past-paper weights you approved · ${names.join(', ')}` : 'Past-paper weights you approved';
 }

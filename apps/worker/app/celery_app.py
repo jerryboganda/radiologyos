@@ -11,6 +11,7 @@ celery_app = Celery(
     include=[
         "apps.worker.app.tasks",
         "apps.worker.app.reminders",
+        "apps.worker.app.study_jobs",
         "apps.worker.app.knowledge.tasks",
     ],
 )
@@ -26,5 +27,8 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     beat_schedule={
         "study-reminders": {"task": "radbrain.send_due_reminders", "schedule": 300.0},
+        # Resolvers pick users by local time (Monday 06:00+, 22:00+) and skip done work.
+        "study-weekly-reports": {"task": "radbrain.weekly_reports", "schedule": 3600.0},
+        "study-nightly-replan": {"task": "radbrain.nightly_replan", "schedule": 1800.0},
     },
 )

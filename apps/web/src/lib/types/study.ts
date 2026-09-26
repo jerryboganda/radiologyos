@@ -84,7 +84,9 @@ export interface PlanOut {
   minutes: number;
   retention: number;
   exam_targets: string[];
+  /** 'past_paper_approved' (owner-approved weights) or 'equal_unvalidated'. */
   weight_policy: string;
+  weight_targets?: string[];
   blocks: PlanBlock[];
   priorities: PriorityItem[];
   generated_at: string;
@@ -153,6 +155,9 @@ export interface TopicProgress {
   coverage: number;
   cards: number;
   lapses: number;
+  questions?: number;
+  attempts?: number;
+  weight?: number;
   priority: number;
 }
 
@@ -166,6 +171,50 @@ export interface ProgressOut {
   new_cards: number;
   reviews_total: number;
   reviews_today: number;
+  weight_policy: string;
+  weight_targets: string[];
   topics: TopicProgress[];
   notice: string;
+}
+
+export interface BaselineSystemResult {
+  code: string;
+  title: string;
+  questions: number;
+  correct: number;
+  accuracy: number;
+}
+
+/** A short timed SBA baseline across systems; taken on /exams/{exam_id}. */
+export interface BaselineOut {
+  id: string;
+  exam_id: string;
+  status: 'open' | 'expired' | 'submitted';
+  question_count: number;
+  systems: string[];
+  started_at: string;
+  deadline_at: string | null;
+  submitted_at: string | null;
+  results: BaselineSystemResult[];
+}
+
+export interface WeeklyReportOut {
+  report_version: number;
+  week_start: string;
+  week_end: string;
+  minutes_studied: number;
+  planned_minutes: number;
+  daily_minutes: number[];
+  active_days: number;
+  reviews: number;
+  questions: number;
+  question_accuracy: number | null;
+  retention: { achieved: number | null; target: number; eligible_reviews: number; met: boolean | null };
+  weakest: { code: string; title: string; mastery: number; band: string }[];
+  focus: { code: string; title: string; reason: string }[];
+  notes: string[];
+  days_remaining: number;
+  phase: string;
+  weight_policy: string;
+  generated_at: string;
 }

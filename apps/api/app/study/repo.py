@@ -13,6 +13,7 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
+from apps.api.app.study.depth_sql import StudyDepthSql
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,7 +37,7 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
 
 
-class SqlStudyRepo:
+class SqlStudyRepo(StudyDepthSql):
     def __init__(self, session: AsyncSession, tenant_id: UUID) -> None:
         self.session = session
         self.tenant_id = tenant_id

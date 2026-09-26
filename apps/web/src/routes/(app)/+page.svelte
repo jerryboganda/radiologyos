@@ -2,6 +2,7 @@
   import Icon from '$lib/components/Icon.svelte';
   import LoadIssue from '$lib/components/LoadIssue.svelte';
   import SignedOut from '$lib/components/shell/SignedOut.svelte';
+  import BaselineCard from '$lib/components/study/BaselineCard.svelte';
   import GenerateCards from '$lib/components/study/GenerateCards.svelte';
   import Onboarding from '$lib/components/study/Onboarding.svelte';
   import ReviewDeck from '$lib/components/study/ReviewDeck.svelte';
@@ -71,6 +72,7 @@
               scheduledDays={form && 'scheduledDays' in form ? form.scheduledDays : null}
             />
           {/if}
+          <BaselineCard baseline={data.baseline} error={errorFor('baseline')} />
           <GenerateCards sources={data.sources} error={errorFor('generate')} summary={generated} />
         </div>
       </div>

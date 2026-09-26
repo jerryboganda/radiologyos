@@ -1,6 +1,6 @@
 <script lang="ts">
   import { percent } from '$lib/format';
-  import { blockView } from '$lib/study';
+  import { blockView, weightBasisLabel } from '$lib/study';
   import type { PlanOut } from '$lib/types/study';
 
   let { plan }: { plan: PlanOut } = $props();
@@ -42,5 +42,5 @@
       {/each}
     </ul>
   {/if}
-  <p class="label mt-4 border-t border-line pt-3">Target retention {percent(plan.retention)} · weights: {plan.weight_policy}</p>
+  <p class="label mt-4 border-t border-line pt-3">Target retention {percent(plan.retention)} · {weightBasisLabel(plan.weight_policy, plan.weight_targets ?? [])}</p>
 </section>

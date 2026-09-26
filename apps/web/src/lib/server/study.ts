@@ -1,6 +1,7 @@
 // Study API client (apps/api/app/api/study.py).
 import type { RequestEvent } from '@sveltejs/kit';
 import type {
+  BaselineOut,
   CardOut,
   GenerateCardsIn,
   GenerateCardsOut,
@@ -9,7 +10,8 @@ import type {
   ProfileOut,
   ProgressOut,
   Rating,
-  ReviewOut
+  ReviewOut,
+  WeeklyReportOut
 } from '$lib/types/study';
 import { getJson, sendJson } from './client';
 
@@ -35,3 +37,14 @@ export const generateCards = (event: RequestEvent, body: GenerateCardsIn) =>
 
 /** 409 until a profile exists. */
 export const getProgress = (event: RequestEvent) => getJson<ProgressOut>(event, '/v1/study/progress');
+
+/** 404 until a baseline exists. Reading it freezes results once its exam is submitted. */
+export const getBaseline = (event: RequestEvent) => getJson<BaselineOut>(event, '/v1/study/baseline');
+
+/** Returns the open baseline or builds one; 409 when too few checked SBA questions exist. */
+export const startBaseline = (event: RequestEvent) =>
+  sendJson<BaselineOut>(event, '/v1/study/baseline', 'POST');
+
+/** 404 until the first Monday-morning report has been written. */
+export const getLatestReport = (event: RequestEvent) =>
+  getJson<WeeklyReportOut>(event, '/v1/study/reports/latest');

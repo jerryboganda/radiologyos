@@ -1,8 +1,17 @@
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { dataOr, loadProblem } from '$lib/api-state';
 import { isUuid } from '$lib/citations';
 import { failureMessage, getJson } from '$lib/server/client';
-import { generateCards, getDueCards, getProfile, getToday, reviewCard, saveProfile } from '$lib/server/study';
+import {
+  generateCards,
+  getBaseline,
+  getDueCards,
+  getProfile,
+  getToday,
+  reviewCard,
+  saveProfile,
+  startBaseline
+} from '$lib/server/study';
 import { needsOnboarding, parseProfileForm } from '$lib/study';
 import { parseRating } from '$lib/types/study';
 import type { SourceSummary } from '$lib/types/library';
@@ -13,11 +22,12 @@ export const load: PageServerLoad = async (event) => {
     return { signedIn: false as const, authError: event.url.searchParams.get('auth_error') };
   }
   event.depends('app:today');
-  const [profile, today, due, sources] = await Promise.all([
+  const [profile, today, due, sources, baseline] = await Promise.all([
     getProfile(event),
     getToday(event),
     getDueCards(event, 50),
-    getJson<SourceSummary[]>(event, '/v1/library/sources')
+    getJson<SourceSummary[]>(event, '/v1/library/sources'),
+    getBaseline(event)
   ]);
   const onboarding = needsOnboarding(profile, today);
   return {
@@ -32,7 +42,9 @@ export const load: PageServerLoad = async (event) => {
     sources: dataOr(sources, [])
       .filter((s) => s.status === 'ready')
       .map((s) => ({ id: s.id, title: s.title })),
-    sourceCount: sources.state === 'ok' ? sources.data.length : null
+    sourceCount: sources.state === 'ok' ? sources.data.length : null,
+    // 404 until the first baseline; any other failure just hides its status.
+    baseline: dataOr(baseline, null)
   };
 };
 
@@ -52,6 +64,11 @@ export const actions: Actions = {
     const result = await reviewCard(event, cardId, rating);
     if (result.state !== 'ok') return fail(400, { section: 'review', error: failureMessage(result) });
     return { section: 'review', scheduledDays: result.data.scheduled_days };
+  },
+  baseline: async (event) => {
+    const result = await startBaseline(event);
+    if (result.state !== 'ok') return fail(400, { section: 'baseline', error: failureMessage(result) });
+    redirect(303, `/exams/${encodeURIComponent(result.data.exam_id)}`);
   },
   generate: async (event) => {
     const form = await event.request.formData();

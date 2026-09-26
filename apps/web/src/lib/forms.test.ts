@@ -4,7 +4,7 @@ import { classifyFailure } from './api-state.ts';
 import { citationLink } from './citations.ts';
 import { basisText, parseApproveForm, parseExtractForm, parseResolveForm } from './knowledge.ts';
 import { optionLetter, parseExamForm, parseGenerateForm, questionFilters } from './questions.ts';
-import { blockView, needsOnboarding, parseProfileForm } from './study.ts';
+import { blockView, needsOnboarding, parseProfileForm, weightBasisLabel } from './study.ts';
 import type { ProfileOut } from './types/study.ts';
 
 const ID = '3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b';
@@ -98,4 +98,13 @@ test('citationLink normalises every API citation envelope', () => {
   assert.equal(citationLink({ kind: 'web', url: 'javascript:alert(1)' }), null);
   assert.equal(citationLink({ source_id: '../etc' }), null);
   assert.equal(citationLink(null), null);
+});
+
+test('the weight basis reads as approved past-paper weights or equal weights', () => {
+  assert.match(weightBasisLabel('equal_unvalidated'), /^Equal weights/);
+  assert.equal(
+    weightBasisLabel('past_paper_approved', ['fcps2_theory', 'all']),
+    'Past-paper weights you approved · FCPS-II theory, all papers'
+  );
+  assert.equal(weightBasisLabel('past_paper_approved'), 'Past-paper weights you approved');
 });

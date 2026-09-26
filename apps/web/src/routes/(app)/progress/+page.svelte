@@ -1,7 +1,9 @@
 <script lang="ts">
   import LoadIssue from '$lib/components/LoadIssue.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import WeeklyReport from '$lib/components/study/WeeklyReport.svelte';
   import { formatDate, percent } from '$lib/format';
+  import { weightBasisLabel } from '$lib/study';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
@@ -20,7 +22,7 @@
         ]
       : []
   );
-  const COLUMNS = ['Topic', 'Band', 'Mastery', 'Accuracy', 'Recall', 'Coverage', 'Cards', 'Lapses'];
+  const COLUMNS = ['Topic', 'Band', 'Mastery', 'Accuracy', 'Recall', 'Coverage', 'Cards', 'Questions', 'Lapses'];
 </script>
 
 <svelte:head><title>Progress · radbrain</title></svelte:head>
@@ -50,13 +52,16 @@
   </dl>
   {#if p.notice}<p class="mt-3 text-xs text-muted">{p.notice}</p>{/if}
 
+  <div class="mt-6"><WeeklyReport report={data.report} /></div>
+
   <section class="mt-6" aria-labelledby="topics-heading">
-    <h2 id="topics-heading" class="mb-3 text-xl font-semibold text-ink">Topics</h2>
+    <h2 id="topics-heading" class="text-xl font-semibold text-ink">Topics</h2>
+    <p class="label mt-1 mb-3">{weightBasisLabel(p.weight_policy, p.weight_targets)}</p>
     {#if p.topics.length === 0}
       <p class="text-sm text-muted">Topic mastery appears after your first reviews.</p>
     {:else}
       <div class="panel overflow-x-auto">
-        <table class="w-full min-w-[44rem] text-left text-sm">
+        <table class="w-full min-w-[48rem] text-left text-sm">
           <thead class="label border-b border-line">
             <tr>{#each COLUMNS as column (column)}<th class="px-4 py-3 font-normal">{column}</th>{/each}</tr>
           </thead>
@@ -75,6 +80,7 @@
                 <td class="px-4 py-3 font-mono text-xs text-ink-2">{percent(topic.retrievability)}</td>
                 <td class="px-4 py-3 font-mono text-xs text-ink-2">{percent(topic.coverage)}</td>
                 <td class="px-4 py-3 font-mono text-xs text-ink-2">{topic.cards}</td>
+                <td class="px-4 py-3 font-mono text-xs text-ink-2">{topic.questions}</td>
                 <td class="px-4 py-3 font-mono text-xs text-ink-2">{topic.lapses}</td>
               </tr>
             {/each}
