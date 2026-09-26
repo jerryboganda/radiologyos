@@ -1,0 +1,13 @@
+{
+  "code": "BREAST",
+  "title": "Breast",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "MAMMOGRAPHY", "title": "Mammography", "subtopics": {"TECHNIQUE": "Technique, views and positioning", "BIRADS": "BI-RADS lexicon and categories", "CALCIFICATION": "Calcifications", "ASYMMETRY_DISTORTION": "Asymmetry and architectural distortion"}},
+    {"code": "US_MRI", "title": "Breast ultrasound and MRI", "subtopics": {"US": "Breast ultrasound", "MRI": "Breast MRI and indications"}},
+    {"code": "BENIGN", "title": "Benign breast disease", "subtopics": {"FIBROADENOMA": "Fibroadenoma and phyllodes", "INFLAMMATORY": "Mastitis and abscess", "CYSTS": "Cysts and fibrocystic change"}},
+    {"code": "MALIGNANT", "title": "Breast cancer", "subtopics": {"INVASIVE": "Invasive carcinoma", "DCIS": "Ductal carcinoma in situ", "STAGING": "Staging and axilla"}},
+    {"code": "SCREENING", "title": "Screening and special situations", "subtopics": {"SCREENING": "Screening programmes", "MALE_BREAST": "Male breast", "IMPLANTS": "Implants", "POST_TREATMENT": "Post-treatment breast"}},
+    {"code": "INTERVENTION", "title": "Breast intervention", "exams": ["fcps2_theory", "fcps2_toacs", "frcr_2a", "frcr_2b"], "subtopics": {"BIOPSY": "Image-guided biopsy", "LOCALISATION": "Pre-operative localisation"}}
+  ]
+}

@@ -10,6 +10,7 @@
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
   let mode = $state<'exam' | 'practice'>('exam');
+  let blueprint = $state('');
   let creating = $state(false);
   const EXAM_TYPES = QUESTION_TYPES.filter((type) => type.value !== 'rapid_recall');
 </script>
@@ -47,7 +48,28 @@
           {/each}
         </div>
       </fieldset>
-      <fieldset class="sm:col-span-2 lg:col-span-3">
+      <label class="block sm:col-span-2">
+        <span class="label">Blueprint (optional)</span>
+        <select name="blueprint_id" class="field mt-1.5" bind:value={blueprint}>
+          <option value="">None: choose types, count, and time myself</option>
+          {#each data.blueprints as option (option.id)}
+            <option value={option.id}>{option.title} · {option.summary}{option.approved ? '' : ' · draft'}</option>
+          {/each}
+        </select>
+      </label>
+      {#if blueprint}
+        <label class="block">
+          <span class="label">Scale to items (blank = full paper)</span>
+          <input name="blueprint_items" type="number" min="1" max="300" class="field mt-1.5 font-mono" />
+        </label>
+        <p class="text-sm text-muted sm:col-span-2 lg:col-span-3">
+          The blueprint sets the item types, per-system mix, time (pro rata when scaled), and marking. <a
+            class="underline underline-offset-2"
+            href="/exams/blueprints">Review blueprints</a
+          >
+        </p>
+      {/if}
+      <fieldset class="sm:col-span-2 lg:col-span-3" hidden={Boolean(blueprint)}>
         <legend class="label">Question types</legend>
         <div class="mt-1.5 flex flex-wrap gap-2">
           {#each EXAM_TYPES as type (type.value)}
@@ -57,7 +79,7 @@
           {/each}
         </div>
       </fieldset>
-      <label class="block">
+      <label class="block" hidden={Boolean(blueprint)}>
         <span class="label">Exam</span>
         <select name="exam_target" class="field mt-1.5">
           <option value="">Any</option>
@@ -68,11 +90,11 @@
         <span class="label">Topic (optional)</span>
         <input name="topic" maxlength="200" class="field mt-1.5" />
       </label>
-      <label class="block">
+      <label class="block" hidden={Boolean(blueprint)}>
         <span class="label">Questions</span>
         <input name="count" type="number" min="1" max="200" value="20" required class="field mt-1.5 font-mono" />
       </label>
-      {#if mode === 'exam'}
+      {#if mode === 'exam' && !blueprint}
         <label class="block">
           <span class="label">Time limit (minutes)</span>
           <input name="time_limit_minutes" type="number" min="1" max="300" value="30" required class="field mt-1.5 font-mono" />

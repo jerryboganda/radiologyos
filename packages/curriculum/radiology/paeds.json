@@ -1,0 +1,13 @@
+{
+  "code": "PAEDIATRICS",
+  "title": "Paediatrics",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "NEONATAL_CHEST", "title": "Neonatal and paediatric chest", "subtopics": {"NEONATAL": "Neonatal respiratory distress", "INFECTION": "Paediatric chest infection", "CONGENITAL_LUNG": "Congenital lung malformations"}},
+    {"code": "GI", "title": "Paediatric GI", "subtopics": {"NEONATAL_OBSTRUCTION": "Neonatal bowel obstruction", "PYLORIC_STENOSIS": "Pyloric stenosis", "INTUSSUSCEPTION": "Intussusception", "NEC": "Necrotising enterocolitis", "MALROTATION": "Malrotation and volvulus"}},
+    {"code": "GU", "title": "Paediatric GU", "subtopics": {"VUR_UTI": "UTI and vesicoureteric reflux", "HYDRONEPHROSIS": "Antenatal hydronephrosis and PUJ obstruction", "PUV": "Posterior urethral valves"}},
+    {"code": "ONCOLOGY", "title": "Paediatric oncology", "subtopics": {"WILMS": "Wilms tumour", "NEUROBLASTOMA": "Neuroblastoma", "HEPATOBLASTOMA": "Hepatoblastoma", "BRAIN": "Paediatric brain tumours"}},
+    {"code": "MSK", "title": "Paediatric MSK", "subtopics": {"DDH": "Developmental dysplasia of the hip", "PERTHES_SCFE": "Perthes and SCFE", "NAI": "Non-accidental injury", "FRACTURES": "Paediatric fractures"}},
+    {"code": "NEURO", "title": "Paediatric neuro", "subtopics": {"HIE": "Hypoxic-ischaemic injury", "CRANIAL_US": "Cranial ultrasound"}}
+  ]
+}

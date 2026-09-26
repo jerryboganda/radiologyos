@@ -1,0 +1,11 @@
+{
+  "code": "RADIATION_SAFETY_CONTRAST",
+  "title": "Radiation safety and contrast",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "RADIOBIOLOGY", "title": "Radiobiology and dosimetry", "subtopics": {"EFFECTS": "Deterministic and stochastic effects", "DOSE_QUANTITIES": "Dose quantities"}},
+    {"code": "PROTECTION", "title": "Radiation protection", "subtopics": {"PRINCIPLES": "Justification, optimisation and limitation", "REGULATION": "Regulations and dose limits", "PREGNANCY": "Pregnancy and radiation", "PAEDIATRIC": "Paediatric dose"}},
+    {"code": "IODINATED", "title": "Iodinated contrast", "subtopics": {"REACTIONS": "Contrast reactions and management", "CI_AKI": "Contrast-associated kidney injury", "EXTRAVASATION": "Extravasation"}},
+    {"code": "MR_US_CONTRAST", "title": "MR and ultrasound contrast", "subtopics": {"GADOLINIUM": "Gadolinium agents and NSF", "US_CONTRAST": "Ultrasound contrast agents"}}
+  ]
+}

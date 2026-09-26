@@ -11,6 +11,7 @@ from uuid import UUID
 
 from apps.api.app.library.service import audit
 from apps.api.app.security.principal import Principal
+from packages.curriculum.loader import node_index
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,7 +33,10 @@ async def list_weights(
         ),
         {"u": user_id, "target": exam_target},
     )
-    return [{**dict(r), "weight": float(r["weight"])} for r in rows.mappings()]
+    titles = node_index()  # a coded topic (ADR 0023) gets its curriculum title
+    return [{**dict(r), "weight": float(r["weight"]),
+             "topic_title": titles[r["topic"]].title if r["topic"] in titles else None}
+            for r in rows.mappings()]
 
 
 async def approve_weights(

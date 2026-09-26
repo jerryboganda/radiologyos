@@ -20,6 +20,8 @@
 
 <p class="-mt-2 mb-6 text-sm">
   <a class="text-ink-2 underline underline-offset-2 hover:text-ink" href="/knowledge/review">Review low-confidence curriculum mappings →</a>
+  <span class="mx-2 text-muted">·</span>
+  <a class="text-ink-2 underline underline-offset-2 hover:text-ink" href="/knowledge/curriculum">Curriculum tree and approval →</a>
 </p>
 
 {#snippet feedback(section: string)}

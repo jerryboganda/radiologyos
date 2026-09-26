@@ -13,12 +13,12 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from apps.api.app.study.ports import StudyRepo
-from packages.curriculum.contracts import CurriculumNode, load_curriculum_pack
+from packages.curriculum.contracts import CurriculumNode
+from packages.curriculum.loader import radiology_pack
 from packages.study import fsrs
 from packages.study.mastery import (
     Mastery,
@@ -30,16 +30,13 @@ from packages.study.mastery import (
 from packages.study.planner import TopicSignal
 from packages.study.weights import ApprovedWeight, WeightMap, map_weights
 
-ROOT = Path(__file__).resolve().parents[4]
-CURRICULUM = ROOT / "packages" / "curriculum" / "fcps2_radiology.json"
 ACCURACY_WINDOW = timedelta(days=90)
 LAPSE_WINDOW_DAYS = 7
 
 
 @lru_cache(maxsize=1)
 def curriculum_systems() -> tuple[CurriculumNode, ...]:
-    pack = load_curriculum_pack(CURRICULUM)
-    return tuple(node for node in pack.nodes if node.level == "system")
+    return tuple(node for node in radiology_pack().nodes if node.level == "system")
 
 
 def curriculum_codes() -> frozenset[str]:

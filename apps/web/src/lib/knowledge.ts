@@ -1,6 +1,14 @@
 // Knowledge form parsing and display helpers. Pure for node --test.
-import type { ApproveRequest, ExtractRequest, ResolveRequest, WeightBasis, WeightTarget } from './types/knowledge.ts';
-import { WEIGHT_TARGETS } from './types/knowledge.ts';
+import type {
+  ApproveRequest,
+  CurriculumDecision,
+  CurriculumFilter,
+  ExtractRequest,
+  ResolveRequest,
+  WeightBasis,
+  WeightTarget
+} from './types/knowledge.ts';
+import { CURRICULUM_FILTERS, WEIGHT_TARGETS } from './types/knowledge.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -62,4 +70,20 @@ export function basisText(basis: WeightBasis | null | undefined): string {
     parts.push(first === last ? String(first) : `${first}–${last}`);
   }
   return parts.join(' · ');
+}
+
+export function isCurriculumFilter(value: unknown): value is CurriculumFilter {
+  return value === 'frcr' || CURRICULUM_FILTERS.some((f) => f.value === value);
+}
+
+/** Approve/reject of the exact pack version shown (hash-bound). */
+export function parseCurriculumDecisionForm(form: FormData): Parsed<CurriculumDecision> {
+  const decision = form.get('decision');
+  if (decision !== 'approved' && decision !== 'rejected') return { ok: false, error: 'Choose approve or reject.' };
+  const hash = String(form.get('content_hash') ?? '');
+  if (!/^[0-9a-f]{64}$/.test(hash)) return { ok: false, error: 'Reload the page and try again.' };
+  const notes = String(form.get('notes') ?? '').trim();
+  if (notes.length > 2000) return { ok: false, error: 'Keep notes under 2,000 characters.' };
+  if (decision === 'rejected' && !notes) return { ok: false, error: 'Say what needs to change before rejecting.' };
+  return { ok: true, value: { decision, content_hash: hash, notes } };
 }

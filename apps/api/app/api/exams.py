@@ -17,7 +17,7 @@ from typing import Any
 from uuid import UUID
 
 from apps.api.app.api.assessment import PrincipalDep, SessionDep
-from apps.api.app.assessment import exams, grading_store, store
+from apps.api.app.assessment import blueprints, exams, grading_store, store
 from apps.api.app.assessment.contracts import (
     AutosaveRequest,
     AutosaveResponse,
@@ -100,6 +100,8 @@ async def create_exam(body: ExamCreate, principal: PrincipalDep, session: Sessio
             session, principal.tenant_id, principal.user_id, body.model_dump())
     except exams.NotEnoughQuestions as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except blueprints.UnknownBlueprint as exc:
+        raise HTTPException(status_code=404, detail="blueprint not found") from exc
     row = await exams.load_exam(session, principal.user_id, exam_id)
     if row is None:
         raise HTTPException(status_code=500, detail="exam was not stored")

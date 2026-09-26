@@ -1,0 +1,14 @@
+{
+  "code": "MUSCULOSKELETAL",
+  "title": "Musculoskeletal",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "BONE_TUMOURS", "title": "Bone tumours", "subtopics": {"APPROACH": "Approach to a bone lesion", "BENIGN": "Benign bone tumours", "MALIGNANT": "Primary malignant bone tumours", "METASTASES_MYELOMA": "Metastases and myeloma"}},
+    {"code": "SOFT_TISSUE", "title": "Soft tissue tumours", "subtopics": {"BENIGN": "Benign soft tissue masses", "SARCOMA": "Soft tissue sarcoma"}},
+    {"code": "ARTHRITIS", "title": "Arthritis", "subtopics": {"INFLAMMATORY": "Rheumatoid and inflammatory arthritis", "SERONEGATIVE": "Seronegative spondyloarthropathy", "CRYSTAL": "Crystal arthropathy", "OA": "Osteoarthritis", "SEPTIC": "Septic arthritis"}},
+    {"code": "INFECTION", "title": "Bone infection", "subtopics": {"OSTEOMYELITIS": "Osteomyelitis", "DIABETIC_FOOT": "Diabetic foot"}},
+    {"code": "METABOLIC", "title": "Metabolic and endocrine bone", "subtopics": {"OSTEOPOROSIS": "Osteoporosis and DXA", "RICKETS": "Rickets and osteomalacia", "HPT": "Hyperparathyroidism and renal osteodystrophy", "PAGET": "Paget disease"}},
+    {"code": "JOINTS", "title": "Joint imaging (MRI and US)", "subtopics": {"KNEE": "Knee", "SHOULDER": "Shoulder", "HIP": "Hip", "WRIST_HAND": "Wrist and hand", "ANKLE_FOOT": "Ankle and foot", "ELBOW": "Elbow"}},
+    {"code": "MARROW_DYSPLASIA", "title": "Marrow and dysplasias", "subtopics": {"MARROW": "Bone marrow disorders and AVN", "DYSPLASIA": "Skeletal dysplasias"}}
+  ]
+}

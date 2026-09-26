@@ -1,0 +1,13 @@
+{
+  "code": "HEPATOBILIARY_PANCREAS",
+  "title": "Hepatobiliary, pancreas and spleen",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "LIVER_FOCAL", "title": "Focal liver lesions", "subtopics": {"BENIGN": "Haemangioma, FNH and adenoma", "HCC": "Hepatocellular carcinoma and LI-RADS", "METASTASES": "Liver metastases", "INFECTIVE": "Abscess and hydatid disease"}},
+    {"code": "LIVER_DIFFUSE", "title": "Diffuse liver disease", "subtopics": {"CIRRHOSIS": "Cirrhosis and portal hypertension", "STEATOSIS": "Steatosis and iron overload", "VASCULAR": "Budd-Chiari and hepatic vascular disease"}},
+    {"code": "BILIARY", "title": "Biliary tree and gallbladder", "subtopics": {"GALLSTONES": "Gallstones and cholecystitis", "OBSTRUCTION": "Biliary obstruction", "CHOLANGIOCARCINOMA": "Cholangiocarcinoma", "CHOLANGITIS": "Cholangitides (PSC, recurrent pyogenic)", "CHOLEDOCHAL": "Choledochal cysts", "GB_CANCER": "Gallbladder carcinoma"}},
+    {"code": "PANCREAS", "title": "Pancreas", "subtopics": {"ACUTE": "Acute pancreatitis (Atlanta)", "CHRONIC": "Chronic and autoimmune pancreatitis", "ADENOCARCINOMA": "Pancreatic adenocarcinoma", "CYSTIC": "Cystic pancreatic lesions", "NET": "Neuroendocrine tumours"}},
+    {"code": "SPLEEN", "title": "Spleen", "subtopics": {"FOCAL": "Focal splenic lesions", "SPLENOMEGALY": "Splenomegaly and infarction"}},
+    {"code": "TRANSPLANT", "title": "Liver transplant", "exams": ["fcps2_theory", "fcps2_toacs", "frcr_2a", "frcr_2b"], "subtopics": {"COMPLICATIONS": "Transplant complications"}}
+  ]
+}

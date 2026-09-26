@@ -3,6 +3,9 @@
 Low-confidence classifier mappings land in status ``review``. The owner of the
 source accepts, rejects, or re-codes each one; every decision is audited by id
 and code only. A mapping is visible only when its source belongs to the caller.
+Re-coding accepts a curriculum node id at any depth (system, topic, or
+subtopic, ADR 0023): the system goes to ``curriculum_code`` and the node to
+``curriculum_node_id``.
 """
 
 from __future__ import annotations
@@ -12,13 +15,14 @@ from uuid import UUID
 
 from apps.api.app.library.service import audit
 from apps.api.app.security.principal import Principal
-from packages.knowledge.curriculum import pack, system_codes
+from packages.knowledge.curriculum import node_mapping, pack
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 _SELECT = """
     SELECT m.id, m.source_id, s.title AS source_title, m.page_from, m.page_to,
-           m.curriculum_code, m.topic, m.confidence, m.status, m.agent_version, m.created_at,
+           m.curriculum_code, m.curriculum_node_id, m.topic, m.confidence, m.status,
+           m.agent_version, m.created_at,
            left(coalesce(ch.text, ''), 400) AS excerpt
     FROM curriculum_mappings m
     JOIN sources s ON s.id = m.source_id
@@ -63,9 +67,11 @@ async def decide(
         return None
     target = mapping_id
     if decision == "code":
-        if code not in system_codes():
+        node = node_mapping(code or "", 1.0)
+        if node is None:
             raise ValueError("unknown curriculum code")
-        target = await _recode(session, mapping_id, code)
+        code = node.node_id
+        target = await _recode(session, mapping_id, node.system, node.node_id)
     else:
         status = "accepted" if decision == "accept" else "rejected"
         await session.execute(
@@ -79,7 +85,7 @@ async def decide(
     return result
 
 
-async def _recode(session: AsyncSession, mapping_id: UUID, code: str) -> UUID:
+async def _recode(session: AsyncSession, mapping_id: UUID, code: str, node_id: str) -> UUID:
     duplicate = (
         await session.execute(
             text(
@@ -96,13 +102,15 @@ async def _recode(session: AsyncSession, mapping_id: UUID, code: str) -> UUID:
     if duplicate is not None:
         await session.execute(
             text("UPDATE curriculum_mappings SET status = CASE WHEN id = :keep "
-                 "THEN 'accepted' ELSE 'rejected' END WHERE id IN (:keep, :drop)"),
-            {"keep": duplicate, "drop": mapping_id},
+                 "THEN 'accepted' ELSE 'rejected' END, curriculum_node_id = CASE "
+                 "WHEN id = :keep THEN :node ELSE curriculum_node_id END "
+                 "WHERE id IN (:keep, :drop)"),
+            {"keep": duplicate, "drop": mapping_id, "node": node_id},
         )
         return UUID(str(duplicate))
     await session.execute(
-        text("UPDATE curriculum_mappings SET curriculum_code = :code, status = 'accepted' "
-             "WHERE id = :id"),
-        {"code": code, "id": mapping_id},
+        text("UPDATE curriculum_mappings SET curriculum_code = :code, "
+             "curriculum_node_id = :node, status = 'accepted' WHERE id = :id"),
+        {"code": code, "node": node_id, "id": mapping_id},
     )
     return mapping_id

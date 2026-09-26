@@ -2,15 +2,20 @@ import { fail } from '@sveltejs/kit';
 import { dataOr, loadProblem } from '$lib/api-state';
 import { parseDecisionForm } from '$lib/data-rights';
 import { failureMessage } from '$lib/server/client';
-import { decideMapping, listCurriculumSystems, listMappings } from '$lib/server/knowledge';
+import { decideMapping, listCurriculumSystems, listMappings, listNodeCandidates } from '$lib/server/knowledge';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
-  const [mappings, systems] = await Promise.all([listMappings(event, 'review'), listCurriculumSystems(event)]);
+  const [mappings, systems, nodes] = await Promise.all([
+    listMappings(event, 'review'),
+    listCurriculumSystems(event),
+    listNodeCandidates(event)
+  ]);
   return {
     mappings: dataOr(mappings, []),
     mappingsProblem: loadProblem(mappings),
-    systems: dataOr(systems, [])
+    systems: dataOr(systems, []),
+    nodes: dataOr(nodes, [])
   };
 };
 

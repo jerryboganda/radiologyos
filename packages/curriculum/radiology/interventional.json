@@ -1,0 +1,13 @@
+{
+  "code": "INTERVENTIONAL",
+  "title": "Interventional radiology",
+  "exams": ["fcps2_theory", "fcps2_toacs", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "PRINCIPLES", "title": "IR principles", "subtopics": {"CONSENT_SAFETY": "Consent, coagulation and sedation", "EQUIPMENT": "Needles, wires, catheters and access"}},
+    {"code": "VASCULAR", "title": "Vascular intervention", "subtopics": {"ANGIOPLASTY_STENT": "Angioplasty and stenting", "EMBOLISATION": "Embolisation", "EVAR": "Endovascular aneurysm repair", "VENOUS": "IVC filters and venous access"}},
+    {"code": "NONVASCULAR", "title": "Non-vascular intervention", "subtopics": {"BIOPSY_DRAINAGE": "Biopsy and drainage", "NEPHROSTOMY": "Nephrostomy and ureteric stenting", "BILIARY": "PTC and biliary drainage", "GASTROSTOMY": "Gastrostomy"}},
+    {"code": "ONCOLOGY", "title": "Interventional oncology", "subtopics": {"ABLATION": "Ablation", "TACE": "TACE and radioembolisation"}},
+    {"code": "HEPATIC", "title": "Portal hypertension intervention", "subtopics": {"TIPS": "TIPS"}},
+    {"code": "NEURO_IR", "title": "Neurointervention", "subtopics": {"THROMBECTOMY": "Mechanical thrombectomy", "ANEURYSM_COILING": "Aneurysm coiling"}}
+  ]
+}

@@ -13,7 +13,7 @@
 <PageHeader
   eyebrow="Knowledge"
   title="Curriculum review"
-  description="Passages the classifier mapped to a curriculum system with low confidence. Accept, reject, or pick the right system; every decision is recorded."
+  description="Passages the classifier mapped to a curriculum system with low confidence. Accept, reject, or pick the right system, topic, or subtopic; every decision is recorded."
 />
 
 <p class="mb-4 text-sm"><a class="text-ink-2 underline underline-offset-2 hover:text-ink" href="/knowledge">← Back to knowledge</a></p>
@@ -31,6 +31,9 @@
 {:else if data.mappings.length === 0}
   <Notice tone="ok">Nothing to review. Every curriculum mapping is decided.</Notice>
 {:else}
+  <datalist id="curriculum-nodes">
+    {#each data.nodes as node (node.id)}<option value={node.id}>{node.path}</option>{/each}
+  </datalist>
   <p class="label mb-3">{data.mappings.length} awaiting review</p>
   <ul class="flex flex-col gap-3">
     {#each data.mappings as mapping (mapping.id)}<MappingCard {mapping} systems={data.systems} />{/each}

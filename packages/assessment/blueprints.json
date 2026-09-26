@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "status": "draft_pending_owner_approval",
+  "blueprints": [
+    {
+      "id": "fcps2_theory_mcq", "title": "FCPS-II theory: single-best MCQ paper",
+      "exam_target": "fcps2_theory", "curriculum_tag": "fcps2_theory",
+      "items": {"sba": 100}, "duration_minutes": 180,
+      "mix_mode": "weights", "mix": [],
+      "negative_marking": {"enabled": false, "penalty": 0},
+      "pass_mark_percent": null,
+      "unverified": ["duration_minutes", "negative_marking", "pass_mark_percent"],
+      "sources": ["https://elogbook.cpsp.edu.pk/eportal/eportal/docs/trainee/prospectus/fcps2/DiagnRad%20FCPS-II%202012.pdf", "https://radiopaedia.org/articles/fellow-of-college-of-physicians-and-surgeons-pakistan-diagnostic-radiology"],
+      "notes": "2012 prospectus: Paper II is 100 single-best MCQs in 3 hours. Radiopaedia describes the current theory as two BCQ papers; the current count and time come from each CPSP notification. CPSP publishes no negative marking and no fixed pass mark for this paper. The per-system mix follows your approved past-paper weights (even until you approve some)."
+    },
+    {
+      "id": "fcps2_theory_saq", "title": "FCPS-II theory: short-answer paper",
+      "exam_target": "fcps2_theory", "curriculum_tag": "fcps2_theory",
+      "items": {"seq": 10}, "duration_minutes": 180,
+      "mix_mode": "weights", "mix": [],
+      "negative_marking": {"enabled": false, "penalty": 0},
+      "pass_mark_percent": null,
+      "unverified": ["items", "pass_mark_percent"],
+      "sources": ["https://elogbook.cpsp.edu.pk/eportal/eportal/docs/trainee/prospectus/fcps2/DiagnRad%20FCPS-II%202012.pdf"],
+      "notes": "2012 prospectus: Paper I is 10 short-answer questions in 3 hours. Newer descriptions list two BCQ papers, so whether an SAQ paper is still sat is unverified."
+    },
+    {
+      "id": "fcps2_toacs", "title": "FCPS-II TOACS: image stations",
+      "exam_target": "fcps2_toacs", "curriculum_tag": "fcps2_toacs",
+      "items": {"image_case": 30}, "duration_minutes": 150,
+      "mix_mode": "even", "mix": [],
+      "negative_marking": {"enabled": false, "penalty": 0},
+      "pass_mark_percent": null,
+      "unverified": ["duration_minutes", "negative_marking", "pass_mark_percent"],
+      "sources": ["https://radiopaedia.org/articles/fellow-of-college-of-physicians-and-surgeons-pakistan-diagnostic-radiology"],
+      "notes": "Computer-based, image-based assessment of 30 stations covering all modalities (Radiopaedia). Time per station is not published here; 5 minutes per station is an assumption."
+    },
+    {
+      "id": "fcps2_viva", "title": "FCPS-II viva: system tables",
+      "exam_target": "fcps2_toacs", "curriculum_tag": "fcps2_toacs",
+      "items": {"viva": 6}, "duration_minutes": 60,
+      "mix_mode": "even", "mix": [],
+      "negative_marking": {"enabled": false, "penalty": 0},
+      "pass_mark_percent": null,
+      "unverified": ["duration_minutes", "pass_mark_percent"],
+      "sources": ["https://radiopaedia.org/articles/fellow-of-college-of-physicians-and-surgeons-pakistan-diagnostic-radiology"],
+      "notes": "Six system-related vivas with six examiners on three tables, two systems per table (Radiopaedia). Total time is an assumption."
+    },
+    {
+      "id": "imm_theory", "title": "IMM theory: MCQ paper",
+      "exam_target": "imm", "curriculum_tag": "imm",
+      "items": {"sba": 100}, "duration_minutes": 120,
+      "mix_mode": "weights", "mix": [],
+      "negative_marking": {"enabled": false, "penalty": 0},
+      "pass_mark_percent": null,
+      "unverified": ["negative_marking", "pass_mark_percent"],
+      "sources": ["https://www.cpsp.edu.pk/files/guidelines/IMM/IMM-guideline.pdf"],
+      "notes": "CPSP IMM guideline, computer-based Diagnostic Radiology: Paper I and Paper II each 100 MCQs in 2 hours. One paper per mock. Core content is physics, anatomy and basic pathology (Radiopaedia)."
+    },
+    {
+      "id": "imm_toacs", "title": "IMM TOACS: image stations",
+      "exam_target": "imm", "curriculum_tag": "imm",
+      "items": {"image_case": 30}, "duration_minutes": 150,
+      "mix_mode": "even", "mix": [],
+      "negative_marking": {"enabled": false, "penalty": 0},
+      "pass_mark_percent": null,
+      "unverified": ["items", "duration_minutes", "pass_mark_percent"],
+      "sources": ["https://radiopaedia.org/articles/fellow-of-college-of-physicians-and-surgeons-pakistan-diagnostic-radiology", "https://www.cpsp.edu.pk/files/guidelines/IMM/IMM-guideline.pdf"],
+      "notes": "IMM TOACS follows the theory within 2-3 weeks (CPSP). Radiopaedia describes a computer-based image TOACS of 30 stations; the IMM station count and time are unverified."
+    },
+    {
+      "id": "frcr_2a", "title": "Final FRCR Part A: SBA paper",
+      "exam_target": "frcr", "curriculum_tag": "frcr_2a",
+      "items": {"sba": 120}, "duration_minutes": 180,
+      "mix_mode": "fixed",
+      "mix": [
+        {"label": "Cardiothoracic and vascular", "systems": ["CHEST", "CARDIOVASCULAR"], "share": 0.166667},
+        {"label": "Musculoskeletal and trauma", "systems": ["MUSCULOSKELETAL", "EMERGENCY_TRAUMA"], "share": 0.166667},
+        {"label": "Gastro-intestinal", "systems": ["GI", "HEPATOBILIARY_PANCREAS"], "share": 0.166667},
+        {"label": "Genito-urinary, adrenal, obstetrics and gynaecology, and breast", "systems": ["GU", "OBSTETRIC_GYNAECOLOGICAL_US", "BREAST"], "share": 0.166666},
+        {"label": "Paediatric", "systems": ["PAEDIATRICS"], "share": 0.166666},
+        {"label": "Central nervous system and head and neck", "systems": ["NEURO", "HEAD_NECK"], "share": 0.166667}
+      ],
+      "negative_marking": {"enabled": false, "penalty": 0},
+      "pass_mark_percent": null,
+      "unverified": ["mix"],
+      "sources": ["https://www.rcr.ac.uk/exams-training/rcr-exams/clinical-radiology-exams/frcr-part-2a-radiology-cr2a/frcr-part-2a-radiology-cr2a-guidance-notes-for-candidates/"],
+      "notes": "RCR: two papers of 120 SBA questions (five options), 3 hours each, six areas; +1 correct, 0 incorrect (no negative marking). Pass mark set per sitting by modified Angoff and Hofstee, so none is fixed. Equal shares for the six areas are an assumption."
+    },
+    {
+      "id": "frcr_2b_rapid", "title": "Final FRCR Part B: short-case reporting",
+      "exam_target": "frcr", "curriculum_tag": "frcr_2b",
+      "items": {"image_case": 25}, "duration_minutes": 120,
+      "mix_mode": "fixed",
+      "mix": [
+        {"label": "Chest radiographs", "systems": ["CHEST"], "share": 0.55},
+        {"label": "Musculoskeletal radiographs", "systems": ["MUSCULOSKELETAL", "EMERGENCY_TRAUMA"], "share": 0.43},
+        {"label": "Abdominal radiographs", "systems": ["GI"], "share": 0.02}
+      ],
+      "negative_marking": {"enabled": false, "penalty": 0},
+      "pass_mark_percent": null,
+      "unverified": [],
+      "sources": ["https://www.rcr.ac.uk/exams-training/rcr-exams/clinical-radiology-exams/frcr-part-2b-radiology-cr2b/frcr-part-2b-radiology-guidance-notes-for-candidates/"],
+      "notes": "RCR (from June 2025): 25 plain-radiograph cases in 120 minutes, each scored out of 5; CXR 50-60%, MSK 40-50%, AXR up to 4%; about 25% paediatric. Pass standard set per sitting."
+    },
+    {
+      "id": "frcr_2b_long", "title": "Final FRCR Part B: long-case reporting",
+      "exam_target": "frcr", "curriculum_tag": "frcr_2b",
+      "items": {"image_case": 6}, "duration_minutes": 75,
+      "mix_mode": "even", "mix": [],
+      "negative_marking": {"enabled": false, "penalty": 0},
+      "pass_mark_percent": null,
+      "unverified": [],
+      "sources": ["https://www.rcr.ac.uk/exams-training/rcr-exams/clinical-radiology-exams/frcr-part-2b-radiology-cr2b/frcr-part-2b-radiology-guidance-notes-for-candidates/"],
+      "notes": "RCR: 6 multi-modality cases (CT, US, MR, radionuclide) in 75 minutes, each scored out of 5."
+    },
+    {
+      "id": "frcr_2b_oral", "title": "Final FRCR Part B: oral",
+      "exam_target": "frcr", "curriculum_tag": "frcr_2b",
+      "items": {"viva": 12}, "duration_minutes": 60,
+      "mix_mode": "even", "mix": [],
+      "negative_marking": {"enabled": false, "penalty": 0},
+      "pass_mark_percent": null,
+      "unverified": [],
+      "sources": ["https://www.rcr.ac.uk/exams-training/rcr-exams/clinical-radiology-exams/frcr-part-2b-radiology-cr2b/frcr-part-2b-radiology-guidance-notes-for-candidates/"],
+      "notes": "RCR: 60 minutes with two pairs of examiners, 6 cases per 30-minute session (12 in total), domain-based marking."
+    }
+  ]
+}

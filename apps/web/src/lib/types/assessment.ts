@@ -99,6 +99,10 @@ export interface ExamCreate {
   time_limit_minutes?: number | null;
   /** Item types to draw from; defaults to SBA only. */
   types?: GeneratableType[];
+  /** Build the paper from an exam blueprint (counts, mix, time, scoring; ADR 0023). */
+  blueprint_id?: string | null;
+  /** Scale the blueprint paper down to this many items, keeping mix and pace. */
+  blueprint_items?: number | null;
 }
 
 /** question_id → selected option index (0–4). */
@@ -178,6 +182,11 @@ export interface ExamResult {
   pending?: number;
   failed?: number;
   grading?: 'pending' | 'complete';
+  /** Marks before the negative-marking deduction (blueprint papers). */
+  raw_score?: number;
+  /** Total deducted for wrong SBA answers under negative marking. */
+  penalty?: number;
+  negative_marking?: { enabled: boolean; penalty: number };
 }
 
 export type ExamStatus = 'active' | 'expired' | 'submitted';
@@ -252,4 +261,37 @@ export interface StatsRecomputeOut {
     decision: string;
     reason: string | null;
   }[];
+}
+
+// Exam blueprints (apps/api/app/api/blueprints.py, ADR 0023).
+export interface BlueprintMixGroup {
+  label: string;
+  systems: string[];
+  share: number;
+}
+
+export interface BlueprintOut {
+  id: string;
+  title: string;
+  exam_target: string;
+  curriculum_tag: string;
+  items: Record<string, number>;
+  duration_minutes: number;
+  mix_mode: 'fixed' | 'even' | 'weights' | string;
+  mix: BlueprintMixGroup[];
+  negative_marking: { enabled: boolean; penalty: number };
+  pass_mark_percent: number | null;
+  /** Fields that could not be confirmed from a public source. */
+  unverified: string[];
+  sources: string[];
+  notes: string;
+  content_hash: string;
+  overrides: Record<string, unknown>;
+  default: Record<string, unknown>;
+  approved: boolean;
+  approved_at: string | null;
+}
+
+export interface BlueprintOverrideIn {
+  overrides: Record<string, unknown>;
 }

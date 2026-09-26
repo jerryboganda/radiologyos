@@ -105,6 +105,7 @@ class TopicWeightOut(BaseModel):
     exam_target: str
     curriculum_code: str
     topic: str
+    topic_title: str | None = None
     weight: float
     basis: dict[str, Any]
     approved: bool
@@ -143,6 +144,7 @@ class MappingOut(BaseModel):
     page_from: int
     page_to: int
     curriculum_code: str
+    curriculum_node_id: str | None = None
     topic: str
     confidence: float
     status: Literal["accepted", "review", "rejected"]
@@ -154,7 +156,9 @@ class MappingOut(BaseModel):
 class MappingDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
     decision: Literal["accept", "reject", "code"]
-    curriculum_code: str | None = Field(default=None, min_length=1, max_length=60)
+    curriculum_code: str | None = Field(
+        default=None, min_length=1, max_length=120,
+        description="A curriculum node id at any depth: system, topic, or subtopic.")
 
 
 class CurriculumSystem(BaseModel):

@@ -7,7 +7,7 @@ import pytest
 import yaml
 from apps.worker.app.job_id import IngestStep, JobId
 from evals.contracts import load_eval_fixtures
-from packages.curriculum.contracts import load_curriculum_pack
+from packages.curriculum.loader import radiology_pack
 from packages.models.routing import RouteName, load_model_routing_config, require_mock_routes
 from packages.prompts.contracts import load_prompt
 
@@ -21,7 +21,6 @@ MIGRATIONS = (
     ROOT / "apps" / "api" / "migrations" / "versions" / "20260925_0003_preview_hardening.py",
 )
 MODEL_CONFIG = ROOT / "packages" / "models" / "models.yaml"
-CURRICULUM = ROOT / "packages" / "curriculum" / "fcps2_radiology.json"
 EVAL_FIXTURE = ROOT / "evals" / "fixtures" / "synthetic_smoke_v1.json"
 PROMPT_ROOT = ROOT / "packages" / "prompts"
 
@@ -219,12 +218,12 @@ def test_placeholder_prompts_are_valid_and_reference_fixture() -> None:
         assert (ROOT / "packages" / "prompts" / prompt.output_schema).is_file()
 
 
-def test_curriculum_is_an_explicit_unvalidated_placeholder() -> None:
-    pack = load_curriculum_pack(CURRICULUM)
+def test_curriculum_is_an_explicit_draft_pending_owner_approval() -> None:
+    pack = radiology_pack()
 
-    assert pack.status == "placeholder_unvalidated"
+    assert pack.status == "draft_pending_owner_approval"
     assert pack.exam_blueprint is None
-    assert len(pack.nodes) == 17
+    assert sum(node.level == "system" for node in pack.nodes) == 17
     assert all(node.exam_weight is None for node in pack.nodes)
 
 

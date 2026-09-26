@@ -90,11 +90,15 @@ def _by_topic(items: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
 def summarize(items: Sequence[Mapping[str, Any]], question_count: int) -> dict[str, Any]:
     """Totals over graded items; missing (deleted) questions count one mark each."""
     missing = max(0, question_count - len(items))
-    score = round(sum(float(item.get("score") or 0.0) for item in items), 2)
+    raw = round(sum(float(item.get("score") or 0.0) for item in items), 2)
+    penalty = round(sum(float(item.get("penalty") or 0.0) for item in items), 2)
+    score = round(raw - penalty, 2)
     max_score = round(sum(float(item["max_score"]) for item in items) + missing, 2)
     pending = sum(1 for item in items if item.get("status") == "pending")
     return {
         "score": score,
+        "raw_score": raw,
+        "penalty": penalty,
         "max_score": max_score,
         "percent": round(100.0 * score / max_score, 1) if max_score else 0.0,
         "answered": sum(1 for item in items if _answered(item)),
@@ -106,8 +110,16 @@ def summarize(items: Sequence[Mapping[str, Any]], question_count: int) -> dict[s
     }
 
 
-def grade_exam(exam: ExamState, questions: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
-    """Grade SBA items now; free-text items are graded now if blank, else pending."""
+def grade_exam(
+    exam: ExamState, questions: Mapping[str, Mapping[str, Any]], penalty: float = 0.0
+) -> dict[str, Any]:
+    """Grade SBA items now; free-text items are graded now if blank, else pending.
+
+    With negative marking (``penalty`` > 0, a blueprint setting) a wrong SBA
+    answer carries ``penalty`` x its mark as a deduction; a blank never does.
+    The item's own ``score`` stays >= 0 (attempts and mastery use it); the
+    deduction is applied only to the exam totals.
+    """
     items: list[dict[str, Any]] = []
     for question_id in (str(q) for q in exam.question_ids):
         question = questions.get(question_id)
@@ -117,8 +129,11 @@ def grade_exam(exam: ExamState, questions: Mapping[str, Mapping[str, Any]]) -> d
             items.append(free_text_item(question, exam.text_answers.get(question_id, "")))
         else:
             graded = grade_sba(question, exam.answers.get(question_id))
-            items.append({**graded, "type": "sba", "status": "graded"})
-    return {**summarize(items, len(exam.question_ids)), "items": items}
+            wrong = graded["selected_option"] is not None and not graded["correct"]
+            deduction = round(penalty * float(graded["max_score"]), 4) if wrong else 0.0
+            items.append({**graded, "type": "sba", "status": "graded", "penalty": deduction})
+    result = {**summarize(items, len(exam.question_ids)), "items": items}
+    return {**result, "negative_marking": {"enabled": penalty > 0, "penalty": penalty}}
 
 
 def fill_item(result: Mapping[str, Any], question_id: str,

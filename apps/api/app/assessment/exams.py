@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from apps.api.app.assessment import grading_store, store
+from apps.api.app.assessment import blueprints, grading_store, store
 from apps.api.app.core.time import now_utc
 from packages.assessment.exam_result import FREE_TEXT_TYPES, grade_exam
 from packages.assessment.grading import ExamState, autosave, exam_status, merge_text
@@ -58,7 +58,11 @@ def state_of(row: dict[str, Any]) -> ExamState:
 async def create_exam(
     session: AsyncSession, tenant_id: UUID, user_id: UUID, config: dict[str, Any]
 ) -> UUID:
-    picked = await store.pick_exam_questions(session, user_id, config, config["count"])
+    if config.get("blueprint_id"):
+        picked, extras = await blueprints.build_paper(session, user_id, config)
+        config = {**config, **extras}
+    else:
+        picked = await store.pick_exam_questions(session, user_id, config, config["count"])
     if not picked:
         raise NotEnoughQuestions("no active questions of these types match these filters")
     ids = [question_id for question_id, _ in picked]
@@ -136,7 +140,8 @@ async def submit(
     state = state_of(row)
     questions = await store.get_questions(session, user_id, state.question_ids)
     submitted_at = now_utc()
-    result = grade_exam(state, questions)
+    penalty = float(((row.get("config") or {}).get("scoring") or {}).get("penalty") or 0.0)
+    result = grade_exam(state, questions, penalty)
     result["timed_out"] = _late(state.deadline_at, submitted_at)
     await session.execute(
         text(

@@ -98,11 +98,17 @@ class ExamCreate(BaseModel):
     count: int = Field(default=20, ge=1, le=200)
     time_limit_minutes: int | None = Field(default=None, ge=1, le=300)
     types: list[ItemType] = Field(default_factory=_sba_only, min_length=1, max_length=4)
+    # A blueprint (ADR 0023) sets types, counts, mix, time, and scoring; the
+    # paper can be scaled down to ``blueprint_items`` keeping mix and pace.
+    blueprint_id: str | None = Field(default=None, pattern=r"^[a-z0-9_]{1,60}$")
+    blueprint_items: int | None = Field(default=None, ge=1, le=300)
 
     @model_validator(mode="after")
     def require_limit_for_exam(self) -> ExamCreate:
-        if self.mode == "exam" and self.time_limit_minutes is None:
-            raise ValueError("exam mode requires time_limit_minutes")
+        if self.mode == "exam" and self.time_limit_minutes is None and not self.blueprint_id:
+            raise ValueError("exam mode requires time_limit_minutes or a blueprint_id")
+        if self.blueprint_items is not None and not self.blueprint_id:
+            raise ValueError("blueprint_items needs a blueprint_id")
         self.types = list(dict.fromkeys(self.types))
         return self
 

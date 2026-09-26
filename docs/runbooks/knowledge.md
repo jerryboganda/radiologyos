@@ -43,11 +43,35 @@ Curriculum mappings with confidence < 0.7 are stored with `status = 'review'`
 in `curriculum_mappings`. The owner reviews them at `/knowledge/review`
 (`GET /v1/knowledge/mappings?status=review`): **accept** keeps the code,
 **reject** discards it, and **re-code** (`POST /v1/knowledge/mappings/{id}/decide`
-with `{"decision": "code", "curriculum_code": ...}`) moves it to another system
-code from `GET /v1/knowledge/curriculum/systems` (unknown codes are refused).
+with `{"decision": "code", "curriculum_code": ...}`) moves it to any curriculum
+node: a system, topic, or subtopic id from
+`GET /v1/knowledge/curriculum/candidates` (unknown ids are refused). The system
+is stored in `curriculum_code` and the node in `curriculum_node_id` (ADR 0023).
 Re-coding onto a code the same unit already has merges into that row. Only the
 source's uploader sees or decides a mapping; each decision is audited as
 `knowledge.mapping_decided` with the decision and code only.
+
+## Curriculum tree and approval (ADR 0023)
+
+The draft tree is `packages/curriculum/radiology/`: `pack.json` holds the
+version, sources, and system file order, and each system file nests topics and
+subtopics with exam tags. Edit these files to change the tree. The loader
+validates the hierarchy, code prefixes, and tag subsets
+(`apps/api/tests/test_curriculum_pack.py`). Never rename an existing system code.
+
+1. Open `/knowledge/curriculum` (`GET /v1/knowledge/curriculum?exam_target=imm`)
+   and browse the tree by exam.
+2. As the owner or an admin (`org_admin`/`superadmin`), approve or reject the
+   version shown (`POST /v1/knowledge/curriculum/decision` with
+   `{"decision": "approved"|"rejected", "content_hash": ..., "notes": ...}`). A
+   rejection needs a note. A student gets 403.
+3. The decision is a new `curriculum_reviews` row and a
+   `knowledge.curriculum_approved|rejected` audit row. It holds only while the
+   pack hash is unchanged: any edit to the tree shows as `pending` again (409 if
+   the page was stale).
+
+Weights are separate. Approve them per exam on `/knowledge` once past papers
+have been read. Since `paper_topics/v3`, topic-level weights use tree node ids.
 
 ## Logging
 

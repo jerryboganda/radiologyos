@@ -10,7 +10,8 @@ from apps.api.app.main import app
 from apps.worker.app.knowledge.runtime import Deferred, KnowledgeDeps, call_agent
 from evals.contracts import load_eval_fixtures
 from fastapi.testclient import TestClient
-from packages.knowledge.models import KnowledgeExtraction, PaperTopics, TopicClassification
+from packages.curriculum.candidates import validate_node_id
+from packages.knowledge.models import KnowledgeExtraction, PaperTopicsTree, TopicClassification
 from packages.library.parse_models import inline_schema
 from packages.models.claude_code import ModelCall, ModelCallError, ModelResult, UsageLimitError
 from packages.models.gateway import build_call, load_agent, run_agent
@@ -21,8 +22,11 @@ EFFORT = {"knowledge_extract": "medium", "topic_classify": "low", "paper_topics"
 AGENTS = {
     "knowledge_extract": ("extract", KnowledgeExtraction, ()),
     "topic_classify": ("classify", TopicClassification, ()),
-    "paper_topics": ("classify", PaperTopics, ("Read",)),
+    "paper_topics": ("classify", PaperTopicsTree, ("Read",)),
 }
+# paper_topics v3 names curriculum node ids (ADR 0023) and has its own fixture.
+FIXTURE = {"knowledge_extract": "knowledge_v1", "topic_classify": "knowledge_v1",
+           "paper_topics": "knowledge_v2"}
 
 
 class FakeTransport:
@@ -44,7 +48,7 @@ def test_agent_uses_named_route_quota_effort_and_generated_schema(name: str) -> 
     assert agent.prompt.route == route and agent.prompt.effort == EFFORT[name]
     assert agent.output_model is model
     assert agent.schema == inline_schema(model)
-    assert agent.prompt.fixture == "evals/fixtures/knowledge_v1.json"
+    assert agent.prompt.fixture == f"evals/fixtures/{FIXTURE[name]}.json"
     call = build_call(agent, "prompt")
     assert call.effort == EFFORT[name] and call.tools == tools
     assert "untrusted" in agent.prompt.system_prompt
@@ -61,6 +65,21 @@ def test_fixture_is_synthetic_and_covers_every_knowledge_agent() -> None:
     extract = next(c for c in fixture.cases if c.case_id == "extract-uip-verbatim-spans")
     span = extract.expected["negation_preserved"]
     assert isinstance(span, str) and span in str(extract.input["chunk_text"])
+
+
+def test_v2_fixture_is_synthetic_and_names_real_node_ids() -> None:
+    fixture = load_eval_fixtures(ROOT / "evals" / "fixtures" / "knowledge_v2.json")
+    assert fixture.data_class == "synthetic"
+    for case in fixture.cases:
+        assert case.prompt == "paper_topics/v3.yaml"
+        assert (ROOT / "packages" / "prompts" / case.prompt).is_file()
+        ids: list[Any] = []
+        for key in ("question_node_ids", "question_node_ids_in"):
+            value = case.expected.get(key) or []
+            assert isinstance(value, list)
+            for item in value:
+                ids.extend(item if isinstance(item, list) else [item])
+        assert all(validate_node_id(str(i)) == i for i in ids), ids
 
 
 def test_run_agent_validates_knowledge_output() -> None:

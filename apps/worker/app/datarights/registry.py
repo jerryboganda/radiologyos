@@ -79,6 +79,9 @@ OWNED: tuple[Owned, ...] = (
     Owned("item_stats", "t.user_id = :u", "direct"),
     Owned("grading_jobs", "t.user_id = :u", "direct"),
     Owned("data_jobs", "t.user_id = :u", "exports"),
+    # Tenant curriculum/blueprint decisions carry the deciding user's id (ADR 0023).
+    Owned("curriculum_reviews", "t.decided_by = :u", "direct"),
+    Owned("exam_blueprints", "t.updated_by = :u OR t.approved_by = :u", "direct"),
 )
 
 # Tables that hold no row belonging to a single user.
@@ -97,6 +100,7 @@ DIRECT_DELETE_ORDER: tuple[str, ...] = (
     "card_reviews", "attempts", "exams", "cards", "questions", "study_plans",
     "study_profiles", "tutor_messages", "tutor_threads", "topic_weights",
     "topic_frequencies", "push_subscriptions", "notification_settings",
+    "curriculum_reviews", "exam_blueprints",
 )
 
 

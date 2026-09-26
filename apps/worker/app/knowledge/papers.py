@@ -15,21 +15,25 @@ from uuid import UUID
 from apps.worker.app.ingest.db import as_json, tenant_tx
 from apps.worker.app.knowledge import db
 from apps.worker.app.knowledge.runtime import KnowledgeDeps, call_agent
-from packages.knowledge.curriculum import mapping_status, prompt_listing, system_codes
-from packages.knowledge.models import PaperTopics
+from packages.curriculum.candidates import candidate_listing
+from packages.knowledge.curriculum import mapping_status, node_mapping, system_codes
+from packages.knowledge.models import PaperTopics, PaperTopicsTree
 from packages.knowledge.text import collapse_ws, word_count
 from packages.knowledge.weights import Observation, Weight, compute_weights
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-AGENT = "paper_topics/v1"
+AGENT = "paper_topics/v3"
 THIN_TEXT_WORDS = 20
 
 
-def _prompt(source: dict[str, Any], page: dict[str, Any], with_image: bool) -> str:
+def _prompt(
+    source: dict[str, Any], page: dict[str, Any], with_image: bool, exam_target: str | None
+) -> str:
     image = "The rendered page image is attached; read it.\n" if with_image else ""
+    nodes = candidate_listing([exam_target] if exam_target else None)
     return (
-        f"Allowed curriculum codes:\n{prompt_listing()}\n\nSource title: {source['title']}\n"
+        f"Valid curriculum node ids:\n{nodes}\n\nSource title: {source['title']}\n"
         f"Page: {page['page_no']}\n{image}\nPage text:\n{page['text'][:12000]}"
     )
 
@@ -61,9 +65,10 @@ async def _page(
         files = [(f"page-{page['page_no']:05d}.png", deps.store.get(page["image_key"]))]
     if not files and not page["text"].strip():
         return 0
-    result = call_agent(deps, "paper_topics", _prompt(source, page, bool(files)), files)
+    result = call_agent(deps, "paper_topics",
+                        _prompt(source, page, bool(files), exam_target), files)
     async with tenant_tx(deps.engine, tenant_id) as session:
-        if not isinstance(result, PaperTopics):
+        if not isinstance(result, PaperTopics | PaperTopicsTree):
             await db.record_run(session, tenant_id, source["id"], unit, AGENT, version,
                                 "failed", "model_error")
             return 0
@@ -74,22 +79,38 @@ async def _page(
     return counted
 
 
-def page_counts(result: PaperTopics) -> Counter[tuple[str, str]]:
-    """(curriculum_code, topic) -> questions on the page; unknown codes dropped."""
+def _key(question: Any) -> tuple[str, str] | None:
+    """(system, topic): a node id below system level is the topic, else the free text."""
+    text_topic = collapse_ws(question.topic).lower()[:200]
+    if isinstance(getattr(question, "curriculum_node_id", None), str):
+        found = node_mapping(question.curriculum_node_id, question.confidence)
+        if found is None:
+            return None
+        return found.system, (found.node_id if found.node_id != found.system else text_topic)
+    if mapping_status(question.curriculum_code, question.confidence) is None:
+        return None
+    return question.curriculum_code, text_topic
+
+
+def page_counts(result: PaperTopics | PaperTopicsTree) -> Counter[tuple[str, str]]:
+    """(curriculum_code, topic) -> questions on the page; unknown codes dropped.
+
+    With v3 output the topic is the curriculum node id (topic or subtopic), so
+    topic-level weights line up with the curriculum tree (ADR 0023).
+    """
     counts: Counter[tuple[str, str]] = Counter()
     if not result.is_exam_paper:
         return counts
     for question in result.questions:
-        if mapping_status(question.curriculum_code, question.confidence) is None:
-            continue
-        topic = collapse_ws(question.topic).lower()[:200]
-        counts[(question.curriculum_code, topic)] += 1
+        key = _key(question)
+        if key is not None:
+            counts[key] += 1
     return counts
 
 
 async def _store_counts(
     session: AsyncSession, tenant_id: UUID, source: dict[str, Any], page: dict[str, Any],
-    result: PaperTopics, exam_target: str | None, year: int | None,
+    result: PaperTopics | PaperTopicsTree, exam_target: str | None, year: int | None,
 ) -> int:
     await session.execute(
         text("DELETE FROM topic_frequencies WHERE source_id = :s AND page_no = :p"),

@@ -1,0 +1,13 @@
+{
+  "code": "OBSTETRIC_GYNAECOLOGICAL_US",
+  "title": "Obstetrics and gynaecology",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "EARLY_PREGNANCY", "title": "Early pregnancy", "subtopics": {"VIABILITY": "Viability and failed pregnancy", "ECTOPIC": "Ectopic pregnancy", "GTD": "Gestational trophoblastic disease"}},
+    {"code": "FETAL", "title": "Fetal assessment", "subtopics": {"BIOMETRY": "Biometry and growth", "ANOMALY": "Fetal anomaly scan", "DOPPLER": "Obstetric Doppler"}},
+    {"code": "PLACENTA", "title": "Placenta and cervix", "subtopics": {"PLACENTA": "Placenta praevia and accreta", "CERVIX": "Cervical length"}},
+    {"code": "UTERUS", "title": "Uterus", "subtopics": {"FIBROIDS": "Leiomyoma and adenomyosis", "ENDOMETRIUM": "Endometrial pathology and cancer", "CERVICAL_CANCER": "Cervical cancer staging", "MULLERIAN": "Mullerian anomalies"}},
+    {"code": "OVARY", "title": "Ovary and adnexa", "subtopics": {"CYSTS": "Ovarian cysts and O-RADS", "OVARIAN_TUMOURS": "Ovarian neoplasms", "TORSION_PID": "Torsion and pelvic inflammatory disease", "ENDOMETRIOSIS": "Endometriosis"}},
+    {"code": "INFERTILITY", "title": "Infertility imaging", "subtopics": {"HSG": "Hysterosalpingography and sonohysterography"}}
+  ]
+}

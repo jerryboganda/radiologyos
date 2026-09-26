@@ -1,0 +1,11 @@
+{
+  "code": "EMERGENCY_TRAUMA",
+  "title": "Emergency and trauma",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "POLYTRAUMA", "title": "Polytrauma imaging", "subtopics": {"WBCT": "Whole-body trauma CT", "FAST": "FAST ultrasound"}},
+    {"code": "THORACOABDOMINAL", "title": "Thoracoabdominal trauma", "subtopics": {"SOLID_ORGAN": "Solid organ injury grading", "BOWEL_MESENTERY": "Bowel and mesenteric injury", "AORTIC_INJURY": "Traumatic aortic injury"}},
+    {"code": "SKELETAL", "title": "Skeletal trauma", "subtopics": {"CSPINE": "Cervical spine injury", "PELVIS": "Pelvic and acetabular fractures", "UPPER_LIMB": "Upper limb fractures", "LOWER_LIMB": "Lower limb fractures"}},
+    {"code": "NON_TRAUMA", "title": "Non-traumatic emergencies", "subtopics": {"ACUTE_ABDOMEN": "Acute abdomen on radiograph and CT", "ACUTE_CHEST": "Acute chest", "ACUTE_NEURO": "Acute neurology"}}
+  ]
+}
