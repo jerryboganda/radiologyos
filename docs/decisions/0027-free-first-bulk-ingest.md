@@ -16,7 +16,7 @@ residency and training use are not a concern: quality and zero cost are.
    keeps the stored native blocks and skips any model for pages that pass all of
    these checks:
    - pdf-inspector (a new MIT-licensed, local Rust dependency) finds a real,
-     decodable text layer with no OCR need and no table;
+     decodable, single-column text layer with no OCR need and no table (two-column pages go to vision, because the stored native text reads straight across columns);
    - pdfium finds no raster picture covering 2% or more of the page;
    - the page has at least 200 characters of native text.
 

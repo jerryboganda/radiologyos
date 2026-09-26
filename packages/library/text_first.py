@@ -2,8 +2,10 @@
 
 A page skips vision only when all of these hold:
 
-* pdf-inspector finds a real, decodable text layer: the page is not routed to
-  OCR, has no table, and the document has no font-encoding problems;
+* pdf-inspector finds a real, decodable, single-column text layer: the page
+  is not routed to OCR, has no table and no multi-column layout (the stored
+  native blocks read straight across, which would interleave columns), and the
+  document has no font-encoding problems;
 * pdfium finds no raster picture covering ``MAX_PICTURE_SHARE`` of the page
   (radiology images, photos, scanned figures);
 * the stored native text has at least ``MIN_CHARS`` characters.
@@ -33,7 +35,8 @@ def text_only_pages(pdf_bytes: bytes, native_chars: Mapping[int, int]) -> set[in
         return set()
     if getattr(report, "has_encoding_issues", True):
         return set()
-    flagged = set(report.pages_needing_ocr or ()) | set(report.pages_with_tables or ())
+    flagged = (set(report.pages_needing_ocr or ()) | set(report.pages_with_tables or ())
+               | set(report.pages_with_columns or ()))
     candidates -= flagged
     try:
         return candidates - pages_with_pictures(pdf_bytes, candidates)
