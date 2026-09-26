@@ -1,9 +1,10 @@
 <script lang="ts">
-  import CitationChip from '$lib/components/CitationChip.svelte';
-  import ComingOnline from '$lib/components/ComingOnline.svelte';
+  import ConflictCard from '$lib/components/knowledge/ConflictCard.svelte';
+  import ExtractForm from '$lib/components/knowledge/ExtractForm.svelte';
+  import TopicWeights from '$lib/components/knowledge/TopicWeights.svelte';
+  import LoadIssue from '$lib/components/LoadIssue.svelte';
   import Notice from '$lib/components/Notice.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import TopicWeightRow from '$lib/components/TopicWeightRow.svelte';
   import type { ActionData, PageData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -14,66 +15,75 @@
 <PageHeader
   eyebrow="Knowledge"
   title="What your sources say"
-  description="Concepts extracted from your library, places where sources disagree, and the topic weights that shape your plan."
+  description="Concepts and cited claims extracted from your library, places where sources disagree, and the topic weights that shape your plan."
 />
 
-{#if form?.error}<div class="mb-5"><Notice tone="warn">{form.error}</Notice></div>{/if}
+{#snippet feedback(section: string)}
+  {#if form?.section === section}
+    <div class="mb-3">
+      {#if 'error' in form && form.error}<Notice tone="warn">{form.error}</Notice>{:else if 'message' in form && form.message}<Notice tone="ok">{form.message}</Notice>{/if}
+    </div>
+  {/if}
+{/snippet}
 
-<div class="flex flex-col gap-8">
-  <section aria-labelledby="weights-heading">
-    <h2 id="weights-heading" class="mb-3 text-xl font-semibold text-ink">Topic weights</h2>
-    {#if data.weights === null}
-      <ComingOnline compact title="Topic weights coming online" description="Proposed curriculum weights will wait here for your approval — nothing changes your plan without it." endpoints={['/v1/knowledge/topic-weights']} icon="progress" />
-    {:else if data.weights.length === 0}
-      <p class="text-sm text-muted">No weights proposed.</p>
+<div class="flex flex-col gap-10">
+  <section aria-labelledby="concepts-heading">
+    <h2 id="concepts-heading" class="mb-3 text-xl font-semibold text-ink">Concepts</h2>
+    <form method="GET" class="mb-4 flex gap-2" role="search">
+      {#if data.target}<input type="hidden" name="target" value={data.target} />{/if}
+      <label for="concept-q" class="sr-only">Search concepts</label>
+      <input id="concept-q" name="q" value={data.q ?? ''} maxlength="200" placeholder="e.g. pneumothorax" class="field max-w-md" />
+      <button class="btn btn-ghost" type="submit">Search</button>
+    </form>
+    {#if data.conceptsProblem}
+      <LoadIssue compact problem={data.conceptsProblem} title="Concepts are unreachable" icon="knowledge" />
+    {:else if data.concepts.length === 0}
+      <p class="text-sm text-muted">{data.q ? 'No concepts match.' : 'No concepts extracted yet. Extract a source below.'}</p>
     {:else}
-      <ul class="panel divide-y divide-line px-5">
-        {#each data.weights as weight (weight.id)}<TopicWeightRow {weight} />{/each}
+      <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {#each data.concepts as concept (concept.id)}
+          <li>
+            <a href="/knowledge/{concept.id}" class="block rounded-xl border border-line bg-surface px-4 py-3 hover:border-accent">
+              <span class="block font-medium text-ink">{concept.name}</span>
+              <span class="label mt-0.5 block">
+                {concept.concept_type}{concept.curriculum_code ? ` · ${concept.curriculum_code}` : ''} · {concept.claim_count} claims{concept.open_conflicts ? ` · ${concept.open_conflicts} conflicts` : ''}
+              </span>
+            </a>
+          </li>
+        {/each}
       </ul>
     {/if}
   </section>
 
   <section aria-labelledby="conflicts-heading">
-    <h2 id="conflicts-heading" class="mb-3 text-xl font-semibold text-ink">Source conflicts</h2>
-    {#if data.conflicts === null}
-      <ComingOnline compact title="Conflict detection coming online" description="When two sources disagree (e.g. a size threshold), both claims appear side by side with citations." endpoints={['/v1/knowledge/conflicts']} icon="alert" />
+    <h2 id="conflicts-heading" class="mb-3 text-xl font-semibold text-ink">Open source conflicts</h2>
+    {@render feedback('resolve')}
+    {#if data.conflictsProblem}
+      <LoadIssue compact problem={data.conflictsProblem} title="Conflicts are unreachable" icon="alert" />
     {:else if data.conflicts.length === 0}
-      <p class="text-sm text-muted">No conflicts found between your sources.</p>
+      <p class="text-sm text-muted">No open conflicts between your sources.</p>
     {:else}
       <ul class="flex flex-col gap-4">
-        {#each data.conflicts as conflict (conflict.id)}
-          <li class="panel p-5">
-            <p class="label">{conflict.concept} · {conflict.status}</p>
-            <p class="mt-1 font-medium text-ink">{conflict.summary}</p>
-            <div class="mt-3 grid gap-3 sm:grid-cols-2">
-              {#each conflict.claims as claim, i (i)}
-                <blockquote class="rounded-xl border-l-2 border-warn bg-surface-2/60 p-3 text-sm text-ink-2">
-                  <p>{claim.text}</p>
-                  <div class="mt-2"><CitationChip citation={claim.citation} /></div>
-                </blockquote>
-              {/each}
-            </div>
-          </li>
-        {/each}
+        {#each data.conflicts as conflict (conflict.id)}<ConflictCard {conflict} />{/each}
       </ul>
     {/if}
   </section>
 
-  <section aria-labelledby="concepts-heading">
-    <h2 id="concepts-heading" class="mb-3 text-xl font-semibold text-ink">Concepts</h2>
-    {#if data.concepts === null}
-      <ComingOnline compact title="Concept map coming online" description="Concepts and claims extracted from your sources will be browsable here." endpoints={['/v1/knowledge/concepts']} icon="knowledge" />
-    {:else if data.concepts.length === 0}
-      <p class="text-sm text-muted">No concepts extracted yet.</p>
+  <section aria-labelledby="weights-heading">
+    <h2 id="weights-heading" class="mb-1 text-xl font-semibold text-ink">Topic weights</h2>
+    <p class="mb-3 text-sm text-ink-2">Computed from past papers. Nothing changes your plan until you approve it.</p>
+    {@render feedback('weights')}
+    {#if data.weightsProblem}
+      <LoadIssue compact problem={data.weightsProblem} title="Topic weights are unreachable" icon="progress" />
     {:else}
-      <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {#each data.concepts as concept (concept.id)}
-          <li class="rounded-xl border border-line bg-surface px-4 py-3">
-            <p class="font-medium text-ink">{concept.name}</p>
-            <p class="label mt-0.5">{concept.topic ?? 'general'} · {concept.claim_count} claims · {concept.source_count} sources</p>
-          </li>
-        {/each}
-      </ul>
+      <TopicWeights weights={data.weights} target={data.target} />
     {/if}
+  </section>
+
+  <section aria-labelledby="extract-heading">
+    <h2 id="extract-heading" class="mb-1 text-xl font-semibold text-ink">Extract knowledge from a source</h2>
+    <p class="mb-3 text-sm text-ink-2">Notes yield concepts and cited claims; past papers also yield topic weights.</p>
+    {@render feedback('extract')}
+    <ExtractForm sources={data.sources} />
   </section>
 </div>

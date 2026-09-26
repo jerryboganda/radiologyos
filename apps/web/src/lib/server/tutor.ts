@@ -1,23 +1,13 @@
-// Tutor API client (planned: /v1/tutor/*).
+// Tutor API client (apps/api/app/api/tutor.py).
 import type { RequestEvent } from '@sveltejs/kit';
-import type { TutorAnswer, TutorThread, TutorThreadDetail } from '$lib/types/tutor';
+import type { AskRequest, AskResponse, ThreadDetail, ThreadSummary } from '$lib/types/tutor';
 import { getJson, sendJson } from './client';
 
-export const listThreads = (event: RequestEvent) => getJson<TutorThread[]>(event, '/v1/tutor/threads');
+export const listThreads = (event: RequestEvent) => getJson<ThreadSummary[]>(event, '/v1/tutor/threads');
 
 export const getThread = (event: RequestEvent, id: string) =>
-  getJson<TutorThreadDetail>(event, `/v1/tutor/threads/${encodeURIComponent(id)}`);
+  getJson<ThreadDetail>(event, `/v1/tutor/threads/${encodeURIComponent(id)}`);
 
-export const ask = (
-  event: RequestEvent,
-  question: string,
-  threadId: string | null,
-  allowWeb: boolean
-) =>
-  sendJson<TutorAnswer>(
-    event,
-    '/v1/tutor/ask',
-    'POST',
-    { question, thread_id: threadId, allow_web: allowWeb },
-    { timeoutMs: 120_000 }
-  );
+/** Synchronous and model-backed: can take minutes (503 not configured, 429 usage, 502 retry). */
+export const ask = (event: RequestEvent, body: AskRequest) =>
+  sendJson<AskResponse>(event, '/v1/tutor/ask', 'POST', body, { timeoutMs: 300_000 });

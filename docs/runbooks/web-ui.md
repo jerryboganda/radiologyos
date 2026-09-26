@@ -29,16 +29,44 @@ HTTP 413). Split the file or upload from the local network.
 ## Routes
 
 - `/` Today (sign-in screen when signed out), `/library`, `/library/{id}?page=N&block=M`
-  (reader, deep links), `/search?q=`, `/tutor`, `/questions`, `/exams`, `/knowledge`,
+  (reader, deep links), `/search?q=`, `/tutor?thread={id}`, `/questions`, `/exams`,
+  `/exams/{id}` (exam screen / results), `/knowledge`, `/knowledge/{concept}`,
   `/progress`, `/settings`.
 - Server-only proxies: `POST /library/upload`, `GET /media/pages/{id}/{n}`,
-  `GET /media/figures/{id}`, `POST|DELETE /settings/push`.
+  `GET /media/figures/{id}`, `POST|DELETE /settings/push` (`POST ?test` sends a test
+  push), `GET|PUT|POST /exams/{id}/session` (exam reload, autosave, submit).
+
+## API contracts
+
+Types in `src/lib/types/*.ts` mirror `docs/openapi.json`; server clients live in
+`src/lib/server/{tutor,study,assessment,knowledge,notifications,library}.ts` and
+all go through `apiFetch`. Error mapping (`src/lib/api-state.ts`):
+
+| API answer | UI state |
+| --- | --- |
+| no response / gateway error without a JSON `detail` | "Coming online" (network) |
+| 503 (model runtime / VAPID not configured) | "AI is not configured on this server" |
+| 429, or 503 whose detail mentions the usage limit | "AI usage window reached, try later" |
+| 502 | "The AI model call failed, try again" |
+| 409 on `/v1/study/today`, 404 on `/v1/study/profile` | onboarding (exam date first) |
+| 409 on a question attempt | "finish your open exam first" |
+| other 4xx | the API's `detail` |
+
+Exams: the timer uses the server's `deadline_at` corrected by `server_time`.
+Answers autosave (debounced 800 ms) with the exam `revision`; a 409
+`stale_revision` reloads the exam, re-applies this tab's unsaved edits, and
+retries. At zero the screen submits; the server grades expired exams on read.
+The API has no "list my exams" route, so `/exams` remembers the exam IDs this
+browser created in an httpOnly cookie (`radbrain_exams`, IDs only).
 - `/offline` is prerendered static HTML served by the service worker when offline.
 
 ## Troubleshooting
 
-- **A page shows "Coming online".** The planned API endpoint returned
-  404/405/5xx or was unreachable. Deploy that service; no web change is needed.
+- **A page shows "Coming online".** The web server could not reach the API
+  (network error or a proxy 502/503/504 without a FastAPI body). Check
+  `API_INTERNAL_URL` and the API container.
+- **"AI is not configured on this server".** The API answered 503: the model
+  runtime (Claude Code CLI) is missing on the API host.
 - **Upload fails with 413 immediately.** Check `BODY_SIZE_LIMIT` on the web
   container, then Cloudflare (100 MB) and the API cap (300 MiB).
 - **Page images fail to load.** `/media/*` returns 401 without a session and 404
@@ -46,6 +74,7 @@ HTTP 413). Split the file or upload from the local network.
 - **Stale UI after a deploy.** The service worker caches only hashed
   `/_app/immutable/*` assets; bump `CACHE` in `static/service-worker.js` if the
   precache list changes.
-- **Push reminders.** Needs the API's `/v1/notifications/vapid-public-key`. On
-  iOS, the PWA must be installed to the Home Screen first. Payloads must never
-  contain source text.
+- **Push reminders.** Needs `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` on the API
+  (`/v1/notifications/vapid-public-key` reports `enabled`). On iOS, the PWA must
+  be installed to the Home Screen first. "Send test notification" reports how many
+  devices accepted it. Payloads must never contain source text.

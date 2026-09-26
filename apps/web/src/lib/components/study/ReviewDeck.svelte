@@ -1,18 +1,23 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import CitationChip from '$lib/components/CitationChip.svelte';
-  import type { DueCard, Rating } from '$lib/types/study';
+  import Notice from '$lib/components/Notice.svelte';
+  import type { CardOut, Rating } from '$lib/types/study';
 
-  let { cards, total }: { cards: DueCard[]; total: number } = $props();
+  let {
+    cards,
+    error = null,
+    scheduledDays = null
+  }: { cards: CardOut[]; error?: string | null; scheduledDays?: number | null } = $props();
   let revealed = $state(false);
   let sending = $state(false);
   let card = $derived(cards[0] ?? null);
 
-  const BUTTONS: { rating: Rating; label: string; hint: string; tone: string }[] = [
-    { rating: 'again', label: 'Again', hint: '<1 d', tone: 'border-danger/40 text-danger hover:bg-danger-soft' },
-    { rating: 'hard', label: 'Hard', hint: 'sooner', tone: 'border-warn/40 text-warn hover:bg-warn-soft' },
-    { rating: 'good', label: 'Good', hint: 'on time', tone: 'border-ok/40 text-ok hover:bg-ok-soft' },
-    { rating: 'easy', label: 'Easy', hint: 'later', tone: 'border-info/40 text-info hover:bg-info-soft' }
+  const BUTTONS: { rating: Rating; label: string; tone: string }[] = [
+    { rating: 1, label: 'Again', tone: 'border-danger/40 text-danger hover:bg-danger-soft' },
+    { rating: 2, label: 'Hard', tone: 'border-warn/40 text-warn hover:bg-warn-soft' },
+    { rating: 3, label: 'Good', tone: 'border-ok/40 text-ok hover:bg-ok-soft' },
+    { rating: 4, label: 'Easy', tone: 'border-info/40 text-info hover:bg-info-soft' }
   ];
 
   $effect(() => {
@@ -21,23 +26,25 @@
   });
 </script>
 
-<section class="panel p-5 sm:p-6" aria-labelledby="review-heading">
+<section id="review" class="panel p-5 sm:p-6" aria-labelledby="review-heading">
   <div class="flex items-baseline justify-between gap-3">
     <h2 id="review-heading" class="text-xl font-semibold text-ink">Review</h2>
-    <p class="label">{total} due</p>
+    <p class="label">{cards.length}{cards.length >= 50 ? '+' : ''} due</p>
   </div>
+  {#if scheduledDays !== null}
+    <p class="mt-1 text-xs text-muted">Last card scheduled in {scheduledDays} day{scheduledDays === 1 ? '' : 's'}.</p>
+  {/if}
+  {#if error}<div class="mt-3"><Notice tone="warn">{error}</Notice></div>{/if}
   {#if !card}
-    <p class="mt-6 text-center text-sm text-muted">All caught up. New cards arrive as your sources are processed.</p>
+    <p class="mt-6 text-center text-sm text-muted">All caught up. Generate cards from a source to add more.</p>
   {:else}
     <div class="mt-4 rounded-xl border border-line bg-surface-2/50 p-5">
-      {#if card.topic}<p class="label mb-2">{card.topic}</p>{/if}
+      <p class="label mb-2"><span class="font-mono">{card.curriculum_code}</span> · {card.topic}</p>
       <p class="font-display text-lg leading-snug text-ink">{card.front}</p>
       {#if revealed}
         <hr class="my-4 border-line" />
         <p class="text-[0.9375rem] leading-relaxed text-ink-2">{card.back}</p>
-        <div class="mt-3 flex flex-wrap gap-1.5">
-          {#each card.citations as citation, i (i)}<CitationChip {citation} />{/each}
-        </div>
+        <div class="mt-3"><CitationChip citation={card.citation} /></div>
       {/if}
     </div>
     {#if !revealed}
@@ -57,8 +64,8 @@
       >
         <input type="hidden" name="card_id" value={card.id} />
         {#each BUTTONS as b (b.rating)}
-          <button type="submit" name="rating" value={b.rating} disabled={sending} class="btn flex-col gap-0 border bg-surface px-1 py-2 {b.tone}">
-            <span>{b.label}</span><span class="font-mono text-[0.625rem] font-normal opacity-80">{b.hint}</span>
+          <button type="submit" name="rating" value={b.rating} disabled={sending} class="btn border bg-surface px-1 py-2 {b.tone}">
+            {b.label}
           </button>
         {/each}
       </form>

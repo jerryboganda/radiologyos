@@ -1,12 +1,15 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import ComingOnline from '$lib/components/ComingOnline.svelte';
   import Notice from '$lib/components/Notice.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
+  import { formatDate } from '$lib/format';
+  import { EXAM_TARGETS } from '$lib/types/study';
   import type { ActionData, PageData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+  let mode = $state<'exam' | 'practice'>('exam');
+  let creating = $state(false);
 </script>
 
 <svelte:head><title>Exams · radbrain</title></svelte:head>
@@ -14,44 +17,80 @@
 <PageHeader
   eyebrow="Exams"
   title="Timed mock exams"
-  description="Full-length, timed papers in the FCPS-II format. Autosaved as you go; results broken down by topic, with citations for every answer."
+  description="Papers are assembled from your checked SBA questions. The server keeps the clock, answers autosave as you go, and results break down by topic with cited keys."
 />
 
-{#if form?.error}<div class="mb-5"><Notice tone="warn">{form.error}</Notice></div>{/if}
-
-{#if data.detail}
-  <Notice tone="danger">{data.detail}</Notice>
-{:else if !data.online}
-  <ComingOnline
-    title="Mock exams are coming online"
-    description="Timed papers with autosave and cited explanations will appear here once the exam service is deployed."
-    endpoints={['/v1/exams', '/v1/exams/{id}/start']}
-    icon="exams"
-  />
-{:else if data.exams.length === 0}
-  <div class="panel px-6 py-12 text-center">
-    <p class="font-display text-xl text-ink">No mock exams yet.</p>
-    <p class="mt-2 text-sm text-muted">Mocks are assembled once enough cited questions exist across the blueprint.</p>
-  </div>
-{:else}
-  <ul class="grid gap-4 sm:grid-cols-2">
-    {#each data.exams as exam (exam.id)}
-      <li class="panel flex flex-col p-5">
-        <div class="flex items-start justify-between gap-3">
-          <h2 class="text-lg font-semibold text-ink">{exam.title}</h2>
-          <StatusBadge status={exam.status} />
+<div class="flex flex-col gap-8">
+  <section class="panel p-5 sm:p-6" aria-labelledby="new-heading">
+    <h2 id="new-heading" class="text-xl font-semibold text-ink">Start a paper</h2>
+    <form
+      method="POST"
+      action="?/create"
+      class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      use:enhance={() => {
+        creating = true;
+        return async ({ update }) => {
+          await update();
+          creating = false;
+        };
+      }}
+    >
+      <fieldset class="sm:col-span-2 lg:col-span-3">
+        <legend class="label">Mode</legend>
+        <div class="mt-1.5 flex gap-2">
+          {#each [['exam', 'Timed exam'], ['practice', 'Untimed practice']] as [value, label] (value)}
+            <label class="cursor-pointer rounded-lg border border-line px-3 py-2 text-sm text-ink-2 has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:text-ink">
+              <input type="radio" name="mode" {value} bind:group={mode} class="sr-only" />{label}
+            </label>
+          {/each}
         </div>
-        <p class="label mt-2">{exam.kind} · {exam.question_count} questions · {exam.minutes} min</p>
-        {#if exam.status === 'submitted' && exam.score != null}
-          <p class="mt-3 font-display text-3xl text-ink">{Math.round(exam.score * 100)}<span class="text-base text-muted">% scored</span></p>
-        {/if}
-        <form method="POST" action="?/start" use:enhance class="mt-auto pt-4">
-          <input type="hidden" name="exam_id" value={exam.id} />
-          {#if exam.status !== 'submitted'}
-            <button class="btn btn-primary" type="submit">{exam.status === 'in_progress' ? 'Resume' : 'Start'}</button>
-          {/if}
-        </form>
-      </li>
-    {/each}
-  </ul>
-{/if}
+      </fieldset>
+      <label class="block">
+        <span class="label">Exam</span>
+        <select name="exam_target" class="field mt-1.5">
+          <option value="">Any</option>
+          {#each EXAM_TARGETS as target (target.value)}<option value={target.value}>{target.label}</option>{/each}
+        </select>
+      </label>
+      <label class="block">
+        <span class="label">Topic (optional)</span>
+        <input name="topic" maxlength="200" class="field mt-1.5" />
+      </label>
+      <label class="block">
+        <span class="label">Questions</span>
+        <input name="count" type="number" min="1" max="200" value="20" required class="field mt-1.5 font-mono" />
+      </label>
+      {#if mode === 'exam'}
+        <label class="block">
+          <span class="label">Time limit (minutes)</span>
+          <input name="time_limit_minutes" type="number" min="1" max="300" value="30" required class="field mt-1.5 font-mono" />
+        </label>
+      {/if}
+      <div class="flex items-end sm:col-span-2 lg:col-span-3">
+        <button class="btn btn-primary" type="submit" disabled={creating}>{creating ? 'Assembling…' : 'Start'}</button>
+      </div>
+    </form>
+    {#if form?.error}<div class="mt-4"><Notice tone="warn">{form.error}</Notice></div>{/if}
+  </section>
+
+  <section aria-labelledby="recent-heading">
+    <h2 id="recent-heading" class="mb-3 text-xl font-semibold text-ink">Recent on this device</h2>
+    {#if data.exams.length === 0}
+      <p class="text-sm text-muted">No exams yet. Generate SBA questions first, then start a paper.</p>
+    {:else}
+      <ul class="grid gap-3 sm:grid-cols-2">
+        {#each data.exams as exam (exam.id)}
+          <li>
+            <a href="/exams/{exam.id}" class="panel flex items-center justify-between gap-3 p-4 hover:border-accent">
+              <span>
+                <span class="block font-medium text-ink">{exam.mode === 'practice' ? 'Practice set' : 'Timed exam'} · {exam.questions} questions</span>
+                <span class="label">{formatDate(exam.started_at)}{exam.percent !== null ? ` · ${exam.percent}%` : ''}</span>
+              </span>
+              <StatusBadge status={exam.status} />
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+</div>

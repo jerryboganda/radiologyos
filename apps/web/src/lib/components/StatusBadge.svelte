@@ -11,7 +11,11 @@
     running: 'bg-warn-soft text-warn',
     in_progress: 'bg-warn-soft text-warn',
     proposed: 'bg-info-soft text-info',
-    open: 'bg-info-soft text-info'
+    open: 'bg-info-soft text-info',
+    active: 'bg-warn-soft text-warn',
+    submitted: 'bg-ok-soft text-ok',
+    resolved: 'bg-ok-soft text-ok',
+    pending: 'bg-info-soft text-info'
   };
   let tone = $derived(TONES[status] ?? 'bg-surface-2 text-muted');
 </script>

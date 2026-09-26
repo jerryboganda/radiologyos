@@ -1,12 +1,10 @@
-// Typed JSON calls over apiFetch (the only path to the API). Network failures
-// and undeployed endpoints become `offline` so pages can degrade gracefully.
+// Typed JSON calls over apiFetch (the only path to the API). Only genuine
+// network failures become `offline`; API answers are classified by kind.
 import type { RequestEvent } from '@sveltejs/kit';
-import { classifyFailure, errorDetail, type ApiResult } from '$lib/api-state';
+import { bodyDetail, classifyFailure, failureText, type ApiResult } from '$lib/api-state';
 import { apiFetch } from './api';
 
 export interface CallOptions {
-  /** A 404 means "that record does not exist", not "endpoint not deployed". */
-  notFoundIsError?: boolean;
   timeoutMs?: number;
 }
 
@@ -33,8 +31,8 @@ export async function apiJson<T>(
     body = null;
   }
   if (response.ok) return { state: 'ok', data: body as T };
-  const detail = errorDetail(body, `Request failed (${response.status})`);
-  return classifyFailure(response.status, detail, options.notFoundIsError);
+  const detail = bodyDetail(body);
+  return classifyFailure(response.status, detail ?? `Request failed (${response.status})`, detail !== null);
 }
 
 export function getJson<T>(event: RequestEvent, path: string, options?: CallOptions) {
@@ -56,16 +54,17 @@ export function sendJson<T>(
   return apiJson<T>(event, path, init, options);
 }
 
-/** A form-action-friendly message for a failed mutation. */
-export function failureMessage(result: ApiResult<unknown>, offline: string): string {
-  switch (result.state) {
-    case 'ok':
-      return '';
-    case 'offline':
-      return offline;
-    case 'signed_out':
-      return 'Your session has expired. Sign in again.';
-    case 'error':
-      return result.detail;
+/** A form-action-friendly message for a failed mutation ('' when it succeeded). */
+export function failureMessage(result: ApiResult<unknown>): string {
+  return result.state === 'ok' ? '' : failureText(result);
+}
+
+/** Build a query string from defined, non-empty values. */
+export function query(params: Record<string, string | number | null | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined && value !== '') search.set(key, String(value));
   }
+  const text = search.toString();
+  return text ? `?${text}` : '';
 }

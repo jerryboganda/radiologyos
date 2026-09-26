@@ -37,15 +37,15 @@ export async function listSources(event: RequestEvent): Promise<ApiResult<Source
 }
 
 export function sourceDetail(event: RequestEvent, id: string) {
-  return getJson<SourceDetail>(event, `${LIB}/sources/${id}`, { notFoundIsError: true });
+  return getJson<SourceDetail>(event, `${LIB}/sources/${id}`);
 }
 
 export function readPage(event: RequestEvent, id: string, page: number) {
-  return getJson<ReaderPage>(event, `${LIB}/sources/${id}/pages/${page}`, { notFoundIsError: true });
+  return getJson<ReaderPage>(event, `${LIB}/sources/${id}/pages/${page}`);
 }
 
 export function deleteSource(event: RequestEvent, id: string) {
-  return sendJson<void>(event, `${LIB}/sources/${id}`, 'DELETE', undefined, { notFoundIsError: true });
+  return sendJson<void>(event, `${LIB}/sources/${id}`, 'DELETE');
 }
 
 export function searchLibrary(event: RequestEvent, query: string, limit = 12) {

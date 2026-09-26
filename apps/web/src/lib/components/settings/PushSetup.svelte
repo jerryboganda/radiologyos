@@ -2,7 +2,7 @@
   import Notice from '$lib/components/Notice.svelte';
   import { base64UrlToBytes } from '$lib/push';
 
-  let { vapidKey }: { vapidKey: string | null } = $props();
+  let { vapidKey, pushEnabled }: { vapidKey: string | null; pushEnabled: boolean } = $props();
 
   type Status = 'checking' | 'unsupported' | 'needs-install' | 'blocked' | 'off' | 'on';
   let status = $state<Status>('checking');
@@ -28,15 +28,21 @@
     status = (await reg.pushManager.getSubscription()) ? 'on' : 'off';
   }
 
-  async function call(method: 'POST' | 'DELETE', body: unknown, query = ''): Promise<string | null> {
-    const response = await fetch(`/settings/push${query}`, {
-      method,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    if (response.ok) return null;
-    const detail = ((await response.json().catch(() => null)) as { detail?: string } | null)?.detail;
-    return detail ?? `Request failed (${response.status}).`;
+  type Reply = { error: string | null; body: { sent?: number; removed?: number } | null };
+
+  async function call(method: 'POST' | 'DELETE', body: unknown, query = ''): Promise<Reply> {
+    try {
+      const response = await fetch(`/settings/push${query}`, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const json = (await response.json().catch(() => null)) as { detail?: string; sent?: number; removed?: number } | null;
+      if (response.ok) return { error: null, body: json };
+      return { error: json?.detail ?? `Request failed (${response.status}).`, body: null };
+    } catch {
+      return { error: 'Can’t reach radbrain right now. Try again.', body: null };
+    }
   }
 
   async function enable() {
@@ -47,7 +53,7 @@
       if ((await Notification.requestPermission()) !== 'granted') return void (status = 'blocked');
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(vapidKey) });
-      const error = await call('POST', sub.toJSON());
+      const { error } = await call('POST', sub.toJSON());
       if (error) {
         await sub.unsubscribe();
         message = { tone: 'warn', text: error };
@@ -65,7 +71,7 @@
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
     if (sub) {
-      await call('DELETE', sub.toJSON());
+      await call('DELETE', { endpoint: sub.endpoint });
       await sub.unsubscribe();
     }
     busy = false;
@@ -74,8 +80,13 @@
   }
 
   async function test() {
-    const error = await call('POST', {}, '?test');
-    message = error ? { tone: 'warn', text: error } : { tone: 'ok', text: 'Test notification sent.' };
+    busy = true;
+    const { error, body } = await call('POST', {}, '?test');
+    busy = false;
+    const sent = body?.sent ?? 0;
+    if (error) message = { tone: 'warn', text: error };
+    else if (sent === 0) message = { tone: 'warn', text: 'No subscribed device accepted the test. Enable push on this device first.' };
+    else message = { tone: 'ok', text: `Test notification sent to ${sent} device${sent === 1 ? '' : 's'}.` };
   }
 </script>
 
@@ -86,19 +97,19 @@
     <Notice tone="warn">This browser does not support push notifications.</Notice>
   {:else if status === 'blocked'}
     <Notice tone="warn">Notifications are blocked for this site. Allow them in your browser’s site settings, then reload.</Notice>
-  {:else if !vapidKey}
-    <Notice tone="info">Push delivery is coming online (the API has no <code class="font-mono">/v1/notifications/vapid-public-key</code> yet). Your reminder time is still saved when that service is live.</Notice>
+  {:else if !vapidKey || !pushEnabled}
+    <Notice tone="info">Push is not configured on this server yet (no VAPID keys). Your reminder settings are still saved.</Notice>
   {/if}
   <div class="flex flex-wrap items-center gap-2">
     {#if status === 'on'}
       <span class="font-mono text-xs text-ok">● ON FOR THIS DEVICE</span>
       <button type="button" class="btn btn-ghost min-h-9 py-1.5" onclick={disable} disabled={busy}>Turn off</button>
-      <button type="button" class="btn btn-ghost min-h-9 py-1.5" onclick={test} disabled={busy}>Send test</button>
     {:else}
-      <button type="button" class="btn btn-primary" onclick={enable} disabled={busy || status !== 'off' || !vapidKey}>
+      <button type="button" class="btn btn-primary" onclick={enable} disabled={busy || status !== 'off' || !vapidKey || !pushEnabled}>
         Enable push on this device
       </button>
     {/if}
+    <button type="button" class="btn btn-ghost min-h-9 py-1.5" onclick={test} disabled={busy || !pushEnabled}>Send test notification</button>
   </div>
   {#if message}<Notice tone={message.tone}>{message.text}</Notice>{/if}
 </div>

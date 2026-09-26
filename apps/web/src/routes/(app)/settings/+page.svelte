@@ -5,10 +5,13 @@
   import PushSetup from '$lib/components/settings/PushSetup.svelte';
   import ReminderForm from '$lib/components/settings/ReminderForm.svelte';
   import ThemeToggle from '$lib/components/shell/ThemeToggle.svelte';
+  import LoadIssue from '$lib/components/LoadIssue.svelte';
+  import { EXAM_TARGETS } from '$lib/types/study';
   import type { ActionData, PageData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
   let timezone = $state('');
+  let targets = $derived(data.profile?.exam_targets ?? ['fcps2_theory']);
   $effect(() => {
     timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   });
@@ -35,24 +38,32 @@
 
   <section class="panel p-5 sm:p-6" aria-labelledby="profile-heading">
     <h2 id="profile-heading" class="text-xl font-semibold text-ink">Study profile</h2>
-    <form method="POST" action="?/profile" use:enhance class="mt-4 grid gap-4 sm:grid-cols-3">
-      <label class="block sm:col-span-3">
-        <span class="label">Exam</span>
-        <input name="exam_name" value={data.profile?.exam_name ?? 'FCPS-II Radiology'} maxlength="120" class="field mt-1.5" />
-      </label>
+    <form method="POST" action="?/profile" use:enhance={() => async ({ update }) => update({ reset: false })} class="mt-4 grid gap-4 sm:grid-cols-3">
       <label class="block">
         <span class="label">Exam date</span>
         <input name="exam_date" type="date" required value={data.profile?.exam_date ?? ''} class="field mt-1.5 font-mono" />
       </label>
       <label class="block">
         <span class="label">Minutes per day</span>
-        <input name="daily_minutes" type="number" min="15" max="600" step="15" required value={data.profile?.daily_minutes ?? 90} class="field mt-1.5 font-mono" />
+        <input name="daily_minutes" type="number" min="15" max="600" step="5" required value={data.profile?.daily_minutes ?? 90} class="field mt-1.5 font-mono" />
       </label>
+      <fieldset class="sm:col-span-3">
+        <legend class="label">Exams</legend>
+        <div class="mt-1.5 flex flex-wrap gap-2">
+          {#each EXAM_TARGETS as target (target.value)}
+            <label
+              class="cursor-pointer rounded-lg border border-line px-3 py-2 text-sm text-ink-2 has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:text-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--focus)]"
+            >
+              <input type="checkbox" name="exam_targets" value={target.value} checked={targets.includes(target.value)} class="sr-only" />{target.label}
+            </label>
+          {/each}
+        </div>
+      </fieldset>
       <input type="hidden" name="timezone" value={timezone} />
-      <div class="flex items-end"><button class="btn btn-primary w-full" type="submit">Save profile</button></div>
+      <div class="sm:col-span-3"><button class="btn btn-primary" type="submit">Save profile</button></div>
     </form>
     {#if !data.profile}
-      <p class="mt-3 text-xs text-warn">TODO (API): <code class="font-mono">/v1/study/profile</code> is not deployed yet; saving reports that nothing was stored.</p>
+      <p class="mt-3 text-xs text-muted">No study profile yet: saving here sets your exam date, the same as onboarding on Today.</p>
     {/if}
     {@render feedback('profile')}
   </section>
@@ -60,11 +71,15 @@
   <section class="panel p-5 sm:p-6" aria-labelledby="reminders-heading">
     <h2 id="reminders-heading" class="text-xl font-semibold text-ink">Reminders</h2>
     <p class="mt-1 mb-4 text-sm text-ink-2">A short nudge at the time you usually study. Notifications never contain your notes or source text.</p>
-    <ReminderForm prefs={data.reminders} online={data.reminders !== null} />
+    {#if data.settingsProblem}
+      <LoadIssue compact problem={data.settingsProblem} title="Reminder settings are unreachable" icon="bell" />
+    {:else}
+      <ReminderForm settings={data.settings} />
+    {/if}
     {@render feedback('reminders')}
     <hr class="my-6 border-line" />
     <h3 class="label mb-3">Push on this device</h3>
-    <PushSetup vapidKey={data.vapidKey} />
+    <PushSetup vapidKey={data.vapidKey} pushEnabled={data.pushEnabled} />
   </section>
 
   <section class="panel p-5 sm:p-6" aria-labelledby="account-heading">
