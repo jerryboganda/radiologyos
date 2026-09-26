@@ -1,13 +1,22 @@
 {
+  "id": "/",
   "name": "radbrain",
   "short_name": "radbrain",
   "description": "A private, provenance-first radiology study workspace.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f0f4f8",
-  "theme_color": "#102a43",
+  "orientation": "any",
+  "background_color": "#0b0e11",
+  "theme_color": "#0b0e11",
+  "categories": ["education", "medical"],
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Today", "url": "/" },
+    { "name": "Library", "url": "/library" },
+    { "name": "Search", "url": "/search" }
   ]
 }

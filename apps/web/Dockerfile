@@ -9,9 +9,12 @@ RUN npm run build \
     && npm prune --omit=dev
 
 FROM node:24-alpine AS runtime
+# BODY_SIZE_LIMIT: library uploads stream through the web server to the API,
+# whose own cap is 300 MiB; adapter-node's default (512K) would reject them.
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
-    PORT=3000
+    PORT=3000 \
+    BODY_SIZE_LIMIT=310M
 WORKDIR /app
 
 COPY --from=build --chown=node:node /app/build ./build

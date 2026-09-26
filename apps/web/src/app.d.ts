@@ -1,3 +1,5 @@
+import type { ThemePref } from '$lib/theme';
+
 declare global {
   namespace App {
     interface Locals {
@@ -9,6 +11,7 @@ declare global {
         tenantId: string;
         tenantRole: string;
       } | null;
+      theme: ThemePref;
     }
   }
 }
