@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { classifyFailure, errorDetail } from './api-state.ts';
-import { daysUntil, formatBytes, highlight, percent, snippet } from './format.ts';
+import { daysUntil, formatBytes, highlight, percent, percentFine, snippet } from './format.ts';
 import { isProcessing, stepProgress, summarizeSteps } from './pipeline.ts';
 import { nextThemePref, parseThemePref, resolveTheme, themeClass, themeCookie } from './theme.ts';
 import { checkUpload, uploadErrorMessage } from './upload.ts';
@@ -55,11 +55,12 @@ test('upload checks accept study formats and warn about the tunnel limit', () =>
   assert.match(uploadErrorMessage(413), /100 MB/);
 });
 
-test('api failures degrade planned endpoints to offline', () => {
-  assert.deepEqual(classifyFailure(404, 'x'), { state: 'offline', status: 404 });
-  assert.deepEqual(classifyFailure(404, 'x', true), { state: 'error', status: 404, detail: 'x' });
+test('only network failures degrade to offline; API answers are classified', () => {
+  assert.deepEqual(classifyFailure(0, 'x'), { state: 'offline', status: 0 });
+  assert.deepEqual(classifyFailure(502, 'Bad gateway', false), { state: 'offline', status: 502 });
+  assert.deepEqual(classifyFailure(404, 'x'), { state: 'error', status: 404, detail: 'x', kind: 'not_found' });
   assert.deepEqual(classifyFailure(401, 'x'), { state: 'signed_out' });
-  assert.deepEqual(classifyFailure(422, 'bad'), { state: 'error', status: 422, detail: 'bad' });
+  assert.deepEqual(classifyFailure(422, 'bad'), { state: 'error', status: 422, detail: 'bad', kind: 'invalid' });
   assert.equal(errorDetail({ detail: [{ msg: 'too short' }] }, 'f'), 'too short');
   assert.equal(errorDetail('junk', 'fallback'), 'fallback');
 });
@@ -70,6 +71,7 @@ test('formatters', () => {
   assert.equal(formatBytes(150 * 1024 * 1024), '150 MB');
   assert.equal(formatBytes(null), '—');
   assert.equal(percent(0.456), '46%');
+  assert.equal(percentFine(0.0342), '3.4%');
   assert.equal(daysUntil('2026-10-01', new Date(2026, 8, 26)), 5);
   assert.equal(daysUntil('bad'), null);
 });

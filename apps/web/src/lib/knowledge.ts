@@ -1,0 +1,65 @@
+// Knowledge form parsing and display helpers. Pure for node --test.
+import type { ApproveRequest, ExtractRequest, ResolveRequest, WeightBasis, WeightTarget } from './types/knowledge.ts';
+import { WEIGHT_TARGETS } from './types/knowledge.ts';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type Parsed<T> = { ok: true; value: T } | { ok: false; error: string };
+
+export function isWeightTarget(value: unknown): value is WeightTarget {
+  return WEIGHT_TARGETS.includes(value as WeightTarget);
+}
+
+export function parseResolveForm(form: FormData): Parsed<{ conflictId: string; body: ResolveRequest }> {
+  const conflictId = String(form.get('conflict_id') ?? '');
+  if (!UUID.test(conflictId)) return { ok: false, error: 'Unknown conflict.' };
+  const resolution = String(form.get('resolution') ?? '').trim();
+  if (!resolution) return { ok: false, error: 'Explain how the sources should be reconciled.' };
+  if (resolution.length > 2000) return { ok: false, error: 'Keep the resolution under 2,000 characters.' };
+  const preferred = String(form.get('preferred_claim_id') ?? '');
+  return {
+    ok: true,
+    value: { conflictId, body: { resolution, preferred_claim_id: UUID.test(preferred) ? preferred : null } }
+  };
+}
+
+/** One weight (`weight_id`) or every weight for the target when absent. */
+export function parseApproveForm(form: FormData): Parsed<ApproveRequest> {
+  const target = form.get('exam_target');
+  if (!isWeightTarget(target)) return { ok: false, error: 'Choose which exam’s weights to approve.' };
+  const id = String(form.get('weight_id') ?? '');
+  if (id && !UUID.test(id)) return { ok: false, error: 'Unknown topic weight.' };
+  return { ok: true, value: { exam_target: target, weight_ids: id ? [id] : null } };
+}
+
+export function parseExtractForm(form: FormData): Parsed<{ sourceId: string; body: ExtractRequest }> {
+  const sourceId = String(form.get('source_id') ?? '');
+  if (!UUID.test(sourceId)) return { ok: false, error: 'Choose a source.' };
+  const mode = form.get('mode') === 'past_paper' ? 'past_paper' : 'notes';
+  const target = form.get('exam_target');
+  const rawYear = String(form.get('year') ?? '').trim();
+  const year = rawYear ? Number(rawYear) : null;
+  if (year !== null && (!Number.isInteger(year) || year < 1990 || year > 2100)) {
+    return { ok: false, error: 'Year must be between 1990 and 2100.' };
+  }
+  const examTarget = isWeightTarget(target) && target !== 'all' ? target : null;
+  if (mode === 'past_paper' && !examTarget) return { ok: false, error: 'Say which exam this past paper is from.' };
+  return { ok: true, value: { sourceId, body: { mode, exam_target: examTarget, year } } };
+}
+
+/** "12 of 240 questions · 5 of 8 papers · 2019–2024" */
+export function basisText(basis: WeightBasis | null | undefined): string {
+  if (!basis) return '';
+  const parts: string[] = [];
+  if (typeof basis.count === 'number' && typeof basis.total === 'number') parts.push(`${basis.count} of ${basis.total} questions`);
+  if (typeof basis.papers === 'number' && typeof basis.total_papers === 'number') {
+    parts.push(`${basis.papers} of ${basis.total_papers} papers`);
+  }
+  const years = (basis.years ?? []).filter((y) => Number.isInteger(y));
+  if (years.length) {
+    const first = Math.min(...years);
+    const last = Math.max(...years);
+    parts.push(first === last ? String(first) : `${first}–${last}`);
+  }
+  return parts.join(' · ');
+}

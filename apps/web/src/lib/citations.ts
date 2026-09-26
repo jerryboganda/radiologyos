@@ -1,5 +1,5 @@
 // Citation formatting and deep links into the reader. Pure for node --test.
-import type { Citation } from './types/citation';
+import type { Citation, LooseCitation } from './types/citation';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -54,4 +54,42 @@ export function webHost(url: string): string {
   } catch {
     return url;
   }
+}
+
+export type CitationLink =
+  | { kind: 'source'; href: string; label: string }
+  | { kind: 'web'; href: string; label: string };
+
+function num(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) ? value : null;
+}
+
+/** The first cited block as (page, block), from either block envelope. */
+function firstBlock(c: LooseCitation, from: number): { page: number; block: number } | null {
+  const refs = (Array.isArray(c.block_refs) ? c.block_refs : [])
+    .map((r) => ({ page: num(r?.page), block: num(r?.block) }))
+    .concat((Array.isArray(c.blocks) ? c.blocks : []).map((b) => ({ page: num(b?.page_no), block: num(b?.block_no) })))
+    .filter((r): r is { page: number; block: number } => r.page !== null && r.block !== null);
+  return refs.find((r) => r.page >= from) ?? refs[0] ?? null;
+}
+
+/**
+ * Normalise any API citation (tutor, card, assessment, knowledge) into a link:
+ * library citations open the reader at page/block; web citations are external.
+ * Returns null for anything that cannot be resolved safely.
+ */
+export function citationLink(c: LooseCitation | null | undefined): CitationLink | null {
+  if (!c || typeof c !== 'object') return null;
+  if (c.kind === 'web' || (!c.source_id && typeof c.url === 'string')) {
+    const href = typeof c.url === 'string' ? safeWebUrl(c.url) : null;
+    return href ? { kind: 'web', href, label: `From the web · ${webHost(href)}` } : null;
+  }
+  if (typeof c.source_id !== 'string' || !isUuid(c.source_id)) return null;
+  const from = num(c.page_from) ?? num(c.page_no) ?? 1;
+  const to = num(c.page_to) ?? from;
+  const title = typeof c.source_title === 'string' ? c.source_title : '';
+  const block = firstBlock(c, from);
+  const label = citationLabel({ source_title: title, page_from: from, page_to: to });
+  const href = block ? readerHref(c.source_id, block.page, block.block) : readerHref(c.source_id, from);
+  return { kind: 'source', href, label: c.kind === 'figure' ? `${label} · figure` : label };
 }

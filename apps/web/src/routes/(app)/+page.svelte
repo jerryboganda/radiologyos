@@ -1,8 +1,8 @@
 <script lang="ts">
-  import ComingOnline from '$lib/components/ComingOnline.svelte';
   import Icon from '$lib/components/Icon.svelte';
-  import Notice from '$lib/components/Notice.svelte';
+  import LoadIssue from '$lib/components/LoadIssue.svelte';
   import SignedOut from '$lib/components/shell/SignedOut.svelte';
+  import GenerateCards from '$lib/components/study/GenerateCards.svelte';
   import Onboarding from '$lib/components/study/Onboarding.svelte';
   import ReviewDeck from '$lib/components/study/ReviewDeck.svelte';
   import TodayPlan from '$lib/components/study/TodayPlan.svelte';
@@ -12,7 +12,15 @@
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
   let firstName = $derived(data.user?.name.split(/\s+/)[0] ?? '');
-  let days = $derived(data.signedIn ? daysUntil(data.profile?.exam_date) : null);
+  let days = $derived(data.signedIn ? (data.profile?.days_remaining ?? daysUntil(data.profile?.exam_date)) : null);
+  function errorFor(section: string): string | null {
+    return form && form.section === section && 'error' in form ? (form.error ?? null) : null;
+  }
+  let generated = $derived(
+    form && 'created' in form
+      ? `Created ${form.created} card${form.created === 1 ? '' : 's'} from ${form.chunksUsed} passage${form.chunksUsed === 1 ? '' : 's'}${form.rejected ? ` (${form.rejected} rejected by the checker)` : ''}.`
+      : null
+  );
   // Local time is only known in the browser; render a neutral greeting on the server.
   let now = $state<Date | null>(null);
   $effect(() => {
@@ -45,24 +53,26 @@
     {/if}
   </header>
 
-  {#if form && 'error' in form && form.error}
-    <div class="mb-5"><Notice tone="warn">{form.error}</Notice></div>
-  {/if}
-
   <div class="flex flex-col gap-6">
-    {#if !data.studyOnline}
-      <ComingOnline
-        title="Your study planner is coming online"
-        description="The daily plan, spaced-repetition reviews, and onboarding appear here as soon as the study service is deployed. Your library and search work today."
-        endpoints={['/v1/study/profile', '/v1/study/today', '/v1/study/cards/due']}
-        icon="today"
-      />
-    {:else if !data.profile?.exam_date}
-      <Onboarding />
+    {#if data.onboarding}
+      <Onboarding error={errorFor('onboard')} />
+    {:else if data.todayProblem}
+      <LoadIssue problem={data.todayProblem} title="Your study planner is unreachable" icon="today" />
     {:else}
       <div class="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-        {#if data.today}<TodayPlan plan={data.today} />{:else}<ComingOnline compact title="Today’s plan is being prepared" description="Your plan appears once the planner has scheduled today." icon="today" />{/if}
-        {#if data.due}<ReviewDeck cards={data.due.cards} total={data.due.total} />{:else}<ComingOnline compact title="Reviews coming online" description="Spaced-repetition cards appear here when the card service is live." endpoints={['/v1/study/cards/due']} icon="progress" />{/if}
+        {#if data.today}<TodayPlan plan={data.today} />{/if}
+        <div class="flex min-w-0 flex-col gap-6">
+          {#if data.dueProblem}
+            <LoadIssue compact problem={data.dueProblem} title="Reviews are unreachable" icon="progress" />
+          {:else}
+            <ReviewDeck
+              cards={data.due ?? []}
+              error={errorFor('review')}
+              scheduledDays={form && 'scheduledDays' in form ? form.scheduledDays : null}
+            />
+          {/if}
+          <GenerateCards sources={data.sources} error={errorFor('generate')} summary={generated} />
+        </div>
       </div>
     {/if}
 

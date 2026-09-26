@@ -1,8 +1,10 @@
 import { fail } from '@sveltejs/kit';
-import { dataOr } from '$lib/api-state';
+import { dataOr, loadProblem } from '$lib/api-state';
+import { isUuid } from '$lib/citations';
 import { failureMessage, getJson } from '$lib/server/client';
-import { getDueCards, getProfile, getToday, reviewCard, saveProfile } from '$lib/server/study';
-import { RATINGS, type Rating } from '$lib/types/study';
+import { generateCards, getDueCards, getProfile, getToday, reviewCard, saveProfile } from '$lib/server/study';
+import { needsOnboarding, parseProfileForm } from '$lib/study';
+import { parseRating } from '$lib/types/study';
 import type { SourceSummary } from '$lib/types/library';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -14,45 +16,54 @@ export const load: PageServerLoad = async (event) => {
   const [profile, today, due, sources] = await Promise.all([
     getProfile(event),
     getToday(event),
-    getDueCards(event),
+    getDueCards(event, 50),
     getJson<SourceSummary[]>(event, '/v1/library/sources')
   ]);
+  const onboarding = needsOnboarding(profile, today);
   return {
     signedIn: true as const,
     authError: null,
-    studyOnline: profile.state === 'ok' || profile.state === 'error',
+    onboarding,
     profile: dataOr(profile, null),
     today: dataOr(today, null),
+    todayProblem: onboarding ? null : loadProblem(today),
     due: dataOr(due, null),
+    dueProblem: onboarding ? null : loadProblem(due),
+    sources: dataOr(sources, [])
+      .filter((s) => s.status === 'ready')
+      .map((s) => ({ id: s.id, title: s.title })),
     sourceCount: sources.state === 'ok' ? sources.data.length : null
   };
 };
 
 export const actions: Actions = {
   onboard: async (event) => {
-    const form = await event.request.formData();
-    const examDate = String(form.get('exam_date') ?? '');
-    const minutes = Number(form.get('daily_minutes') ?? 90);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(examDate)) return fail(400, { error: 'Choose your exam date.' });
-    if (!Number.isFinite(minutes) || minutes < 15 || minutes > 600) {
-      return fail(400, { error: 'Daily study time must be between 15 and 600 minutes.' });
-    }
-    const timezone = String(form.get('timezone') ?? '') || null;
-    const result = await saveProfile(event, { exam_date: examDate, daily_minutes: minutes, timezone });
-    if (result.state !== 'ok') {
-      return fail(503, { error: failureMessage(result, 'The study planner is not online yet; nothing was saved.') });
-    }
-    return { saved: true };
+    const parsed = parseProfileForm(await event.request.formData());
+    if (!parsed.ok) return fail(400, { section: 'onboard', error: parsed.error });
+    const result = await saveProfile(event, parsed.profile);
+    if (result.state !== 'ok') return fail(400, { section: 'onboard', error: failureMessage(result) });
+    return { section: 'onboard', saved: true };
   },
   review: async (event) => {
     const form = await event.request.formData();
     const cardId = String(form.get('card_id') ?? '');
-    const rating = String(form.get('rating') ?? '') as Rating;
-    if (!cardId || !RATINGS.includes(rating)) return fail(400, { error: 'Invalid review.' });
+    const rating = parseRating(form.get('rating'));
+    if (!isUuid(cardId) || rating === null) return fail(400, { section: 'review', error: 'Invalid review.' });
     const result = await reviewCard(event, cardId, rating);
-    if (result.state !== 'ok') {
-      return fail(503, { error: failureMessage(result, 'Reviews are not online yet.') });
+    if (result.state !== 'ok') return fail(400, { section: 'review', error: failureMessage(result) });
+    return { section: 'review', scheduledDays: result.data.scheduled_days };
+  },
+  generate: async (event) => {
+    const form = await event.request.formData();
+    const sourceId = String(form.get('source_id') ?? '');
+    const maxCards = Number(form.get('max_cards') ?? 8);
+    if (!isUuid(sourceId)) return fail(400, { section: 'generate', error: 'Choose a source.' });
+    if (!Number.isInteger(maxCards) || maxCards < 1 || maxCards > 20) {
+      return fail(400, { section: 'generate', error: 'Choose between 1 and 20 cards.' });
     }
-    return { reviewed: cardId };
+    const result = await generateCards(event, { source_id: sourceId, max_cards: maxCards });
+    if (result.state !== 'ok') return fail(400, { section: 'generate', error: failureMessage(result) });
+    const { created, rejected, chunks_used } = result.data;
+    return { section: 'generate', created: created.length, rejected, chunksUsed: chunks_used };
   }
 };

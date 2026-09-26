@@ -33,6 +33,12 @@ export function percent(value: number | null | undefined): string {
   return `${Math.round(Math.min(Math.max(value, 0), 1) * 100)}%`;
 }
 
+/** One-decimal percentage for small shares such as topic weights (0.034 → "3.4%"). */
+export function percentFine(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${(Math.min(Math.max(value, 0), 1) * 100).toFixed(1)}%`;
+}
+
 function terms(query: string): string[] {
   return [...new Set(query.toLowerCase().split(/\s+/).filter((t) => t.length >= 2))];
 }

@@ -1,0 +1,136 @@
+<script lang="ts">
+  import { invalidate } from '$app/navigation';
+  import { untrack } from 'svelte';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+  import Notice from '$lib/components/Notice.svelte';
+  import { ExamAutosave, type AutosaveSnapshot, type HttpReply } from '$lib/exam-autosave';
+  import { answeredCount, clockOffset, formatClock, remainingMs, retryDelay } from '$lib/exam-session';
+  import type { ExamView } from '$lib/types/assessment';
+  import ExamNavigator from './ExamNavigator.svelte';
+  import ExamQuestion from './ExamQuestion.svelte';
+
+  let { exam }: { exam: ExamView } = $props();
+  // The page re-mounts this component per exam id; the initial view seeds local state.
+  const initial = untrack(() => exam);
+  const url = `/exams/${encodeURIComponent(initial.id)}/session`;
+  const offset = clockOffset(initial.server_time, Date.now());
+  const ids = initial.questions.map((q) => q.id);
+  const DEBOUNCE_MS = 800;
+
+  async function call(method: 'GET' | 'PUT' | 'POST', body?: unknown): Promise<HttpReply> {
+    try {
+      const init: RequestInit = { method, headers: { 'content-type': 'application/json' } };
+      if (body !== undefined) init.body = JSON.stringify(body);
+      const response = await fetch(url, init);
+      return { status: response.status, body: await response.json().catch(() => null) };
+    } catch {
+      return { status: 0, body: null };
+    }
+  }
+
+  let snap = $state<AutosaveSnapshot>({ answers: { ...initial.answers }, revision: initial.revision, state: 'idle', message: '' });
+  const autosave = new ExamAutosave(
+    { answers: initial.answers, revision: initial.revision },
+    { save: (revision, answers) => call('PUT', { revision, answers }), load: () => call('GET') },
+    (next) => (snap = next)
+  );
+
+  let current = $state(0);
+  let now = $state(Date.now());
+  let submitting = $state(false);
+  let confirming = $state(false);
+  let submitError = $state('');
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let retries = 0;
+
+  let remaining = $derived(remainingMs(initial.deadline_at, offset, now));
+  let answered = $derived(answeredCount(ids, snap.answers));
+  let question = $derived(initial.questions[current]);
+
+  function schedule(delay: number) {
+    clearTimeout(timer);
+    timer = setTimeout(save, delay);
+  }
+
+  async function save() {
+    const ok = await autosave.flush();
+    if (ok) retries = 0;
+    else if (snap.state === 'retrying') schedule(retryDelay(retries++));
+    else if (snap.state === 'closed') await invalidate('app:exam');
+  }
+
+  function choose(option: number | null) {
+    if (!question) return;
+    autosave.set(question.id, option);
+    schedule(DEBOUNCE_MS);
+  }
+
+  async function submit() {
+    if (submitting) return;
+    submitting = true;
+    submitError = '';
+    clearTimeout(timer);
+    await autosave.flush();
+    const reply = await call('POST');
+    if (reply.status >= 200 && reply.status < 300) {
+      await invalidate('app:exam');
+      return;
+    }
+    submitting = false;
+    submitError = 'The exam could not be submitted. Check your connection and try again.';
+  }
+
+  $effect(() => {
+    const tick = setInterval(() => (now = Date.now()), 1000);
+    return () => {
+      clearInterval(tick);
+      clearTimeout(timer);
+    };
+  });
+
+  $effect(() => {
+    if (remaining === 0) untrack(() => void submit());
+  });
+
+  const SAVE_TONE: Record<string, string> = { saved: 'text-ok', retrying: 'text-warn', error: 'text-danger', closed: 'text-warn' };
+</script>
+
+<div class="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-canvas/95 px-4 py-3 backdrop-blur lg:top-2">
+  <p class="text-sm text-ink-2"><span class="font-mono text-ink tabular-nums">{answered}/{ids.length}</span> answered</p>
+  <p class="font-mono text-xs {SAVE_TONE[snap.state] ?? 'text-muted'}" role="status">{snap.message}</p>
+  {#if remaining !== null}
+    <p class="font-mono text-2xl font-semibold tabular-nums {remaining < 5 * 60_000 ? 'text-danger' : 'text-ink'}" aria-label="Time remaining">
+      {formatClock(remaining)}
+    </p>
+  {:else}
+    <p class="label">Untimed practice</p>
+  {/if}
+  <button type="button" class="btn btn-primary" disabled={submitting} onclick={() => (confirming = true)}>
+    {submitting ? 'Submitting…' : 'Submit exam'}
+  </button>
+</div>
+
+{#if submitError}<div class="mb-4"><Notice tone="warn">{submitError}</Notice></div>{/if}
+{#if snap.state === 'error'}<div class="mb-4"><Notice tone="warn">{snap.message}</Notice></div>{/if}
+
+<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_15rem]">
+  <div class="flex min-w-0 flex-col gap-4">
+    {#if question}
+      <ExamQuestion {question} number={current + 1} selected={snap.answers[question.id]} disabled={submitting} onchoose={choose} />
+    {/if}
+    <div class="flex justify-between gap-2">
+      <button type="button" class="btn btn-ghost" disabled={current === 0} onclick={() => (current -= 1)}>Previous</button>
+      <button type="button" class="btn btn-ghost" disabled={current >= ids.length - 1} onclick={() => (current += 1)}>Next</button>
+    </div>
+  </div>
+  <aside class="lg:sticky lg:top-24 lg:self-start">
+    <h2 class="label mb-2">Questions</h2>
+    <ExamNavigator {ids} answers={snap.answers} {current} onselect={(i) => (current = i)} />
+  </aside>
+</div>
+
+<ConfirmDialog bind:open={confirming} title="Submit this exam?" confirmLabel="Submit" onconfirm={submit}>
+  <p>
+    You have answered {answered} of {ids.length} questions.{answered < ids.length ? ' Unanswered questions score zero.' : ''} You cannot change answers after submitting.
+  </p>
+</ConfirmDialog>

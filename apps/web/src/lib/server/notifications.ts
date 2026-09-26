@@ -1,23 +1,25 @@
-// Notifications API client (planned: /v1/notifications/*).
+// Notifications API client (apps/api/app/api/notifications.py).
 import type { RequestEvent } from '@sveltejs/kit';
-import type { PushSubscriptionBody, ReminderPrefs } from '$lib/types/settings';
+import type { NotificationSettings, SubscriptionIn, TestPushResult, VapidKey } from '$lib/types/settings';
 import { getJson, sendJson } from './client';
 
-export const getReminders = (event: RequestEvent) =>
-  getJson<ReminderPrefs>(event, '/v1/notifications/preferences');
+const N = '/v1/notifications';
 
-export const saveReminders = (event: RequestEvent, prefs: ReminderPrefs) =>
-  sendJson<ReminderPrefs>(event, '/v1/notifications/preferences', 'PUT', prefs);
+/** Defaults are returned until the user saves settings for the first time. */
+export const getSettings = (event: RequestEvent) => getJson<NotificationSettings>(event, `${N}/settings`);
 
-/** VAPID public key (public by design; the private key never leaves the API). */
-export const getVapidKey = (event: RequestEvent) =>
-  getJson<{ public_key: string }>(event, '/v1/notifications/vapid-public-key');
+export const saveSettings = (event: RequestEvent, settings: NotificationSettings) =>
+  sendJson<NotificationSettings>(event, `${N}/settings`, 'PUT', settings);
 
-export const savePushSubscription = (event: RequestEvent, body: PushSubscriptionBody) =>
-  sendJson<unknown>(event, '/v1/notifications/push-subscriptions', 'POST', body);
+/** Public by design; the private key never leaves the API. */
+export const getVapidKey = (event: RequestEvent) => getJson<VapidKey>(event, `${N}/vapid-public-key`);
+
+/** 204 on success. */
+export const savePushSubscription = (event: RequestEvent, body: SubscriptionIn) =>
+  sendJson<void>(event, `${N}/subscriptions`, 'POST', body);
 
 export const deletePushSubscription = (event: RequestEvent, endpoint: string) =>
-  sendJson<unknown>(event, '/v1/notifications/push-subscriptions', 'DELETE', { endpoint });
+  sendJson<void>(event, `${N}/subscriptions`, 'DELETE', { endpoint });
 
-export const sendTestPush = (event: RequestEvent) =>
-  sendJson<unknown>(event, '/v1/notifications/test', 'POST');
+/** 202 {sent, removed}; 503 when the server has no VAPID private key. */
+export const sendTestPush = (event: RequestEvent) => sendJson<TestPushResult>(event, `${N}/test`, 'POST');

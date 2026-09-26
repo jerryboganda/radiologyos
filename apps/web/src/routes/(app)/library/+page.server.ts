@@ -21,7 +21,7 @@ export const actions: Actions = {
     const result = await deleteSource(event, id);
     if (result.state !== 'ok') {
       return fail(result.state === 'error' ? result.status : 503, {
-        error: failureMessage(result, 'The library API is unavailable; nothing was deleted.')
+        error: failureMessage(result)
       });
     }
     return { deleted: id };
