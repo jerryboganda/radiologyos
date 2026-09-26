@@ -1,7 +1,8 @@
 """Exam-date-first daily planner, spec section 7. Rules-based and deterministic.
 
 Priority per curriculum node: p = w * (1 - m) * (1 + 0.5 c) * d, where ``w`` is
-the exam weight (equal weights while the curriculum is unvalidated), ``m`` the
+the exam weight (owner-approved past-paper weights mapped onto systems by
+``packages.study.weights``, else equal weights), ``m`` the
 mastery, ``c`` 1 for open conflicts or recent lapses, and ``d`` a recency decay
 rising from 1 to 2 over 30 untouched days. The session mix and rules come from
 the phase implied by days remaining. No model is called and no pass
@@ -19,7 +20,7 @@ from typing import Any, Literal
 from packages.study.fsrs import retention_for
 from packages.study.mastery import band_for
 
-PLANNER_VERSION = 1
+PLANNER_VERSION = 2
 REVIEW_CARDS_PER_MINUTE = 3
 MINUTES_PER_QUESTION = 1.5
 MINUTES_PER_IMAGE_PROMPT = 5
@@ -144,7 +145,8 @@ class DayInputs:
     new_available: int
     topics: Sequence[TopicSignal]
     exam_targets: Sequence[str] = field(default_factory=tuple)
-    weighted: bool = False
+    weight_policy: str = "equal_unvalidated"
+    weight_targets: Sequence[str] = field(default_factory=tuple)
 
 
 def _learn_block(phase: Phase, minutes: int, ranked: list[RankedTopic],
@@ -201,7 +203,8 @@ def build_plan(inputs: DayInputs) -> dict[str, Any]:
         "minutes": inputs.minutes,
         "retention": retention_for(days_remaining),
         "exam_targets": list(inputs.exam_targets),
-        "weight_policy": "curriculum" if inputs.weighted else "equal_unvalidated",
+        "weight_policy": inputs.weight_policy,
+        "weight_targets": list(inputs.weight_targets),
         "blocks": [b for b in blocks if b["minutes"] > 0],
         "priorities": [
             {"code": t.code, "title": t.title, "priority": t.priority,

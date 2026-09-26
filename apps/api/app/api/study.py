@@ -1,7 +1,8 @@
 """Study API: exam-first onboarding, daily plan, FSRS cards, reviews, progress.
 
 The exam date comes first: every plan and progress route answers 409 until a
-profile exists. No route returns a pass probability.
+profile exists. No route returns a pass probability. The baseline diagnostic is
+a server-timed assessment exam; the weekly report is written by a beat task.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from uuid import UUID
 
 from apps.api.app.core.time import now_utc
 from apps.api.app.schemas.study import (
+    BaselineOut,
     CardIn,
     CardOut,
     GenerateIn,
@@ -23,15 +25,16 @@ from apps.api.app.schemas.study import (
     ProgressOut,
     ReviewIn,
     ReviewOut,
+    WeeklyReportOut,
 )
 from apps.api.app.security.context import (
     build_shared_dependencies,
     build_tenant_db_session_dependency,
 )
 from apps.api.app.security.principal import Principal
-from apps.api.app.study import generate, service
+from apps.api.app.study import baseline, generate, reports, service
 from apps.api.app.study.repo import SqlStudyRepo
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from packages.models.gateway import Transport
 from packages.study.planner import phase_for
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -162,3 +165,38 @@ async def progress(principal: PrincipalDep, repo: RepoDep, now: NowDep) -> Progr
     except service.StudyError as exc:
         raise _fail(exc) from exc
     return ProgressOut.model_validate(result)
+
+
+@router.post("/baseline", response_model=BaselineOut, status_code=status.HTTP_201_CREATED,
+             responses={200: {"description": "An open baseline already exists"},
+                        409: {"description": "Too few checked SBA questions"}})
+async def start_baseline(
+    principal: PrincipalDep, repo: RepoDep, now: NowDep, response: Response
+) -> BaselineOut:
+    """Build (or return the open) short SBA baseline across curriculum systems."""
+    try:
+        view, created = await baseline.start(
+            repo, principal.user_id, now, seed=int(now.timestamp()))
+    except service.StudyError as exc:
+        raise _fail(exc) from exc
+    if not created:
+        response.status_code = status.HTTP_200_OK
+    return BaselineOut.model_validate(view)
+
+
+@router.get("/baseline", response_model=BaselineOut)
+async def get_baseline(principal: PrincipalDep, repo: RepoDep, now: NowDep) -> BaselineOut:
+    try:
+        view = await baseline.latest(repo, principal.user_id, now)
+    except service.StudyError as exc:
+        raise _fail(exc) from exc
+    return BaselineOut.model_validate(view)
+
+
+@router.get("/reports/latest", response_model=WeeklyReportOut)
+async def latest_report(principal: PrincipalDep, repo: RepoDep) -> WeeklyReportOut:
+    try:
+        report = await reports.latest_report(repo, principal.user_id)
+    except service.StudyError as exc:
+        raise _fail(exc) from exc
+    return WeeklyReportOut.model_validate(report)

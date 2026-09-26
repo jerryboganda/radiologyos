@@ -3623,6 +3623,305 @@
         }
       }
     },
+    "/v1/study/baseline": {
+      "post": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Start Baseline",
+        "description": "Build (or return the open) short SBA baseline across curriculum systems.",
+        "operationId": "start_baseline_v1_study_baseline_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaselineOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "200": {
+            "description": "An open baseline already exists"
+          },
+          "409": {
+            "description": "Too few checked SBA questions"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Get Baseline",
+        "operationId": "get_baseline_v1_study_baseline_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaselineOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/reports/latest": {
+      "get": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Latest Report",
+        "operationId": "latest_report_v1_study_reports_latest_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyReportOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/knowledge/concepts": {
       "get": {
         "tags": [
@@ -10880,6 +11179,122 @@
         ],
         "title": "AutosaveResponse"
       },
+      "BaselineOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "exam_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Exam Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "expired",
+              "submitted"
+            ],
+            "title": "Status"
+          },
+          "question_count": {
+            "type": "integer",
+            "title": "Question Count"
+          },
+          "systems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Systems"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "deadline_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline At"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BaselineSystemResult"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "exam_id",
+          "status",
+          "question_count",
+          "systems",
+          "started_at",
+          "deadline_at",
+          "submitted_at",
+          "results"
+        ],
+        "title": "BaselineOut"
+      },
+      "BaselineSystemResult": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "questions": {
+            "type": "integer",
+            "title": "Questions"
+          },
+          "correct": {
+            "type": "number",
+            "title": "Correct"
+          },
+          "accuracy": {
+            "type": "number",
+            "title": "Accuracy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "questions",
+          "correct",
+          "accuracy"
+        ],
+        "title": "BaselineSystemResult"
+      },
       "BillingResultResponse": {
         "properties": {
           "status": {
@@ -12393,7 +12808,16 @@
           },
           "weight_policy": {
             "type": "string",
-            "title": "Weight Policy"
+            "title": "Weight Policy",
+            "description": "past_paper_approved (owner-approved weights) or equal_unvalidated"
+          },
+          "weight_targets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Weight Targets",
+            "description": "Exam targets whose approved weights are in use"
           },
           "blocks": {
             "items": {
@@ -14040,6 +14464,17 @@
             "type": "integer",
             "title": "Reviews Today"
           },
+          "weight_policy": {
+            "type": "string",
+            "title": "Weight Policy"
+          },
+          "weight_targets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Weight Targets"
+          },
           "topics": {
             "items": {
               "$ref": "#/components/schemas/TopicProgress"
@@ -14063,6 +14498,8 @@
           "new_cards",
           "reviews_total",
           "reviews_today",
+          "weight_policy",
+          "weight_targets",
           "topics",
           "notice"
         ],
@@ -14210,6 +14647,99 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ReminderSettings"
+      },
+      "ReportFocus": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "reason"
+        ],
+        "title": "ReportFocus"
+      },
+      "ReportRetention": {
+        "properties": {
+          "achieved": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Achieved"
+          },
+          "target": {
+            "type": "number",
+            "title": "Target"
+          },
+          "eligible_reviews": {
+            "type": "integer",
+            "title": "Eligible Reviews"
+          },
+          "met": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Met"
+          }
+        },
+        "type": "object",
+        "required": [
+          "achieved",
+          "target",
+          "eligible_reviews",
+          "met"
+        ],
+        "title": "ReportRetention"
+      },
+      "ReportSystem": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "mastery": {
+            "type": "number",
+            "title": "Mastery"
+          },
+          "band": {
+            "type": "string",
+            "title": "Band"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "mastery",
+          "band"
+        ],
+        "title": "ReportSystem"
       },
       "ResolveRequest": {
         "properties": {
@@ -14988,6 +15518,21 @@
             "type": "integer",
             "title": "Lapses"
           },
+          "questions": {
+            "type": "integer",
+            "title": "Questions",
+            "default": 0
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts",
+            "default": 0
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight",
+            "default": 0.0
+          },
           "priority": {
             "type": "number",
             "title": "Priority"
@@ -15169,6 +15714,125 @@
           "enabled"
         ],
         "title": "VapidKey"
+      },
+      "WeeklyReportOut": {
+        "properties": {
+          "report_version": {
+            "type": "integer",
+            "title": "Report Version"
+          },
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Week Start"
+          },
+          "week_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Week End"
+          },
+          "minutes_studied": {
+            "type": "integer",
+            "title": "Minutes Studied"
+          },
+          "planned_minutes": {
+            "type": "integer",
+            "title": "Planned Minutes"
+          },
+          "daily_minutes": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Daily Minutes"
+          },
+          "active_days": {
+            "type": "integer",
+            "title": "Active Days"
+          },
+          "reviews": {
+            "type": "integer",
+            "title": "Reviews"
+          },
+          "questions": {
+            "type": "integer",
+            "title": "Questions"
+          },
+          "question_accuracy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Accuracy"
+          },
+          "retention": {
+            "$ref": "#/components/schemas/ReportRetention"
+          },
+          "weakest": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSystem"
+            },
+            "type": "array",
+            "title": "Weakest"
+          },
+          "focus": {
+            "items": {
+              "$ref": "#/components/schemas/ReportFocus"
+            },
+            "type": "array",
+            "title": "Focus"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          },
+          "days_remaining": {
+            "type": "integer",
+            "title": "Days Remaining"
+          },
+          "phase": {
+            "type": "string",
+            "title": "Phase"
+          },
+          "weight_policy": {
+            "type": "string",
+            "title": "Weight Policy"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "report_version",
+          "week_start",
+          "week_end",
+          "minutes_studied",
+          "planned_minutes",
+          "daily_minutes",
+          "active_days",
+          "reviews",
+          "questions",
+          "question_accuracy",
+          "retention",
+          "weakest",
+          "focus",
+          "notes",
+          "days_remaining",
+          "phase",
+          "weight_policy",
+          "generated_at"
+        ],
+        "title": "WeeklyReportOut"
       },
       "apps__api__app__api__library__Citation": {
         "properties": {

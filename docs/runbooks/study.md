@@ -1,9 +1,10 @@
 # Study runbook — exam-first planner, FSRS cards, progress
 
 - Status: current (personal-first, ADR 0011)
-- Scope: `/v1/study/*`, migration `20260926_0006`, `packages/study/`
-- Gates: `apps/api/tests/test_study_*.py` (local), `evals/checks/test_study_live.py`
-  (GitHub Actions `migrations` job, runtime role)
+- Scope: `/v1/study/*`, migrations `20260926_0006` and `20260926_0010`, `packages/study/`,
+  beat tasks in `apps/worker/app/study_jobs.py`
+- Gates: `apps/api/tests/test_study_*.py` (local), `evals/checks/test_study_live.py` and
+  `test_study_depth_live.py` (GitHub Actions `migrations` job, runtime role)
 - Related: [ADR 0014](../decisions/0014-study-planner-fsrs.md), [M4 preview](m4-preview.md)
 
 ## Onboarding
@@ -31,7 +32,48 @@ today's and future cached plans so the next `GET /today` reflects it.
 3. `POST /v1/study/cards/{id}/review {"rating": 1..4}` (Again, Hard, Good, Easy)
    reschedules with FSRS-5 and appends a `card_reviews` row.
 4. `GET /v1/study/progress` shows days remaining, phase, retention target, review
-   counts, and per-system mastery bands. It never shows a pass probability.
+   counts, the weight basis, and per-system mastery bands (accuracy blends question
+   attempts with card reviews; coverage counts cards and active questions). It never
+   shows a pass probability.
+
+## Weights
+
+The planner uses the owner's **approved** past-paper weights
+(`POST /v1/knowledge/topic-weights/approve`) for the profile's exam targets, else the
+approved `all` aggregate, else equal weights. `/today` and `/progress` report
+`weight_policy` (`past_paper_approved` | `equal_unvalidated`) and `weight_targets`.
+Approving or re-approving weights takes effect on the next plan build; use
+`/today?refresh=true` to rebuild today's plan at once. A recomputed weight loses its
+approval (ADR 0016) and the planner falls back until it is approved again.
+
+## Baseline test
+
+`POST /v1/study/baseline` builds a timed SBA exam of up to 20 active, checked
+questions spread round-robin across systems (1.5 min per question) and returns
+`exam_id`; the user takes it at `/exams/{exam_id}` (Today → "Take baseline test").
+An open baseline is returned again (200) instead of creating a second one. 409 means
+fewer than 8 checked SBA questions are linked to a curriculum system: generate SBA
+questions from library sources whose chunks have curriculum mappings (knowledge
+extraction) or cards. `GET /v1/study/baseline` shows the latest one; once its exam is
+submitted (or expires) the per-system results are frozen on `baseline_tests`. The
+graded attempts feed mastery like any other attempt.
+
+## Weekly report and nightly replan
+
+Celery beat (worker must run with `-B` or a beat process) schedules:
+
+- `radbrain.weekly_reports` hourly: `app.weekly_reports_due(now)` returns users whose
+  local time is past Monday 06:00 and who have no report for last week; the report
+  is computed in code and upserted into `weekly_reports`. Read it with
+  `GET /v1/study/reports/latest` (404 until the first one) or on `/progress`.
+- `radbrain.nightly_replan` every 30 minutes: `app.study_replans_due(now, version)`
+  returns users whose local time is past 22:00 and who have no plan for tomorrow at
+  the current `PLANNER_VERSION`; tomorrow's plan is built as of local midnight.
+
+Both resolvers return `(tenant_id, user_id)` only and skip a profile whose time zone
+PostgreSQL does not know. Logs carry counts and error class names only. To rebuild a
+report by hand, run `reports.store_weekly_report(repo, user_id, now, week_start)`
+in a tenant-scoped session; it is idempotent per user and week.
 
 ## Cards
 
@@ -51,5 +93,8 @@ today's and future cached plans so the next `GET /today` reflects it.
   otherwise call `/today?refresh=true`.
 - A review answers 422: the rating is outside 1–4, or the clock moved backwards
   relative to the card's last review.
-- Weights: all systems are weighted equally until the owner approves past-paper
-  weights in `packages/curriculum/` (stop-and-ask rule).
+- Weights still equal: no approved system-level weights exist for the profile's exam
+  targets (or `all`); approve them on the knowledge page.
+- No weekly report on Monday: check beat is running, the profile's time zone is a
+  valid IANA name, and the profile existed before the week began.
+- Baseline 409: see "Baseline test" above.

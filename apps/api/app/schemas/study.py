@@ -81,7 +81,10 @@ class PlanOut(BaseModel):
     minutes: int
     retention: float
     exam_targets: list[str]
-    weight_policy: str
+    weight_policy: str = Field(
+        description="past_paper_approved (owner-approved weights) or equal_unvalidated")
+    weight_targets: list[str] = Field(
+        default_factory=list, description="Exam targets whose approved weights are in use")
     blocks: list[PlanBlock]
     priorities: list[PriorityItem]
     generated_at: datetime
@@ -156,6 +159,9 @@ class TopicProgress(BaseModel):
     coverage: float
     cards: int
     lapses: int
+    questions: int = 0
+    attempts: int = 0
+    weight: float = 0.0
     priority: float
 
 
@@ -169,5 +175,68 @@ class ProgressOut(BaseModel):
     new_cards: int
     reviews_total: int
     reviews_today: int
+    weight_policy: str
+    weight_targets: list[str]
     topics: list[TopicProgress]
     notice: str
+
+
+class BaselineSystemResult(BaseModel):
+    code: str
+    title: str
+    questions: int
+    correct: float
+    accuracy: float
+
+
+class BaselineOut(BaseModel):
+    id: UUID
+    exam_id: UUID
+    status: Literal["open", "expired", "submitted"]
+    question_count: int
+    systems: list[str]
+    started_at: datetime
+    deadline_at: datetime | None
+    submitted_at: datetime | None
+    results: list[BaselineSystemResult]
+
+
+class ReportRetention(BaseModel):
+    achieved: float | None
+    target: float
+    eligible_reviews: int
+    met: bool | None
+
+
+class ReportSystem(BaseModel):
+    code: str
+    title: str
+    mastery: float
+    band: str
+
+
+class ReportFocus(BaseModel):
+    code: str
+    title: str
+    reason: str
+
+
+class WeeklyReportOut(BaseModel):
+    report_version: int
+    week_start: date
+    week_end: date
+    minutes_studied: int
+    planned_minutes: int
+    daily_minutes: list[int]
+    active_days: int
+    reviews: int
+    questions: int
+    question_accuracy: float | None
+    retention: ReportRetention
+    weakest: list[ReportSystem]
+    focus: list[ReportFocus]
+    notes: list[str]
+    days_remaining: int
+    phase: str
+    weight_policy: str
+    generated_at: datetime

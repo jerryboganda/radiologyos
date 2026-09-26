@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -15,7 +15,24 @@ class MemoryStudyRepo:
         self.chunks: dict[UUID, tuple[UUID, dict[str, Any]]] = {}
         self.cards: dict[UUID, tuple[UUID, dict[str, Any]]] = {}
         self.reviews: list[dict[str, Any]] = []
+        self.weights: list[tuple[UUID, dict[str, Any]]] = []
+        self.questions: dict[UUID, tuple[UUID, dict[str, Any]]] = {}
+        self.attempts: list[dict[str, Any]] = []
+        self.baselines: list[tuple[UUID, dict[str, Any]]] = []
+        self.exams: dict[UUID, dict[str, Any]] = {}
+        self.reports: dict[tuple[UUID, date], dict[str, Any]] = {}
         self.commits = 0
+
+    def add_question(self, owner: UUID, code: str | None, status: str = "active") -> UUID:
+        """An SBA question whose cited chunk maps to ``code`` (None: unmapped)."""
+        question_id = uuid4()
+        self.questions[question_id] = (owner, {"id": question_id, "curriculum_code": code,
+                                               "status": status, "type": "sba"})
+        return question_id
+
+    def add_attempt(self, owner: UUID, question_id: UUID, score: float, at: datetime) -> None:
+        self.attempts.append({"user_id": owner, "question_id": question_id, "score": score,
+                              "max_score": 1.0, "created_at": at})
 
     def add_chunk(self, owner: UUID, text: str = "Crazy paving on HRCT.",
                   heading: str = "PAP") -> UUID:
@@ -118,3 +135,87 @@ class MemoryStudyRepo:
 
     async def reviews_since(self, user_id: UUID, since: datetime) -> list[dict[str, Any]]:
         return [r for r in self.reviews if r["user_id"] == user_id and r["reviewed_at"] >= since]
+
+    async def approved_weights(self, user_id: UUID) -> list[dict[str, Any]]:
+        return [w for owner, w in self.weights if owner == user_id]
+
+    def _mapped(self, user_id: UUID) -> dict[UUID, dict[str, Any]]:
+        return {qid: q for qid, (owner, q) in self.questions.items()
+                if owner == user_id and q["curriculum_code"] is not None}
+
+    async def question_attempts(self, user_id: UUID, since: datetime) -> list[dict[str, Any]]:
+        mapped = self._mapped(user_id)
+        return [{**a, "curriculum_code": mapped[a["question_id"]]["curriculum_code"]}
+                for a in self.attempts if a["user_id"] == user_id
+                and a["question_id"] in mapped and a["created_at"] >= since]
+
+    async def question_counts(self, user_id: UUID) -> list[dict[str, Any]]:
+        attempted = {a["question_id"] for a in self.attempts if a["user_id"] == user_id}
+        out: dict[str, dict[str, Any]] = {}
+        for qid, q in self._mapped(user_id).items():
+            row = out.setdefault(q["curriculum_code"], {"curriculum_code": q["curriculum_code"],
+                                                        "questions": 0, "attempted": 0})
+            if q["status"] == "active":
+                row["questions"] += 1
+                row["attempted"] += qid in attempted
+        return list(out.values())
+
+    async def baseline_candidates(self, user_id: UUID) -> list[dict[str, Any]]:
+        return [{"question_id": qid, "curriculum_code": q["curriculum_code"]}
+                for qid, q in self._mapped(user_id).items()
+                if q["status"] == "active" and q["type"] == "sba"]
+
+    async def latest_baseline(self, user_id: UUID) -> dict[str, Any] | None:
+        mine = [b for owner, b in self.baselines if owner == user_id]
+        if not mine:
+            return None
+        row = mine[-1]
+        return {**row, "deadline_at": self.exams[row["exam_id"]]["deadline_at"]}
+
+    async def create_baseline(
+        self, user_id: UUID, systems: dict[str, str], minutes: int, now: datetime
+    ) -> dict[str, Any]:
+        exam_id = uuid4()
+        self.exams[exam_id] = {"id": exam_id, "deadline_at": now + timedelta(minutes=minutes),
+                               "submitted_at": None, "result": None, "minutes": minutes}
+        row = {"id": uuid4(), "exam_id": exam_id, "question_ids": [UUID(q) for q in systems],
+               "systems": dict(systems), "started_at": now, "submitted_at": None,
+               "results": None}
+        self.baselines.append((user_id, row))
+        return {**row, "deadline_at": self.exams[exam_id]["deadline_at"]}
+
+    async def baseline_exam(self, user_id: UUID, exam_id: UUID) -> dict[str, Any] | None:
+        return self.exams.get(exam_id)
+
+    async def finish_baseline(
+        self, user_id: UUID, baseline_id: UUID, submitted_at: datetime,
+        results: Sequence[dict[str, Any]],
+    ) -> None:
+        for owner, row in self.baselines:
+            if owner == user_id and row["id"] == baseline_id:
+                row.update(submitted_at=submitted_at, results=list(results))
+
+    async def reviews_between(
+        self, user_id: UUID, start: datetime, end: datetime
+    ) -> list[dict[str, Any]]:
+        return [r for r in self.reviews
+                if r["user_id"] == user_id and start <= r["reviewed_at"] < end]
+
+    async def attempts_between(
+        self, user_id: UUID, start: datetime, end: datetime
+    ) -> list[dict[str, Any]]:
+        return [a for a in self.attempts
+                if a["user_id"] == user_id and start <= a["created_at"] < end]
+
+    async def save_report(
+        self, user_id: UUID, week_start: date, version: int, report: dict[str, Any]
+    ) -> datetime:
+        generated = datetime.now(UTC)
+        self.reports[(user_id, week_start)] = {"week_start": week_start, "report": report,
+                                               "report_version": version,
+                                               "generated_at": generated}
+        return generated
+
+    async def latest_report(self, user_id: UUID) -> dict[str, Any] | None:
+        mine = sorted((k[1], v) for k, v in self.reports.items() if k[0] == user_id)
+        return mine[-1][1] if mine else None
