@@ -75,12 +75,12 @@ def test_unknown_effort_is_rejected() -> None:
         _call(effort="extreme")
 
 
-def test_page_parse_agent_uses_medium_effort_and_generated_schema() -> None:
+def test_page_parse_agent_uses_low_effort_and_generated_schema() -> None:
     agent = load_agent("page_parse")
     assert agent.schema == inline_schema(PageParse)
     call = build_call(agent, "prompt")
     route = routing_config().routes[agent.prompt.route].targets[0]
-    assert (call.model, call.effort) == (route.model, "medium")
+    assert (call.model, call.effort) == (route.model, "low")
     assert call.tools == ("Read",)
 
 

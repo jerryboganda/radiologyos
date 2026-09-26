@@ -16,6 +16,8 @@ from packages.models.claude_code import ModelCall, ModelCallError, ModelResult, 
 from packages.models.gateway import build_call, load_agent, run_agent
 
 ROOT = Path(__file__).resolve().parents[3]
+# v2 prompts: owner-approved quota efforts (ADR 0021).
+EFFORT = {"knowledge_extract": "medium", "topic_classify": "low", "paper_topics": "low"}
 AGENTS = {
     "knowledge_extract": ("extract", KnowledgeExtraction, ()),
     "topic_classify": ("classify", TopicClassification, ()),
@@ -36,15 +38,15 @@ class FakeTransport:
 
 
 @pytest.mark.parametrize("name", sorted(AGENTS))
-def test_agent_uses_named_route_high_effort_and_generated_schema(name: str) -> None:
+def test_agent_uses_named_route_quota_effort_and_generated_schema(name: str) -> None:
     route, model, tools = AGENTS[name]
     agent = load_agent(name)
-    assert agent.prompt.route == route and agent.prompt.effort == "high"
+    assert agent.prompt.route == route and agent.prompt.effort == EFFORT[name]
     assert agent.output_model is model
     assert agent.schema == inline_schema(model)
     assert agent.prompt.fixture == "evals/fixtures/knowledge_v1.json"
     call = build_call(agent, "prompt")
-    assert call.effort == "high" and call.tools == tools
+    assert call.effort == EFFORT[name] and call.tools == tools
     assert "untrusted" in agent.prompt.system_prompt
 
 
