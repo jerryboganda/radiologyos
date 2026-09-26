@@ -4,6 +4,7 @@
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import Notice from '$lib/components/Notice.svelte';
   import { ExamAutosave, type AutosaveSnapshot, type HttpReply } from '$lib/exam-autosave';
+  import { ItemClock } from '$lib/exam-review';
   import { answeredCount, clockOffset, formatClock, isWritten, remainingMs, retryDelay } from '$lib/exam-session';
   import type { ExamView } from '$lib/types/assessment';
   import ExamNavigator from './ExamNavigator.svelte';
@@ -29,21 +30,32 @@
   }
 
   const initialText = initial.text_answers ?? {};
+  const initialConfidence = initial.confidence ?? {};
   let snap = $state<AutosaveSnapshot>({
     answers: { ...initial.answers },
     textAnswers: { ...initialText },
+    confidence: { ...initialConfidence },
     revision: initial.revision,
     state: 'idle',
     message: ''
   });
   const autosave = new ExamAutosave(
-    { answers: initial.answers, revision: initial.revision, textAnswers: initialText },
     {
-      save: (revision, answers, text_answers) => call('PUT', { revision, answers, text_answers }),
+      answers: initial.answers,
+      revision: initial.revision,
+      textAnswers: initialText,
+      confidence: initialConfidence,
+      itemSeconds: initial.item_seconds ?? {}
+    },
+    {
+      save: (revision, answers, text_answers, extras) => call('PUT', { revision, answers, text_answers, ...extras }),
       load: () => call('GET')
     },
     (next) => (snap = next)
   );
+  // Active time per item (ADR 0029): runs for the item on screen while the tab is visible.
+  const clock = new ItemClock(initial.item_seconds ?? {});
+  const TIME_SAVE_MS = 60_000;
 
   let current = $state(0);
   let now = $state(Date.now());
@@ -63,7 +75,12 @@
     timer = setTimeout(save, delay);
   }
 
+  function recordTime() {
+    autosave.setSeconds(clock.seconds(performance.now()));
+  }
+
   async function save() {
+    recordTime();
     const ok = await autosave.flush();
     if (ok) retries = 0;
     else if (snap.state === 'retrying') schedule(retryDelay(retries++));
@@ -73,6 +90,12 @@
   function choose(option: number | null) {
     if (!question) return;
     autosave.set(question.id, option);
+    schedule(DEBOUNCE_MS);
+  }
+
+  function rate(level: number | null) {
+    if (!question) return;
+    autosave.setConfidence(question.id, level);
     schedule(DEBOUNCE_MS);
   }
 
@@ -87,6 +110,7 @@
     submitting = true;
     submitError = '';
     clearTimeout(timer);
+    recordTime();
     await autosave.flush();
     const reply = await call('POST');
     if (reply.status >= 200 && reply.status < 300) {
@@ -99,10 +123,33 @@
 
   $effect(() => {
     const tick = setInterval(() => (now = Date.now()), 1000);
+    const timeSave = setInterval(() => {
+      recordTime();
+      if (autosave.hasPending()) schedule(DEBOUNCE_MS);
+    }, TIME_SAVE_MS);
+    const visibility = () => {
+      if (document.hidden) clock.pause(performance.now());
+      else if (ids[current]) clock.enter(ids[current], performance.now());
+    };
+    document.addEventListener('visibilitychange', visibility);
     return () => {
       clearInterval(tick);
+      clearInterval(timeSave);
       clearTimeout(timer);
+      document.removeEventListener('visibilitychange', visibility);
+      clock.pause(performance.now());
     };
+  });
+
+  // Moving to another item starts its clock and saves the time spent so far.
+  $effect(() => {
+    const id = ids[current];
+    untrack(() => {
+      if (!id || document.hidden) return;
+      clock.enter(id, performance.now());
+      recordTime();
+      if (autosave.hasPending()) schedule(DEBOUNCE_MS);
+    });
   });
 
   $effect(() => {
@@ -138,9 +185,11 @@
         number={current + 1}
         selected={snap.answers[question.id]}
         text={snap.textAnswers[question.id] ?? ''}
+        confidence={snap.confidence[question.id]}
         disabled={submitting}
         onchoose={choose}
         ontext={write}
+        onconfidence={rate}
       />
     {/if}
     <div class="flex justify-between gap-2">

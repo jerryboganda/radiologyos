@@ -6,7 +6,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ExamTarget = Literal["fcps2_theory", "fcps2_toacs", "imm", "frcr"]
 
@@ -100,12 +100,16 @@ class CardIn(BaseModel):
 
 
 class CardCitation(BaseModel):
+    kind: str | None = Field(default=None, description="chunk (default), claim, or figure")
     source_id: UUID
     source_title: str
     chunk_id: UUID | None = None
+    claim_id: UUID | None = None
+    figure_id: UUID | None = None
     page_from: int
     page_to: int
     block_refs: list[dict[str, int]] = Field(default_factory=list)
+    bbox: list[float] = Field(default_factory=list, description="Figure bounding box")
 
 
 class CardOut(BaseModel):
@@ -115,6 +119,10 @@ class CardOut(BaseModel):
     front: str
     back: str
     origin: str
+    card_type: Literal["basic", "cloze", "image"] = "basic"
+    claim_id: UUID | None = None
+    figure_id: UUID | None = None
+    figure_image_path: str | None = None
     citation: CardCitation
     state: str
     stability: float
@@ -123,6 +131,13 @@ class CardOut(BaseModel):
     last_review_at: datetime | None
     reps: int
     lapses: int
+
+    @model_validator(mode="after")
+    def _figure_link(self) -> CardOut:
+        # Image cards load their picture through the signed, owner-checked media route.
+        if self.figure_id is not None:
+            self.figure_image_path = f"/v1/library/figures/{self.figure_id}/image"
+        return self
 
 
 class ReviewIn(BaseModel):
@@ -147,6 +162,22 @@ class GenerateOut(BaseModel):
     created: list[CardOut]
     rejected: int
     chunks_used: int
+
+
+class KnowledgeCardsIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["cloze", "image"] = Field(
+        description="cloze: from verified claims; image: from described figures")
+    source_id: UUID | None = None
+    topic: str | None = Field(default=None, min_length=2, max_length=200)
+    max_cards: int = Field(default=20, ge=1, le=50)
+
+
+class KnowledgeCardsOut(BaseModel):
+    kind: Literal["cloze", "image"]
+    created: list[CardOut]
+    skipped: int = Field(description="Candidates with no blankable term or citation")
+    considered: int
 
 
 class TopicProgress(BaseModel):

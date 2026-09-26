@@ -17,7 +17,14 @@ from apps.api.app.assessment import blueprints, grading_store, store
 from apps.api.app.core.time import now_utc
 from apps.api.app.study import weakness_sql
 from packages.assessment.exam_result import FREE_TEXT_TYPES, grade_exam
-from packages.assessment.grading import ExamState, autosave, exam_status, merge_text
+from packages.assessment.exam_review import ReviewInputError, merge_confidence, merge_seconds
+from packages.assessment.grading import (
+    ExamState,
+    InvalidAnswer,
+    autosave,
+    exam_status,
+    merge_text,
+)
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +32,7 @@ SBA_GRADER = "rule:sba_exact"
 BLANK_GRADER = "rule:blank_answer"
 _EXAM_COLUMNS = (
     "id, mode, config, question_ids, started_at, deadline_at, submitted_at, revision, "
-    "answers, text_answers, result, created_at"
+    "answers, text_answers, item_seconds, confidence, result, created_at"
 )
 
 
@@ -53,6 +60,8 @@ def state_of(row: dict[str, Any]) -> ExamState:
         revision=row["revision"], answers=dict(row["answers"] or {}),
         text_answers=dict(row.get("text_answers") or {}),
         free_text_ids=frozenset(str(q) for q in config.get("free_text_ids") or []),
+        item_seconds=dict(row.get("item_seconds") or {}),
+        confidence=dict(row.get("confidence") or {}),
     )
 
 
@@ -99,6 +108,22 @@ async def load_exam(
     return dict(row) if row else None
 
 
+def _merge_review(
+    row: dict[str, Any], state: ExamState, extras: dict[str, Any], now: datetime
+) -> tuple[dict[str, int], dict[str, int]]:
+    """Merge per-item seconds and confidence (ADR 0029); refusals are InvalidAnswer."""
+    allowed = {str(q) for q in state.question_ids}
+    elapsed = (now - row["started_at"]).total_seconds()
+    try:
+        seconds = merge_seconds(state.item_seconds, extras.get("item_seconds") or {},
+                                allowed, elapsed)
+        confidence = merge_confidence(state.confidence, extras.get("confidence") or {},
+                                      allowed)
+    except ReviewInputError as exc:
+        raise InvalidAnswer(str(exc)) from exc
+    return seconds, confidence
+
+
 async def save_answers(
     session: AsyncSession,
     user_id: UUID,
@@ -106,23 +131,32 @@ async def save_answers(
     revision: int,
     answers: dict[str, int | None],
     text_answers: dict[str, str | None] | None = None,
+    extras: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    """Apply a compare-and-set autosave; raises ExamError subclasses on refusal."""
+    """Apply a compare-and-set autosave; raises ExamError subclasses on refusal.
+
+    ``extras`` may carry ``item_seconds`` and ``confidence`` maps (ADR 0029).
+    """
     row = await load_exam(session, user_id, exam_id, lock=True)
     if row is None:
         return None
     state = state_of(row)
-    merged = autosave(state, revision, answers, now_utc())
+    now = now_utc()
+    merged = autosave(state, revision, answers, now)
     merged_text = merge_text(state, text_answers or {})
+    seconds, confidence = _merge_review(row, state, extras or {}, now)
     updated = (
         await session.execute(
             text(
                 "UPDATE exams SET answers = CAST(:a AS jsonb), text_answers = CAST(:x AS jsonb), "
+                "item_seconds = CAST(:s AS jsonb), confidence = CAST(:c AS jsonb), "
                 "revision = revision + 1 "
                 "WHERE id = :e AND user_id = :u AND revision = :r AND submitted_at IS NULL "
-                "RETURNING revision, answers, text_answers, deadline_at"
+                "RETURNING revision, answers, text_answers, item_seconds, confidence, "
+                "deadline_at"
             ),
-            {"a": store.dumps(merged), "x": store.dumps(merged_text), "e": exam_id,
+            {"a": store.dumps(merged), "x": store.dumps(merged_text),
+             "s": store.dumps(seconds), "c": store.dumps(confidence), "e": exam_id,
              "u": user_id, "r": revision},
         )
     ).mappings().first()
@@ -172,6 +206,7 @@ async def _record_items(
                 "response": {"selected_option": item["selected_option"]},
                 "score": item["score"], "max_score": item["max_score"],
                 "feedback": {"correct": item["correct"]}, "graded_by": SBA_GRADER,
+                "confidence": item.get("confidence"),
             })
             question = questions.get(item["question_id"])
             if question is not None:

@@ -30,6 +30,11 @@ class GenerateRequest(BaseModel):
         default=None,
         description="Quiz on this figure (ADR 0025): it becomes F1 and, with no topic, its "
                     "caption and description steer retrieval.")
+    basis: Literal["auto", "claims", "chunks"] = Field(
+        default="auto",
+        description="SBA from a topic's verified claims with graph-neighbour distractors "
+                    "(claims), from source chunks (chunks), or claims when the topic has "
+                    "enough of them and chunks otherwise (auto; ADR 0029).")
 
     @model_validator(mode="after")
     def require_scope(self) -> GenerateRequest:
@@ -66,6 +71,8 @@ class GenerateResponse(BaseModel):
     rejected: list[RejectedItem]
     excerpt_count: int
     duplicate_method: Literal["embedding", "trigram"] = "trigram"
+    basis: Literal["claims", "chunks"] = "chunks"
+    graph_neighbours: int = 0
 
 
 class AttemptRequest(BaseModel):
@@ -125,6 +132,12 @@ class AutosaveRequest(BaseModel):
     revision: int = Field(ge=0)
     answers: dict[str, int | None] = Field(default_factory=dict, max_length=300)
     text_answers: dict[str, str | None] = Field(default_factory=dict, max_length=300)
+    item_seconds: dict[str, int] = Field(
+        default_factory=dict, max_length=300,
+        description="Active seconds spent on each item so far (only ever grows).")
+    confidence: dict[str, int | None] = Field(
+        default_factory=dict, max_length=300,
+        description="Optional self-rated confidence per item: 1 low, 2 medium, 3 high.")
 
 
 class AutosaveResponse(BaseModel):
@@ -133,6 +146,8 @@ class AutosaveResponse(BaseModel):
     deadline_at: datetime | None
     answers: dict[str, int]
     text_answers: dict[str, str] = Field(default_factory=dict)
+    item_seconds: dict[str, int] = Field(default_factory=dict)
+    confidence: dict[str, int] = Field(default_factory=dict)
 
 
 class ExamSummary(BaseModel):
@@ -160,6 +175,8 @@ class ExamView(BaseModel):
     revision: int
     answers: dict[str, int]
     text_answers: dict[str, str] = Field(default_factory=dict)
+    item_seconds: dict[str, int] = Field(default_factory=dict)
+    confidence: dict[str, int] = Field(default_factory=dict)
     questions: list[QuestionPublic]
     result: dict[str, Any] | None
 

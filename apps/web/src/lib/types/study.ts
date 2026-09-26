@@ -93,13 +93,22 @@ export interface PlanOut {
 }
 
 export interface CardCitation {
+  /** chunk (default), claim (cloze cards), or figure (image cards). */
+  kind?: string | null;
   source_id: string;
   source_title: string;
   chunk_id?: string | null;
+  claim_id?: string | null;
+  figure_id?: string | null;
   page_from: number;
   page_to: number;
   block_refs?: BlockRef[];
+  /** Figure bounding box (image cards). */
+  bbox?: number[];
 }
+
+/** basic Q/A, cloze (a claim with its key term blanked), or image (a figure). */
+export type CardType = 'basic' | 'cloze' | 'image';
 
 export interface CardOut {
   id: string;
@@ -108,6 +117,11 @@ export interface CardOut {
   front: string;
   back: string;
   origin: string;
+  card_type?: CardType;
+  claim_id?: string | null;
+  figure_id?: string | null;
+  /** Image cards: the figure through the signed media route. */
+  figure_image_path?: string | null;
   citation: CardCitation;
   state: string;
   stability: number;
@@ -143,6 +157,21 @@ export interface GenerateCardsOut {
   created: CardOut[];
   rejected: number;
   chunks_used: number;
+}
+
+/** Cloze cards from verified claims, or image cards from described figures (ADR 0029). */
+export interface KnowledgeCardsIn {
+  kind: 'cloze' | 'image';
+  source_id?: string | null;
+  topic?: string | null;
+  max_cards?: number;
+}
+
+export interface KnowledgeCardsOut {
+  kind: 'cloze' | 'image';
+  created: CardOut[];
+  skipped: number;
+  considered: number;
 }
 
 export interface TopicProgress {

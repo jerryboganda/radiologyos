@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import CitationChip from '$lib/components/CitationChip.svelte';
+  import CardFace from '$lib/components/study/CardFace.svelte';
   import Kbd from '$lib/components/Kbd.svelte';
   import Notice from '$lib/components/Notice.svelte';
   import { reviewKey } from '$lib/shortcuts';
@@ -59,13 +59,7 @@
     <p class="mt-6 text-center text-sm text-muted">All caught up. Generate cards from a source to add more.</p>
   {:else}
     <div class="mt-4 rounded-xl border border-line bg-surface-2/50 p-5">
-      <p class="label mb-2"><span class="font-mono">{card.curriculum_code}</span> · {card.topic}</p>
-      <p class="font-display text-lg leading-snug text-ink">{card.front}</p>
-      {#if revealed}
-        <hr class="my-4 border-line" />
-        <p class="text-[0.9375rem] leading-relaxed text-ink-2">{card.back}</p>
-        <div class="mt-3"><CitationChip citation={card.citation} /></div>
-      {/if}
+      <CardFace {card} {revealed} />
     </div>
     {#if !revealed}
       <button type="button" class="btn btn-primary mt-4 w-full" aria-keyshortcuts="Space" onclick={() => (revealed = true)}>

@@ -2,9 +2,16 @@
   import Notice from '$lib/components/Notice.svelte';
   import { pollWhile } from '$lib/poll.svelte';
   import type { ExamResult, QuestionPublic } from '$lib/types/assessment';
+  import type { DisputeOut } from '$lib/types/results';
   import ExamResultItem from './ExamResultItem.svelte';
+  import ExamReviewSummary from './ExamReviewSummary.svelte';
 
-  let { result, questions }: { result: ExamResult; questions: QuestionPublic[] } = $props();
+  let {
+    result,
+    questions,
+    disputes = []
+  }: { result: ExamResult; questions: QuestionPublic[]; disputes?: DisputeOut[] } = $props();
+  let numbers = $derived(new Map(result.items.map((item, i) => [item.question_id, i + 1])));
   let byId = $derived(new Map(questions.map((q) => [q.id, q])));
   let total = $derived(Math.round(result.max_score * 100) / 100);
   let pending = $derived(result.pending ?? 0);
@@ -37,6 +44,8 @@
   {/if}
   {#if result.timed_out}<Notice tone="info">Time ran out; the exam was graded from your last saved answers.</Notice>{/if}
 
+  {#if result.review}<ExamReviewSummary review={result.review} {numbers} />{/if}
+
   <section aria-labelledby="topic-heading">
     <h2 id="topic-heading" class="mb-3 text-xl font-semibold text-ink">By topic</h2>
     <div class="panel overflow-x-auto">
@@ -62,7 +71,7 @@
     <h2 id="review-heading" class="mb-3 text-xl font-semibold text-ink">Answers with cited keys</h2>
     <ol class="flex flex-col gap-4">
       {#each result.items as item, i (item.question_id)}
-        <ExamResultItem {item} number={i + 1} question={byId.get(item.question_id)} />
+        <ExamResultItem {item} number={i + 1} question={byId.get(item.question_id)} {disputes} />
       {/each}
     </ol>
   </section>

@@ -3,6 +3,7 @@ import { dataOr, loadProblem } from '$lib/api-state';
 import { isUuid } from '$lib/citations';
 import { failureMessage, getJson } from '$lib/server/client';
 import {
+  cardsFromKnowledge,
   generateCards,
   getBaseline,
   getDueCards,
@@ -13,6 +14,7 @@ import {
   startBaseline
 } from '$lib/server/study';
 import { getTodaySession, sessionActions } from '$lib/server/session';
+import { parseKnowledgeCardsForm } from '$lib/cards';
 import { needsOnboarding, parseProfileForm } from '$lib/study';
 import { parseRating } from '$lib/types/study';
 import type { SourceSummary } from '$lib/types/library';
@@ -88,5 +90,13 @@ export const actions: Actions = {
     if (result.state !== 'ok') return fail(400, { section: 'generate', error: failureMessage(result) });
     const { created, rejected, chunks_used } = result.data;
     return { section: 'generate', created: created.length, rejected, chunksUsed: chunks_used };
+  },
+  knowledgeCards: async (event) => {
+    const parsed = parseKnowledgeCardsForm(await event.request.formData());
+    if (!parsed.ok) return fail(400, { section: 'knowledge', error: parsed.error });
+    const result = await cardsFromKnowledge(event, parsed.value);
+    if (result.state !== 'ok') return fail(400, { section: 'knowledge', error: failureMessage(result) });
+    const { kind, created, skipped } = result.data;
+    return { section: 'knowledge', kind, made: created.length, skipped };
   }
 };

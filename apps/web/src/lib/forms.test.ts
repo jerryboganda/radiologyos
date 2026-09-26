@@ -52,7 +52,7 @@ test('plan blocks get copy and destinations', () => {
 
 test('question generation, filters, and exam forms', () => {
   const ok = parseGenerateForm(form([['type', 'seq'], ['exam_target', 'imm'], ['count', '5'], ['source_ids', ID], ['source_ids', 'x']]));
-  assert.deepEqual(ok, { ok: true, value: { type: 'seq', exam_target: 'imm', count: 5, topic: null, source_ids: [ID] } });
+  assert.deepEqual(ok, { ok: true, value: { type: 'seq', exam_target: 'imm', count: 5, topic: null, source_ids: [ID], basis: 'auto' } });
   assert.equal(parseGenerateForm(form([['type', 'rapid_recall'], ['exam_target', 'imm'], ['topic', 'chest']])).ok, false);
   assert.equal(parseGenerateForm(form([['type', 'sba'], ['exam_target', 'imm'], ['count', '6'], ['topic', 'chest']])).ok, false);
   assert.equal(parseGenerateForm(form([['type', 'sba'], ['exam_target', 'imm']])).ok, false, 'topic or sources required');

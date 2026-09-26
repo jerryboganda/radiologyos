@@ -135,6 +135,7 @@ def run_agent(
     effort: str | None = None,
     accept: Accept | None = None,
     on_delta: DeltaCallback | None = None,
+    version: int | None = None,
 ) -> tuple[BaseModel, ModelResult]:
     """Try each target the transport can serve; the first good output wins.
 
@@ -147,9 +148,10 @@ def run_agent(
     ``on_delta`` receives raw output deltas when the first target's transport
     streams. Deltas are unvalidated: callers may only show them as a labelled
     draft. A streamed answer is validated (and gated) like any other; otherwise
-    the ordinary schema-enforced calls follow.
+    the ordinary schema-enforced calls follow. ``version`` pins a prompt version
+    (default: the newest), so a new version never silently changes an old caller.
     """
-    agent = load_agent(name)
+    agent = load_agent(name, version)
     served = getattr(transport, "backends", None)
     calls = [c for c in build_calls(agent, user_prompt, files, effort)
              if served is None or c.backend in served]

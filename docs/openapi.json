@@ -14253,6 +14253,587 @@
         }
       }
     },
+    "/v1/exams/{exam_id}/disputes": {
+      "post": {
+        "tags": [
+          "assessment"
+        ],
+        "summary": "Open Dispute",
+        "operationId": "open_dispute_v1_exams__exam_id__disputes_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "exam_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Exam Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputeView"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "assessment"
+        ],
+        "summary": "Exam Disputes",
+        "operationId": "exam_disputes_v1_exams__exam_id__disputes_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "exam_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Exam Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DisputeView"
+                  },
+                  "title": "Response Exam Disputes V1 Exams  Exam Id  Disputes Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/grade-disputes/review": {
+      "get": {
+        "tags": [
+          "assessment"
+        ],
+        "summary": "Dispute Queue",
+        "description": "Open disputes of the tenant for the owner/admin.",
+        "operationId": "dispute_queue_v1_grade_disputes_review_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10000,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DisputeQueueItem"
+                  },
+                  "title": "Response Dispute Queue V1 Grade Disputes Review Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/grade-disputes/{dispute_id}/resolve": {
+      "post": {
+        "tags": [
+          "assessment"
+        ],
+        "summary": "Resolve Dispute",
+        "operationId": "resolve_dispute_v1_grade_disputes__dispute_id__resolve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "dispute_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Dispute Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeResolve"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DisputeResolved"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/cards/from-knowledge": {
+      "post": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Cards From Knowledge",
+        "operationId": "cards_from_knowledge_v1_study_cards_from_knowledge_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeCardsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeCardsOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health/live": {
       "get": {
         "tags": [
@@ -14974,6 +15555,31 @@
             "type": "object",
             "maxProperties": 300,
             "title": "Text Answers"
+          },
+          "item_seconds": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "maxProperties": 300,
+            "title": "Item Seconds",
+            "description": "Active seconds spent on each item so far (only ever grows)."
+          },
+          "confidence": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "maxProperties": 300,
+            "title": "Confidence",
+            "description": "Optional self-rated confidence per item: 1 low, 2 medium, 3 high."
           }
         },
         "additionalProperties": false,
@@ -15019,6 +15625,20 @@
             },
             "type": "object",
             "title": "Text Answers"
+          },
+          "item_seconds": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Item Seconds"
+          },
+          "confidence": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Confidence"
           }
         },
         "type": "object",
@@ -15512,6 +16132,18 @@
       },
       "CardCitation": {
         "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind",
+            "description": "chunk (default), claim, or figure"
+          },
           "source_id": {
             "type": "string",
             "format": "uuid",
@@ -15533,6 +16165,30 @@
             ],
             "title": "Chunk Id"
           },
+          "claim_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim Id"
+          },
+          "figure_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Figure Id"
+          },
           "page_from": {
             "type": "integer",
             "title": "Page From"
@@ -15550,6 +16206,14 @@
             },
             "type": "array",
             "title": "Block Refs"
+          },
+          "bbox": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Bbox",
+            "description": "Figure bounding box"
           }
         },
         "type": "object",
@@ -15630,6 +16294,51 @@
           "origin": {
             "type": "string",
             "title": "Origin"
+          },
+          "card_type": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "cloze",
+              "image"
+            ],
+            "title": "Card Type",
+            "default": "basic"
+          },
+          "claim_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim Id"
+          },
+          "figure_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Figure Id"
+          },
+          "figure_image_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Figure Image Path"
           },
           "citation": {
             "$ref": "#/components/schemas/CardCitation"
@@ -16511,6 +17220,337 @@
         ],
         "title": "DeleteAccountRequest"
       },
+      "DisputeCreate": {
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Question Id"
+          },
+          "point_index": {
+            "type": "integer",
+            "maximum": 99.0,
+            "minimum": 0.0,
+            "title": "Point Index",
+            "description": "0-based index of the scheme point"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question_id",
+          "point_index",
+          "reason"
+        ],
+        "title": "DisputeCreate"
+      },
+      "DisputeQueueItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "exam_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Exam Id"
+          },
+          "question_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Question Id"
+          },
+          "point_index": {
+            "type": "integer",
+            "title": "Point Index"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "marks": {
+            "type": "number",
+            "title": "Marks"
+          },
+          "awarded_before": {
+            "type": "number",
+            "title": "Awarded Before"
+          },
+          "awarded_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Awarded After"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "accepted",
+              "rejected"
+            ],
+            "title": "Status"
+          },
+          "resolution_note": {
+            "type": "string",
+            "title": "Resolution Note"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "stem": {
+            "type": "string",
+            "title": "Stem"
+          },
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          },
+          "point": {
+            "type": "string",
+            "title": "Point"
+          },
+          "justification": {
+            "type": "string",
+            "title": "Justification"
+          },
+          "answer_text": {
+            "type": "string",
+            "title": "Answer Text"
+          },
+          "model_answer": {
+            "type": "string",
+            "title": "Model Answer"
+          },
+          "citations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Citations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "exam_id",
+          "question_id",
+          "point_index",
+          "reason",
+          "marks",
+          "awarded_before",
+          "awarded_after",
+          "status",
+          "resolution_note",
+          "created_at",
+          "resolved_at",
+          "user_id",
+          "stem",
+          "topic",
+          "point",
+          "justification",
+          "answer_text",
+          "model_answer",
+          "citations"
+        ],
+        "title": "DisputeQueueItem"
+      },
+      "DisputeResolve": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "accept",
+              "reject"
+            ],
+            "title": "Action"
+          },
+          "awarded": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 10.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Awarded",
+            "description": "Accept: the new award for the point (default: its full marks)."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "DisputeResolve"
+      },
+      "DisputeResolved": {
+        "properties": {
+          "dispute": {
+            "$ref": "#/components/schemas/DisputeView"
+          },
+          "exam_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Score"
+          },
+          "exam_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Percent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dispute"
+        ],
+        "title": "DisputeResolved"
+      },
+      "DisputeView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "exam_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Exam Id"
+          },
+          "question_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Question Id"
+          },
+          "point_index": {
+            "type": "integer",
+            "title": "Point Index"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "marks": {
+            "type": "number",
+            "title": "Marks"
+          },
+          "awarded_before": {
+            "type": "number",
+            "title": "Awarded Before"
+          },
+          "awarded_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Awarded After"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "accepted",
+              "rejected"
+            ],
+            "title": "Status"
+          },
+          "resolution_note": {
+            "type": "string",
+            "title": "Resolution Note"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "exam_id",
+          "question_id",
+          "point_index",
+          "reason",
+          "marks",
+          "awarded_before",
+          "awarded_after",
+          "status",
+          "resolution_note",
+          "created_at",
+          "resolved_at"
+        ],
+        "title": "DisputeView"
+      },
       "EdgeOut": {
         "properties": {
           "id": {
@@ -16912,6 +17952,20 @@
             "type": "object",
             "title": "Text Answers"
           },
+          "item_seconds": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Item Seconds"
+          },
+          "confidence": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Confidence"
+          },
           "questions": {
             "items": {
               "$ref": "#/components/schemas/QuestionPublic"
@@ -17230,6 +18284,17 @@
             ],
             "title": "Figure Id",
             "description": "Quiz on this figure (ADR 0025): it becomes F1 and, with no topic, its caption and description steer retrieval."
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "claims",
+              "chunks"
+            ],
+            "title": "Basis",
+            "description": "SBA from a topic's verified claims with graph-neighbour distractors (claims), from source chunks (chunks), or claims when the topic has enough of them and chunks otherwise (auto; ADR 0029).",
+            "default": "auto"
           }
         },
         "additionalProperties": false,
@@ -17268,6 +18333,20 @@
             ],
             "title": "Duplicate Method",
             "default": "trigram"
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "claims",
+              "chunks"
+            ],
+            "title": "Basis",
+            "default": "chunks"
+          },
+          "graph_neighbours": {
+            "type": "integer",
+            "title": "Graph Neighbours",
+            "default": 0
           }
         },
         "type": "object",
@@ -17697,6 +18776,93 @@
         ],
         "title": "JudgeStats",
         "description": "What the semantic grounding judge did for one answer (persisted with it)."
+      },
+      "KnowledgeCardsIn": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cloze",
+              "image"
+            ],
+            "title": "Kind",
+            "description": "cloze: from verified claims; image: from described figures"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          },
+          "max_cards": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Max Cards",
+            "default": 20
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "KnowledgeCardsIn"
+      },
+      "KnowledgeCardsOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cloze",
+              "image"
+            ],
+            "title": "Kind"
+          },
+          "created": {
+            "items": {
+              "$ref": "#/components/schemas/CardOut"
+            },
+            "type": "array",
+            "title": "Created"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped",
+            "description": "Candidates with no blankable term or citation"
+          },
+          "considered": {
+            "type": "integer",
+            "title": "Considered"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "created",
+          "skipped",
+          "considered"
+        ],
+        "title": "KnowledgeCardsOut"
       },
       "LearnChunk": {
         "properties": {

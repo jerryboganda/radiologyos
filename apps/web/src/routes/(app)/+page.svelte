@@ -4,6 +4,8 @@
   import SignedOut from '$lib/components/shell/SignedOut.svelte';
   import BaselineCard from '$lib/components/study/BaselineCard.svelte';
   import GenerateCards from '$lib/components/study/GenerateCards.svelte';
+  import KnowledgeCards from '$lib/components/study/KnowledgeCards.svelte';
+  import { knowledgeSummary } from '$lib/cards';
   import Onboarding from '$lib/components/study/Onboarding.svelte';
   import ReviewDeck from '$lib/components/study/ReviewDeck.svelte';
   import SessionRunner from '$lib/components/study/session/SessionRunner.svelte';
@@ -23,6 +25,9 @@
     form && 'created' in form
       ? `Created ${form.created} card${form.created === 1 ? '' : 's'} from ${form.chunksUsed} passage${form.chunksUsed === 1 ? '' : 's'}${form.rejected ? ` (${form.rejected} rejected by the checker)` : ''}.`
       : null
+  );
+  let madeFromKnowledge = $derived(
+    form && 'made' in form ? knowledgeSummary(form.kind ?? 'cloze', form.made ?? 0, form.skipped ?? 0) : null
   );
   // Local time is only known in the browser; render a neutral greeting on the server.
   let now = $state<Date | null>(null);
@@ -81,6 +86,7 @@
           {#if data.today}<TodayPlan plan={data.today} />{/if}
           <BaselineCard baseline={data.baseline} error={errorFor('baseline')} />
           <GenerateCards sources={data.sources} error={errorFor('generate')} summary={generated} />
+          <KnowledgeCards sources={data.sources} error={errorFor('knowledge')} summary={madeFromKnowledge} />
         </div>
       </div>
     {/if}

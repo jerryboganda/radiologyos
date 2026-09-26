@@ -1,11 +1,23 @@
 <script lang="ts">
   import SbaFeedback from '$lib/components/questions/SbaFeedback.svelte';
   import WrittenFeedback from '$lib/components/questions/WrittenFeedback.svelte';
+  import { citationLink } from '$lib/citations';
+  import { CONFIDENCE_LABELS, formatSeconds } from '$lib/exam-review';
   import { optionLetter } from '$lib/questions';
   import { STAGE_LABELS, type Stage } from '$lib/viva';
   import type { ExamResultItem, QuestionPublic, SbaResultItem, WrittenResultItem } from '$lib/types/assessment';
+  import type { DisputeOut } from '$lib/types/results';
+  import DisputePanel from './DisputePanel.svelte';
 
-  let { item, number, question }: { item: ExamResultItem; number: number; question: QuestionPublic | undefined } = $props();
+  let {
+    item,
+    number,
+    question,
+    disputes = []
+  }: { item: ExamResultItem; number: number; question: QuestionPublic | undefined; disputes?: DisputeOut[] } = $props();
+  // Jump straight to the cited page/block in the reader (the first citation of the key).
+  let source = $derived(citationLink(item.citations?.[0]));
+  let missed = $derived(item.status !== 'pending' && (item.score ?? 0) < item.max_score);
 
   const isWrittenItem = (value: ExamResultItem): value is WrittenResultItem =>
     value.type === 'seq' || value.type === 'image_case' || value.type === 'viva';
@@ -14,7 +26,14 @@
   const TYPE_LABEL: Record<string, string> = { seq: 'SEQ', image_case: 'Image case', viva: 'Viva' };
 </script>
 
-<li class="panel p-5">
+<li class="panel p-5" id="item-{number}">
+  <div class="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[0.6875rem] text-muted">
+    {#if typeof item.time_seconds === 'number'}<span title="Active time on this item">{formatSeconds(item.time_seconds)}</span>{/if}
+    {#if item.confidence}<span>Confidence: {CONFIDENCE_LABELS[item.confidence] ?? item.confidence}</span>{/if}
+    {#if source?.kind === 'source'}
+      <a class="link {missed ? 'font-semibold text-accent' : ''}" href={source.href} title={source.label}>Jump to source →</a>
+    {/if}
+  </div>
   {#if sba}
     <p class="label">Q{number}{sba.topic ? ` · ${sba.topic}` : ''} · your answer {optionLetter(sba.selected_option)}</p>
   {:else if written}
@@ -59,6 +78,7 @@
           </ul>
         {/if}
         <WrittenFeedback result={{ ...written, attempt_id: null, score: written.score ?? 0 }} />
+        <DisputePanel item={written} {disputes} />
       {/if}
     {/if}
   </div>

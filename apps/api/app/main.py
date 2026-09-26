@@ -9,6 +9,7 @@ from apps.api.app.api.billing import router as billing_router
 from apps.api.app.api.blueprints import router as blueprints_router
 from apps.api.app.api.curriculum import router as curriculum_router
 from apps.api.app.api.data_rights import router as data_rights_router
+from apps.api.app.api.disputes import router as disputes_router
 from apps.api.app.api.exams import router as exams_router
 from apps.api.app.api.knowledge import router as knowledge_router
 from apps.api.app.api.library import router as library_router
@@ -21,6 +22,7 @@ from apps.api.app.api.preview_learning import router as preview_learning_router
 from apps.api.app.api.preview_operations import router as preview_operations_router
 from apps.api.app.api.question_review import router as question_review_router
 from apps.api.app.api.study import router as study_router
+from apps.api.app.api.study_cards import router as study_cards_router
 from apps.api.app.api.study_sessions import router as study_sessions_router
 from apps.api.app.api.tutor import router as tutor_router
 from apps.api.app.api.tutor_images import router as tutor_images_router
@@ -78,6 +80,8 @@ app.include_router(preview_operations_router)
 app.include_router(preview_admin_router)
 app.include_router(blueprints_router)
 app.include_router(curriculum_router)
+app.include_router(disputes_router)
+app.include_router(study_cards_router)
 
 
 @app.middleware("http")

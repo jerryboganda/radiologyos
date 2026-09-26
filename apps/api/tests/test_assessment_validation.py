@@ -119,7 +119,7 @@ def test_excerpts_render_as_tagged_data() -> None:
     ("seq_grade", SeqGrade, "reason"),
 ])
 def test_agents_are_versioned_with_generated_schemas(agent: str, model: Any, route: str) -> None:
-    loaded = load_agent(agent)
+    loaded = load_agent(agent, 1)
     assert loaded.output_model is model
     assert loaded.schema == inline_schema(model)
     assert (loaded.prompt.route.value, loaded.prompt.effort) == (route, "high")

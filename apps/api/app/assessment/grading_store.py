@@ -58,16 +58,24 @@ async def start_run(session: AsyncSession, job_id: UUID) -> None:
 
 
 async def stale_pending(
-    session: AsyncSession, user_id: UUID, exam_id: UUID, before: datetime
+    session: AsyncSession, user_id: UUID, exam_id: UUID, pending_before: datetime,
+    running_before: datetime,
 ) -> list[UUID]:
-    """Pending/running jobs untouched since ``before``; touched so one reader re-queues."""
+    """Jobs one reader should re-queue.
+
+    A pending job untouched since ``pending_before`` (a lost broker message), or a
+    run silent since ``running_before`` (its worker presumably died), is set
+    pending; the touch trigger stamps it so only one reader re-queues it. A live
+    run is never matched, so reading the exam cannot refresh its lease and block
+    the takeover (``grading_jobs.STALE_AFTER``) of a run whose worker died.
+    """
     rows = await session.execute(
         text(
-            "UPDATE grading_jobs SET updated_at = now() WHERE user_id = :u AND exam_id = :e "
-            "AND status IN ('pending', 'running') AND updated_at < :before "
-            "RETURNING question_id"
+            "UPDATE grading_jobs SET status = 'pending' WHERE user_id = :u AND exam_id = :e "
+            "AND ((status = 'pending' AND updated_at < :pb) "
+            "OR (status = 'running' AND updated_at < :rb)) RETURNING question_id"
         ),
-        {"u": user_id, "e": exam_id, "before": before},
+        {"u": user_id, "e": exam_id, "pb": pending_before, "rb": running_before},
     )
     return [row[0] for row in rows]
 
@@ -81,7 +89,7 @@ async def record_attempt(
         "response": {"answer_text": item["answer_text"]},
         "score": item["score"], "max_score": item["max_score"],
         "feedback": {"points": item["points"], "feedback": item["feedback"]},
-        "graded_by": grader,
+        "graded_by": grader, "confidence": item.get("confidence"),
     })
 
 
