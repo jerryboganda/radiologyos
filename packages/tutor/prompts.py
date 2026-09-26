@@ -34,6 +34,8 @@ class Context:
     summary: str = ""
     image: ImageCase | None = None
     reading: str = ""
+    intent: str = ""
+    subjects: tuple[str, ...] = ()
 
 
 def escape(text: str) -> str:
@@ -72,8 +74,18 @@ def _image_lines(image: ImageCase, with_text: bool) -> list[str]:
     return [escape(line) for line in lines]
 
 
+def _intent_block(context: Context) -> str:
+    """The routed intent (ADR 0028): shapes the answer, never adds evidence."""
+    if not context.intent:
+        return ""
+    subjects = "; ".join(escape(s) for s in context.subjects)
+    extra = f' subjects="{subjects}"' if subjects else ""
+    return (f'<intent name="{escape(context.intent)}"{extra} note="how to shape the answer; '
+            'not citable" />\n\n')
+
+
 def _context_block(context: Context) -> str:
-    out = ""
+    out = _intent_block(context)
     if context.summary:
         out += ("<thread_summary note=\"summary of earlier turns in this thread; context "
                 f"only; not citable\">\n{escape(context.summary[:SUMMARY_CHARS])}\n"

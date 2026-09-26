@@ -176,7 +176,15 @@ class _Result:
 class _Session:
     async def execute(self, statement: Any, params: Any = None) -> _Result:
         sql = str(statement)
-        return _Result(3_300_000 if "embedding_tokens_total" in sql else [])
+        if "embedding_tokens_total" in sql:
+            return _Result(3_300_000)
+        if "voyage_model_tokens_total" in sql:
+            assert params == {"m": "rerank-2.5"}  # the rerank cap counts rerank tokens only
+            return _Result(151_000_000)
+        if "ops_alerts" in sql and params == {"k": "rerank_budget"}:
+            return _Result([{"id": "70000000-0000-0000-0000-000000000001", "level": "amber",
+                             "created_at": "2026-09-26T00:00:00Z", "acknowledged_at": None}])
+        return _Result([])
 
 
 async def _fake_session() -> AsyncIterator[_Session]:
@@ -201,6 +209,12 @@ def test_admin_usage_is_admin_only_and_reports_zero_bill() -> None:
         assert body["document_model"] == "voyage-4-large"
         assert body["query_model"] == "voyage-4-large"
         assert body["tokens_used"] == 3_300_000
+        assert body["alerts"] == []  # the rerank alert is not an embedding alert
+        rerank = body["rerank"]
+        assert rerank["model"] == "rerank-2.5" and rerank["tokens_used"] == 151_000_000
+        assert rerank["status"] == "amber" and rerank["billed_estimate_usd"] == 0.0
+        assert rerank["hard_cap_tokens"] == 195_000_000
+        assert [a["level"] for a in rerank["alerts"]] == ["amber"]
     finally:
         app.dependency_overrides.clear()
         settings.app_env = "dev"

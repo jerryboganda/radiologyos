@@ -7,13 +7,14 @@ import {
   formatUsd,
   isAdminRole,
   isEmbeddingUsage,
+  isRerankUsage,
   MAX_ACK_IDS,
   parseAckIds,
   safeReturnPath,
   selectBanner,
   sortAlerts
 } from './admin-usage.ts';
-import type { EmbeddingUsage, UsageAlert } from './types/admin.ts';
+import type { EmbeddingUsage, RerankUsage, UsageAlert } from './types/admin.ts';
 
 const RED_ID = '3f2a9c1e-5b7d-4e8f-9a0b-1c2d3e4f5a6b';
 const AMBER_ID = '7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f';
@@ -123,6 +124,48 @@ test('banner copy states the cap and the consequence', () => {
     'Embedding budget exhausted — Voyage API embedding is stopped at 195M tokens. New documents stay keyword-searchable only.'
   );
   assert.equal(bannerMessage({ ...base, level: 'amber' }), 'Embedding usage above 150M of the 195M hard cap.');
+});
+
+function rerank(overrides: Partial<RerankUsage> = {}): RerankUsage {
+  return {
+    model: 'rerank-2.5',
+    tokens_used: 151_000_000,
+    hard_cap_tokens: 195_000_000,
+    warn_tokens: 150_000_000,
+    free_tier_tokens: 200_000_000,
+    free_tier_remaining: 49_000_000,
+    status: 'amber',
+    list_price_usd_equivalent: 7.55,
+    billed_estimate_usd: 0,
+    alerts: [alert()],
+    ...overrides
+  };
+}
+
+test('rerank usage is optional but shape-checked when present', () => {
+  assert.equal(isRerankUsage(rerank()), true);
+  assert.equal(isEmbeddingUsage(usage({ rerank: rerank() })), true);
+  assert.equal(isEmbeddingUsage(usage({ rerank: null })), true);
+  assert.equal(isEmbeddingUsage({ ...usage(), rerank: { ...rerank(), model: 5 } }), false);
+  assert.equal(isEmbeddingUsage({ ...usage(), rerank: { ...rerank(), status: 'blue' } }), false);
+});
+
+test('the embedding banner wins; otherwise the rerank banner shows', () => {
+  const red = alert({ id: RED_ID, level: 'red' });
+  const both = usage({ status: 'red', alerts: [red], rerank: rerank() });
+  assert.equal(selectBanner(both)?.kind, undefined);
+  const onlyRerank = selectBanner(usage({ rerank: rerank() }));
+  assert.deepEqual(onlyRerank, {
+    kind: 'rerank',
+    level: 'amber',
+    alertIds: [AMBER_ID],
+    hardCapTokens: 195_000_000,
+    warnTokens: 150_000_000
+  });
+  assert.equal(selectBanner(usage({ rerank: rerank({ status: 'ok' }) })), null);
+  const base = { kind: 'rerank' as const, alertIds: [RED_ID], hardCapTokens: 195_000_000, warnTokens: 150_000_000 };
+  assert.match(bannerMessage({ ...base, level: 'red' }), /reranking is stopped at 195M tokens.*fused order/);
+  assert.equal(bannerMessage({ ...base, level: 'amber' }), 'Rerank usage above 150M of the 195M hard cap.');
 });
 
 test('alert history is newest first', () => {

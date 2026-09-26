@@ -115,7 +115,8 @@ async def generate_questions(
     vector = await query_vector(principal.tenant_id, topic) if topic else None
     excerpts = await retrieval.gather_excerpts(
         session, principal.user_id, topic, body.source_ids, vector,
-        with_figure=body.type in ("image_case", "viva"), figure=figure)
+        with_figure=body.type in ("image_case", "viva"), figure=figure,
+        tenant_id=principal.tenant_id)
     if not any(e.ref.startswith("E") for e in excerpts):
         raise HTTPException(status_code=422, detail="no source material matched")
     if body.type == "image_case" and not any(e.figure_id for e in excerpts):

@@ -8,7 +8,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from apps.api.app.core.config import get_settings
-from apps.api.app.library import reader, search, service
+from apps.api.app.library import reader, rerank, search, service
 from apps.api.app.security.context import (
     build_shared_dependencies,
     build_tenant_db_session_dependency,
@@ -119,6 +119,9 @@ class SearchResponse(BaseModel):
     hits: list[SearchHit]
     figures: list[FigureHit]
     dense: bool
+    reranked: bool = Field(
+        default=False, description="Hits were reordered by the reranker (ADR 0028); "
+                                   "false means fused (RRF) order.")
 
 
 @router.post("/sources", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED)
@@ -226,12 +229,15 @@ async def search_library(
     body: SearchRequest, principal: PrincipalDep, session: SessionDep
 ) -> SearchResponse:
     vector = await query_vector(principal.tenant_id, body.query)
-    hits = await search.hybrid_search(session, principal.user_id, body.query, vector, body.limit)
+    ranked = await rerank.ranked_search(session, principal.tenant_id, principal.user_id, body.query,
+                                 vector, body.limit)
+    hits = ranked.hits
     figures = await search.search_figures(session, principal.user_id, body.query,
                                           query_vector=vector)
     return SearchResponse(
         query=body.query,
         dense=vector is not None,
+        reranked=ranked.reranked,
         hits=[
             SearchHit(
                 chunk_id=h["id"], heading=h["heading"], text=h["text"], score=h["score"],

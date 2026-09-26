@@ -1,6 +1,6 @@
 // Embedding budget meter and admin alert banner. Pure for node --test.
 import { isUuid } from './data-rights.ts';
-import type { AdminBanner, AlertLevel, EmbeddingUsage, UsageAlert, UsageStatus } from './types/admin.ts';
+import type { AdminBanner, AlertLevel, EmbeddingUsage, RerankUsage, UsageAlert, UsageStatus } from './types/admin.ts';
 
 /** Roles the API lets read usage. A UI hint only: the API decides (403 otherwise). */
 export const ADMIN_ROLES: readonly string[] = ['org_admin', 'superadmin'];
@@ -31,6 +31,22 @@ function isAlert(value: unknown): value is UsageAlert {
   );
 }
 
+function isMeter(usage: Record<string, unknown>): boolean {
+  return (
+    NUMBERS.every((key) => typeof usage[key] === 'number' && Number.isFinite(usage[key])) &&
+    typeof usage.status === 'string' &&
+    STATUSES.includes(usage.status) &&
+    Array.isArray(usage.alerts) &&
+    usage.alerts.every(isAlert)
+  );
+}
+
+export function isRerankUsage(value: unknown): value is RerankUsage {
+  if (!value || typeof value !== 'object') return false;
+  const usage = value as Record<string, unknown>;
+  return typeof usage.model === 'string' && isMeter(usage);
+}
+
 /** Shape check so an unexpected body can never break the app shell. */
 export function isEmbeddingUsage(value: unknown): value is EmbeddingUsage {
   if (!value || typeof value !== 'object') return false;
@@ -38,11 +54,8 @@ export function isEmbeddingUsage(value: unknown): value is EmbeddingUsage {
   return (
     typeof usage.document_model === 'string' &&
     typeof usage.query_model === 'string' &&
-    NUMBERS.every((key) => typeof usage[key] === 'number' && Number.isFinite(usage[key])) &&
-    typeof usage.status === 'string' &&
-    STATUSES.includes(usage.status) &&
-    Array.isArray(usage.alerts) &&
-    usage.alerts.every(isAlert)
+    isMeter(usage) &&
+    (usage.rerank == null || isRerankUsage(usage.rerank))
   );
 }
 
@@ -89,6 +102,11 @@ export const ALERT_TITLE: Record<AlertLevel, string> = {
   amber: 'Warning threshold passed'
 };
 
+export const RERANK_ALERT_TITLE: Record<AlertLevel, string> = {
+  red: 'Hard cap reached: reranking stopped',
+  amber: 'Warning threshold passed'
+};
+
 /** Newest first. */
 export function sortAlerts(alerts: UsageAlert[]): UsageAlert[] {
   return [...alerts].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
@@ -98,16 +116,28 @@ export function sortAlerts(alerts: UsageAlert[]): UsageAlert[] {
  * The banner to show, if any: red only while the status is red, amber only
  * while it is amber, and only for alerts of that level not yet acknowledged.
  */
-export function selectBanner(usage: EmbeddingUsage | null): AdminBanner | null {
-  if (!usage || usage.status === 'ok') return null;
+function meterBanner(usage: EmbeddingUsage | RerankUsage, kind: 'embedding' | 'rerank'): AdminBanner | null {
+  if (usage.status === 'ok') return null;
   const level = usage.status;
   const alertIds = usage.alerts.filter((alert) => alert.level === level && !alert.acknowledged_at).map((alert) => alert.id);
   if (!alertIds.length) return null;
-  return { level, alertIds, hardCapTokens: usage.hard_cap_tokens, warnTokens: usage.warn_tokens };
+  const banner: AdminBanner = { level, alertIds, hardCapTokens: usage.hard_cap_tokens, warnTokens: usage.warn_tokens };
+  return kind === 'rerank' ? { kind, ...banner } : banner;
+}
+
+/** The embedding banner first; otherwise the reranker's (ADR 0028). */
+export function selectBanner(usage: EmbeddingUsage | null): AdminBanner | null {
+  if (!usage) return null;
+  return meterBanner(usage, 'embedding') ?? (usage.rerank ? meterBanner(usage.rerank, 'rerank') : null);
 }
 
 export function bannerMessage(banner: AdminBanner): string {
   const cap = formatTokens(banner.hardCapTokens);
+  if (banner.kind === 'rerank') {
+    return banner.level === 'red'
+      ? `Rerank budget exhausted — Voyage reranking is stopped at ${cap} tokens. Search and the tutor keep working in fused order.`
+      : `Rerank usage above ${formatTokens(banner.warnTokens)} of the ${cap} hard cap.`;
+  }
   if (banner.level === 'red') {
     return `Embedding budget exhausted — Voyage API embedding is stopped at ${cap} tokens. New documents stay keyword-searchable only.`;
   }

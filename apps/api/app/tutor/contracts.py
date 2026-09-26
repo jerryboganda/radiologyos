@@ -1,4 +1,4 @@
-"""Request and response bodies of the tutor API (ADR 0013, ADR 0025)."""
+"""Request and response bodies of the tutor API (ADR 0013, ADR 0025, ADR 0028)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from datetime import datetime
 from uuid import UUID
 
 from packages.library.parse_models import ImageCase
+from packages.tutor.intent import Intent
 from packages.tutor.models import Grounding, JudgeStats, Segment
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -42,6 +43,11 @@ class AskResponse(BaseModel):
     image_id: UUID | None = None
     image_reading: ImageCase | None = Field(
         default=None, description="AI reading of the attached image; context, never a citation.")
+    intent: Intent = Field(default="explain", description="Routed question intent (ADR 0028).")
+    quiz_topic: str | None = Field(
+        default=None, description="For a quiz request: the topic to generate questions on.")
+    graph_claims: int = Field(default=0, description="Knowledge-graph claims (K labels) offered.")
+    reranked: bool = Field(default=False, description="Excerpts were reordered by the reranker.")
 
 
 class ThreadSummary(BaseModel):
@@ -63,6 +69,8 @@ class ThreadMessage(BaseModel):
     judge: JudgeStats | None = None
     image_id: UUID | None = None
     image_reading: ImageCase | None = None
+    intent: Intent | None = None
+    quiz_topic: str | None = None
 
 
 class ThreadDetail(BaseModel):

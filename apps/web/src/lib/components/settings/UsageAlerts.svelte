@@ -1,17 +1,21 @@
 <script lang="ts">
   import { ALERT_TITLE, sortAlerts } from '$lib/admin-usage';
   import { formatDate } from '$lib/format';
-  import type { UsageAlert } from '$lib/types/admin';
+  import type { AlertLevel, UsageAlert } from '$lib/types/admin';
   import AlertAck from '../AlertAck.svelte';
 
-  let { alerts }: { alerts: UsageAlert[] } = $props();
+  let {
+    alerts,
+    label = 'Embedding budget alerts',
+    titles = ALERT_TITLE
+  }: { alerts: UsageAlert[]; label?: string; titles?: Record<AlertLevel, string> } = $props();
   let sorted = $derived(sortAlerts(alerts));
   const PILL = { red: 'bg-danger-soft text-danger', amber: 'bg-warn-soft text-warn' };
 </script>
 
 <h3 class="label mt-7 mb-3">Alert history</h3>
 {#if sorted.length}
-  <ul class="divide-y divide-line rounded-xl border border-line" aria-label="Embedding budget alerts">
+  <ul class="divide-y divide-line rounded-xl border border-line" aria-label={label}>
     {#each sorted as alert (alert.id)}
       <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div class="flex min-w-0 items-start gap-3">
@@ -19,7 +23,7 @@
             >{alert.level}</span
           >
           <div class="min-w-0">
-            <p class="text-sm font-medium text-ink">{ALERT_TITLE[alert.level]}</p>
+            <p class="text-sm font-medium text-ink">{titles[alert.level]}</p>
             <p class="label mt-0.5">
               Raised {formatDate(alert.created_at)} · {alert.acknowledged_at ? `acknowledged ${formatDate(alert.acknowledged_at)}` : 'not acknowledged'}
             </p>

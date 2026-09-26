@@ -14,7 +14,6 @@ from typing import Any
 from uuid import UUID
 
 from apps.api.app.assessment import retrieval
-from apps.api.app.library import search
 from packages.assessment.validation import Excerpt
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -90,13 +89,16 @@ def search_query(topic: str | None, figure: Mapping[str, Any] | None) -> str:
 
 async def gather(
     session: AsyncSession, user_id: UUID, topic: str | None, figure: Mapping[str, Any] | None,
-    vector: Sequence[float] | None, want_figure: bool,
+    vector: Sequence[float] | None, want_figure: bool, tenant_id: UUID | None = None,
 ) -> list[Excerpt]:
-    """Text excerpts for the topic (or the figure's caption), led by the figure if any."""
+    """Text excerpts for the topic (or the figure's caption), led by the figure if any.
+
+    With ``tenant_id`` the fused hits are reranked (ADR 0028, fail-open).
+    """
     if figure is None:
-        return await retrieval.gather_excerpts(session, user_id, topic, [], vector, want_figure)
+        return await retrieval.gather_excerpts(session, user_id, topic, [], vector, want_figure,
+                                               tenant_id=tenant_id)
     query = search_query(topic, figure)
-    rows = await search.hybrid_search(session, user_id, query, vector,
-                                      retrieval.MAX_EXCERPTS * 2)
+    rows = await retrieval.topic_rows(session, user_id, query, [], vector, tenant_id)
     lead = retrieval.figure_excerpt(dict(figure))
     return [lead, *retrieval.chunk_excerpts(rows, retrieval.MAX_CHARS - len(lead.text))]

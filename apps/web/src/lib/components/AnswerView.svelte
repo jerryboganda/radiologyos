@@ -7,6 +7,7 @@
     type Segment,
     type TutorCitation
   } from '$lib/types/tutor';
+  import { layoutAnswer, quizHref } from '$lib/answer-layout';
   import CitationChip from './CitationChip.svelte';
   import FigureChip from './FigureChip.svelte';
 
@@ -15,14 +16,17 @@
     grounding,
     fallback = '',
     dropped = 0,
-    judge = null
+    judge = null,
+    quizTopic = null
   }: {
     segments: Segment[];
     grounding: Grounding | null;
     fallback?: string;
     dropped?: number;
     judge?: JudgeStats | null;
+    quizTopic?: string | null;
   } = $props();
+  let blocks = $derived(layoutAnswer(segments));
 
   const figures = (citations: TutorCitation[]) => citations.filter((c) => c.kind === 'figure');
   const others = (citations: TutorCitation[]) => citations.filter((c) => c.kind !== 'figure');
@@ -62,20 +66,49 @@
   {#if segments.length === 0}
     <p class="text-sm text-ink-2">{fallback || 'No grounded answer was found in your sources.'}</p>
   {/if}
+  {#if quizTopic}
+    <a href={quizHref(quizTopic)} class="btn btn-primary mt-3 inline-flex">Generate questions on “{quizTopic}”</a>
+  {/if}
   <div class="flex flex-col gap-3">
-    {#each segments as segment, i (i)}
-      {#if segment.origin === 'web'}
+    {#each blocks as block, i (i)}
+      {#if block.kind === 'heading'}
+        <h3 class="label mt-2 !text-ink-2">{block.text}</h3>
+      {:else if block.kind === 'table'}
+        <div class="overflow-x-auto rounded-xl border border-line">
+          <table class="w-full border-collapse text-left text-sm">
+            <thead class="bg-surface-2">
+              <tr>
+                <th scope="col" class="px-3 py-2"><span class="sr-only">Feature</span></th>
+                {#each block.columns as column (column)}<th scope="col" class="px-3 py-2 font-semibold text-ink">{column}</th>{/each}
+              </tr>
+            </thead>
+            <tbody>
+              {#each block.rows as row (row.label)}
+                <tr class="border-t border-line align-top">
+                  <th scope="row" class="px-3 py-2 font-medium text-ink-2">{row.label}</th>
+                  {#each row.cells as cell, c (c)}
+                    <td class="px-3 py-2 leading-relaxed text-ink">
+                      {#if cell.length === 0}<span class="text-muted" title="Not covered by your sources">—</span>{/if}
+                      {#each cell as segment, j (j)}<p>{@render support(segment)}{segment.text}{@render chips(segment)}</p>{/each}
+                    </td>
+                  {/each}
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {:else if block.segment.origin === 'web'}
         <div class="rounded-xl border border-web/30 bg-web-soft/60 p-3">
           <p class="label !text-web">From the web · not from your library</p>
-          <p class="mt-1 text-[0.9375rem] leading-relaxed text-ink">{@render support(segment)}{segment.text}</p>
+          <p class="mt-1 text-[0.9375rem] leading-relaxed text-ink">{@render support(block.segment)}{block.segment.text}</p>
           <div class="mt-2 flex flex-wrap gap-1.5">
-            {#each segment.citations as citation, j (j)}<CitationChip {citation} />{/each}
+            {#each block.segment.citations as citation, j (j)}<CitationChip {citation} />{/each}
           </div>
         </div>
       {:else}
         <p class="text-[0.9375rem] leading-relaxed text-ink">
-          {@render support(segment)}{segment.text}
-          {@render chips(segment)}
+          {@render support(block.segment)}{block.segment.text}
+          {@render chips(block.segment)}
         </p>
       {/if}
     {/each}

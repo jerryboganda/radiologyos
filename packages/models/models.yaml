@@ -85,3 +85,18 @@ embeddings:
   budget:
     hard_cap_tokens: 195000000
     warn_tokens: 150000000
+# ADR 0028 (owner-approved 2026-09-26): Voyage rerank-2.5 reorders the fused
+# (RRF) hits of library search, tutor and question retrieval. Its 200M free
+# tokens are separate from the embedding models', so it has its own lifetime
+# cap. Past the cap, or when Voyage is unavailable, results keep RRF order.
+rerank:
+  backend: voyage
+  model: rerank-2.5
+  api_key_env: VOYAGE_API_KEY
+  base_url: https://api.voyageai.com/v1
+  top_k: 8
+  candidates: 24
+  min_score: 0.2
+  budget:
+    hard_cap_tokens: 195000000
+    warn_tokens: 150000000

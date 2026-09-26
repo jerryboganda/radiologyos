@@ -20,6 +20,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from packages.tutor.intent import Intent
+
 Grounding = Literal["sources", "web", "mixed", "none"]
 Origin = Literal["sources", "web"]
 Verdict = Literal["supported", "partial", "unsupported"]
@@ -48,6 +50,38 @@ class SourceAnswer(BaseModel):
 
     segments: list[SourceSegment] = Field(
         max_length=40, description="The answer in reading order; [] if nothing is covered."
+    )
+    coverage: Literal["full", "partial", "none"] = Field(
+        description="How completely the excerpts answer the question."
+    )
+
+
+class LayoutSegment(SourceSegment):
+    """``tutor_answer`` v4: a segment may sit under a heading or in a table cell."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    section: str | None = Field(
+        default=None, max_length=80,
+        description='Optional heading this segment sits under, e.g. "Findings".',
+    )
+    row: str | None = Field(
+        default=None, max_length=80,
+        description="Table row label (a feature, or a diagnosis); set with column.",
+    )
+    column: str | None = Field(
+        default=None, max_length=80,
+        description="Table column label (an entity compared, or a discriminator heading).",
+    )
+
+
+class LayoutAnswer(BaseModel):
+    """Output of ``tutor_answer`` v4: v3 plus optional layout (ADR 0028)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    segments: list[LayoutSegment] = Field(
+        max_length=60, description="The answer in reading order; [] if nothing is covered."
     )
     coverage: Literal["full", "partial", "none"] = Field(
         description="How completely the excerpts answer the question."
@@ -169,6 +203,9 @@ class Segment(BaseModel):
     citations: list[Citation] = Field(min_length=1)
     support: Support | None = None
     support_note: str | None = None
+    section: str | None = None
+    row: str | None = None
+    column: str | None = None
 
 
 class GroundedAnswer(BaseModel):
@@ -180,6 +217,8 @@ class GroundedAnswer(BaseModel):
     notice: str | None = None
     agent_version: str = ""
     judge: JudgeStats | None = None
+    intent: Intent | None = None
+    quiz_topic: str | None = Field(default=None, max_length=200)
 
     @property
     def text(self) -> str:

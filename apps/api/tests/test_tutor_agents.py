@@ -13,7 +13,7 @@ from packages.library.parse_models import inline_schema
 from packages.models.claude_code import ModelCallError, UsageLimitError
 from packages.models.gateway import build_call, load_agent
 from packages.tutor.grounding import NOT_FOUND, NOT_FOUND_AFTER_WEB, excerpts_from_hits
-from packages.tutor.models import SourceAnswer, WebAnswerWithPages
+from packages.tutor.models import LayoutAnswer, WebAnswerWithPages
 from packages.tutor.orchestrator import (
     WEB_UNAVAILABLE,
     Turn,
@@ -41,7 +41,8 @@ def _source(coverage: str, *labels: str) -> dict[str, Any]:
 
 def test_tutor_answer_agent_is_tool_less_high_effort_reason_route() -> None:
     agent = load_agent("tutor_answer")
-    assert agent.schema == inline_schema(SourceAnswer)
+    assert agent.schema == inline_schema(LayoutAnswer)
+    assert agent.key == "tutor_answer/v4"
     assert (agent.prompt.route, agent.prompt.effort) == ("reason", "high")
     call = build_call(agent, "p")
     assert call.tools == () and call.effort == "high"
@@ -67,8 +68,13 @@ def test_tutor_eval_fixtures_link_every_prompt_version() -> None:
     assert v3.data_class == "synthetic"
     assert {case.prompt for case in v3.cases} == {
         "tutor_answer/v3.yaml", "tutor_web/v3.yaml", "tutor_memory/v1.yaml"}
-    for name in ("tutor_answer", "tutor_web", "tutor_memory"):
+    for name in ("tutor_web", "tutor_memory"):
         assert load_agent(name).prompt.fixture == "evals/fixtures/tutor_v3.json"
+    assert load_agent("tutor_answer", 3).prompt.fixture == "evals/fixtures/tutor_v3.json"
+    v4 = load_eval_fixtures(ROOT / "evals" / "fixtures" / "tutor_v4.json")
+    assert v4.data_class == "synthetic"
+    assert {case.prompt for case in v4.cases} == {"tutor_answer/v4.yaml"}
+    assert load_agent("tutor_answer").prompt.fixture == "evals/fixtures/tutor_v4.json"
 
 
 def test_full_coverage_answers_from_sources_without_web() -> None:
@@ -77,7 +83,7 @@ def test_full_coverage_answers_from_sources_without_web() -> None:
     result = answer_question(transport, "What is crazy paving?", excerpts)
     assert result.grounding == "sources" and transport.web_calls == []
     assert [s.citations[0].chunk_id for s in result.segments] == [e.chunk_id for e in excerpts]
-    assert result.agent_version == "tutor_answer/v3+grounding_judge/v1"
+    assert result.agent_version == "tutor_answer/v4+grounding_judge/v1"
     assert [s.support for s in result.segments] == ["supported", "supported"]
 
 
@@ -86,7 +92,7 @@ def test_partial_coverage_adds_labelled_web_segments() -> None:
     result = answer_question(transport, "Dermoid vs epidermoid?", _excerpts())
     assert result.grounding == "mixed"
     assert [s.origin for s in result.segments] == ["sources", "web"]
-    assert result.agent_version == "tutor_answer/v3+tutor_web/v3+grounding_judge/v1"
+    assert result.agent_version == "tutor_answer/v4+tutor_web/v3+grounding_judge/v1"
     assert result.judge is not None and result.judge.judged == 2
 
 

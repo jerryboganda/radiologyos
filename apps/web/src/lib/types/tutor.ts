@@ -29,7 +29,15 @@ export interface Segment {
   citations: TutorCitation[];
   support?: Support | null;
   support_note?: string | null;
+  /** Heading the segment sits under (tutor_answer v4, ADR 0028). */
+  section?: string | null;
+  /** Table cell: row and column are set together or not at all. */
+  row?: string | null;
+  column?: string | null;
 }
+
+/** Routed question intent (ADR 0028). */
+export type Intent = 'explain' | 'compare' | 'ddx' | 'show_me' | 'report' | 'quiz';
 
 export interface JudgeStats {
   status: 'ok' | 'failed' | 'skipped' | 'not_run';
@@ -90,6 +98,11 @@ export interface AskResponse {
   judge: JudgeStats | null;
   image_id?: string | null;
   image_reading?: ImageReading | null;
+  intent?: Intent;
+  /** A quiz request: the topic to generate questions on. */
+  quiz_topic?: string | null;
+  graph_claims?: number;
+  reranked?: boolean;
 }
 
 export interface ThreadSummary {
@@ -111,6 +124,8 @@ export interface ThreadMessage {
   judge?: JudgeStats | null;
   image_id?: string | null;
   image_reading?: ImageReading | null;
+  intent?: Intent | null;
+  quiz_topic?: string | null;
 }
 
 export interface ThreadDetail {

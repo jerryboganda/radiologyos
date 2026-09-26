@@ -79,6 +79,32 @@ class EmbeddingConfig(BaseModel):
     budget: EmbeddingBudget
 
 
+class RerankConfig(BaseModel):
+    """Voyage reranker applied after RRF fusion (ADR 0028).
+
+    Its free allowance is separate (200M tokens per model), so ``budget`` is
+    checked against rerank tokens only. ``candidates`` fused hits are sent;
+    at most ``top_k`` come back, and any below ``min_score`` are dropped.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    backend: Literal["voyage"]
+    model: str = Field(min_length=1)
+    api_key_env: str | None = None
+    base_url: str | None = None
+    top_k: int = Field(ge=1, le=50)
+    candidates: int = Field(ge=2, le=100)
+    min_score: float = Field(ge=0.0, le=1.0)
+    budget: EmbeddingBudget
+
+    @model_validator(mode="after")
+    def top_k_within_candidates(self) -> RerankConfig:
+        if self.top_k > self.candidates:
+            raise ValueError("top_k must not exceed candidates")
+        return self
+
+
 class ModelRoute(BaseModel):
     """Ordered primary target plus explicit fallback route names."""
 
@@ -133,6 +159,7 @@ class ModelRoutingConfig(BaseModel):
     routes: dict[RouteName, ModelRoute]
     agents: dict[str, AgentTargets] = Field(default_factory=dict)
     embeddings: EmbeddingConfig | None = None
+    rerank: RerankConfig | None = None
 
     @model_validator(mode="after")
     def require_all_stable_routes(self) -> ModelRoutingConfig:
@@ -150,6 +177,8 @@ def require_mock_routes(config: ModelRoutingConfig) -> None:
         raise ValueError("preview model routes must be blocked and mock-only")
     if config.agents:
         raise ValueError("preview model routes cannot carry agent targets")
+    if config.rerank is not None:
+        raise ValueError("preview model routes cannot carry a reranker")
     for route in config.routes.values():
         if route.fallbacks:
             raise ValueError("preview model routes cannot have fallbacks")

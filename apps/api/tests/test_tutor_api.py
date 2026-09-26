@@ -42,7 +42,9 @@ def test_ask_returns_cited_segments_and_persists_a_new_thread(env: dict[str, Any
     assert (citation["chunk_id"], citation["page_from"]) == (str(CHUNK), 4)
     assert UUID(body["thread_id"]) in env["repo"].threads
     assert env["search"] == (PRINCIPAL.user_id, "what or is or crazy or paving", 8)
-    assert env["session"].events == ["rollback", f"tenant:{PRINCIPAL.tenant_id}", "commit"]
+    tenant = f"tenant:{PRINCIPAL.tenant_id}"
+    # no transaction during the rerank call (graph read after it) or the model calls
+    assert env["session"].events == ["rollback", tenant, "rollback", tenant, "commit"]
 
 
 def test_follow_up_in_thread_and_thread_reads(env: dict[str, Any]) -> None:

@@ -1,0 +1,89 @@
+{
+  "additionalProperties": false,
+  "description": "Output of ``tutor_answer`` v4: v3 plus optional layout (ADR 0028).",
+  "properties": {
+    "segments": {
+      "description": "The answer in reading order; [] if nothing is covered.",
+      "items": {
+        "additionalProperties": false,
+        "description": "``tutor_answer`` v4: a segment may sit under a heading or in a table cell.",
+        "properties": {
+          "text": {
+            "description": "One or two sentences of the answer, supported by the cited excerpts.",
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "sources": {
+            "description": "Excerpt labels that support this text, e.g. [\"S1\", \"S3\"]. Never empty.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "type": "array"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional heading this segment sits under, e.g. \"Findings\"."
+          },
+          "row": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Table row label (a feature, or a diagnosis); set with column."
+          },
+          "column": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Table column label (an entity compared, or a discriminator heading)."
+          }
+        },
+        "required": [
+          "text",
+          "sources"
+        ],
+        "type": "object"
+      },
+      "maxItems": 60,
+      "type": "array"
+    },
+    "coverage": {
+      "description": "How completely the excerpts answer the question.",
+      "enum": [
+        "full",
+        "partial",
+        "none"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "segments",
+    "coverage"
+  ],
+  "type": "object"
+}

@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
-from apps.api.app.library import search
+from apps.api.app.library import rerank, search
 from packages.assessment.validation import Excerpt
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -126,6 +126,20 @@ def figure_excerpt(row: dict[str, Any]) -> Excerpt:
     )
 
 
+async def topic_rows(
+    session: AsyncSession, user_id: UUID, topic: str, source_ids: Sequence[UUID],
+    query_vector: Sequence[float] | None, tenant_id: UUID | None,
+) -> list[dict[str, Any]]:
+    """Hybrid hits for a topic, source-filtered, then reranked when a tenant is given."""
+    limit = MAX_EXCERPTS * 2
+    pool = rerank.candidate_pool(limit) if tenant_id is not None else limit
+    rows = await search.hybrid_search(session, user_id, topic, query_vector, pool)
+    rows = [r for r in rows if not source_ids or r["source_id"] in source_ids]
+    if tenant_id is None:
+        return rows[:limit]
+    return (await rerank.rerank_hits(tenant_id, topic, rows, limit)).hits
+
+
 async def gather_excerpts(
     session: AsyncSession,
     user_id: UUID,
@@ -134,11 +148,14 @@ async def gather_excerpts(
     query_vector: Sequence[float] | None,
     with_figure: bool,
     figure: dict[str, Any] | None = None,
+    tenant_id: UUID | None = None,
 ) -> list[Excerpt]:
-    """Numbered excerpts; a given ``figure`` is always F1 (quiz on a figure)."""
+    """Numbered excerpts; a given ``figure`` is always F1 (quiz on a figure).
+
+    With ``tenant_id`` the topic's fused hits are reranked (ADR 0028, fail-open).
+    """
     if topic:
-        rows = await search.hybrid_search(session, user_id, topic, query_vector, MAX_EXCERPTS * 2)
-        rows = [r for r in rows if not source_ids or r["source_id"] in source_ids]
+        rows = await topic_rows(session, user_id, topic, source_ids, query_vector, tenant_id)
     else:
         rows = await _sample_chunks(session, user_id, source_ids)
     if figure is None and with_figure:

@@ -14763,6 +14763,44 @@
               }
             ],
             "description": "AI reading of the attached image; context, never a citation."
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "explain",
+              "compare",
+              "ddx",
+              "show_me",
+              "report",
+              "quiz"
+            ],
+            "title": "Intent",
+            "description": "Routed question intent (ADR 0028).",
+            "default": "explain"
+          },
+          "quiz_topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiz Topic",
+            "description": "For a quiz request: the topic to generate questions on."
+          },
+          "graph_claims": {
+            "type": "integer",
+            "title": "Graph Claims",
+            "description": "Knowledge-graph claims (K labels) offered.",
+            "default": 0
+          },
+          "reranked": {
+            "type": "boolean",
+            "title": "Reranked",
+            "description": "Excerpts were reordered by the reranker.",
+            "default": false
           }
         },
         "type": "object",
@@ -16609,6 +16647,16 @@
             },
             "type": "array",
             "title": "Alerts"
+          },
+          "rerank": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RerankUsage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -20335,6 +20383,73 @@
         ],
         "title": "ReportSystem"
       },
+      "RerankUsage": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "tokens_used": {
+            "type": "integer",
+            "title": "Tokens Used"
+          },
+          "hard_cap_tokens": {
+            "type": "integer",
+            "title": "Hard Cap Tokens"
+          },
+          "warn_tokens": {
+            "type": "integer",
+            "title": "Warn Tokens"
+          },
+          "free_tier_tokens": {
+            "type": "integer",
+            "title": "Free Tier Tokens"
+          },
+          "free_tier_remaining": {
+            "type": "integer",
+            "title": "Free Tier Remaining"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "amber",
+              "red"
+            ],
+            "title": "Status"
+          },
+          "list_price_usd_equivalent": {
+            "type": "number",
+            "title": "List Price Usd Equivalent"
+          },
+          "billed_estimate_usd": {
+            "type": "number",
+            "title": "Billed Estimate Usd"
+          },
+          "alerts": {
+            "items": {
+              "$ref": "#/components/schemas/BudgetAlert"
+            },
+            "type": "array",
+            "title": "Alerts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "tokens_used",
+          "hard_cap_tokens",
+          "warn_tokens",
+          "free_tier_tokens",
+          "free_tier_remaining",
+          "status",
+          "list_price_usd_equivalent",
+          "billed_estimate_usd",
+          "alerts"
+        ],
+        "title": "RerankUsage",
+        "description": "The reranker's own ledger: its free tier and cap are separate (ADR 0028)."
+      },
       "ResolveRequest": {
         "properties": {
           "resolution": {
@@ -20925,6 +21040,12 @@
           "dense": {
             "type": "boolean",
             "title": "Dense"
+          },
+          "reranked": {
+            "type": "boolean",
+            "title": "Reranked",
+            "description": "Hits were reordered by the reranker (ADR 0028); false means fused (RRF) order.",
+            "default": false
           }
         },
         "type": "object",
@@ -20984,6 +21105,39 @@
               }
             ],
             "title": "Support Note"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row"
+          },
+          "column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column"
           }
         },
         "additionalProperties": false,
@@ -22136,6 +22290,36 @@
                 "type": "null"
               }
             ]
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "explain",
+                  "compare",
+                  "ddx",
+                  "show_me",
+                  "report",
+                  "quiz"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intent"
+          },
+          "quiz_topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quiz Topic"
           }
         },
         "type": "object",

@@ -87,7 +87,7 @@ def test_judge_disabled_by_setting_makes_no_call_and_labels_not_verified() -> No
     result = answer_question(transport, "q?", _excerpts(), allow_web=False, judge=False)
     assert transport.judge_calls == [] and result.segments[0].support == "not_verified"
     assert result.judge is not None and result.judge.status == "skipped"
-    assert result.agent_version == "tutor_answer/v3"
+    assert result.agent_version == "tutor_answer/v4"
 
 
 def test_all_segments_unsupported_is_an_explicit_not_found() -> None:

@@ -87,7 +87,7 @@ def _patch(monkeypatch: pytest.MonkeyPatch, figure: dict[str, Any] | None) -> di
         return figure if figure_id == FIGURE and user == USER else None
 
     async def gather(_s: Any, user: UUID, topic: Any, source_ids: Any, vector: Any,
-                     with_figure: bool, figure: Any = None) -> list[Any]:
+                     with_figure: bool, figure: Any = None, **_kw: Any) -> list[Any]:
         seen.update(topic=topic, with_figure=with_figure, figure=figure)
         return []
 
