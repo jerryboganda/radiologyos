@@ -1,121 +1,74 @@
 # CONTEXT.md — radbrain current implementation context
 
 Last reviewed: **2026-09-26**
-Milestone: **M0 Foundation — CI/runtime verified; production verification chain exists; M0 evidence not yet accepted**
-Preview implementation: **M1–M7 may be built locally under ADR 0006; acceptance remains blocked**
-Canonical requirements: [`docs/SPEC.md`](docs/SPEC.md)
+Delivery mode: **personal-first (ADR 0011)** — a real study platform for the owner's
+own tenant on the production VPS. Milestone acceptance evidence (ADR 0008) is tracked
+separately in [`docs/remaining-work.md`](docs/remaining-work.md).
+Canonical requirements: [`docs/SPEC.md`](docs/SPEC.md) plus ADRs 0001–0017.
 
 ## Purpose
 
-`radbrain` is a source-controlled implementation of a provenance-first,
-tenant-isolated radiology study platform. The intended product supports candidate
-material, a knowledge graph, figure bank, exam-driven study plan, grounded tutor,
-and assessment engine. The current checkout is only the M0 foundation target; it is
-not a usable upload/search product yet.
+`radbrain` is a provenance-first, tenant-isolated radiology exam-preparation platform
+(FCPS-II theory and TOACS, IMM, FRCR). The owner uploads their own material; the
+system parses it with Claude Opus 5.5, builds cited search, a grounded tutor, a
+knowledge graph with explicit conflicts, an exam-date-driven planner with spaced
+repetition, and an assessment engine. Everything a user sees is cited to source,
+page, and block, or to an allow-listed web URL.
 
-## Current repository shape
+## What is real (durable, RLS-protected, tested)
 
-- `apps/api`: FastAPI application, settings, SQLAlchemy session plumbing,
-  development-principal API routes, health endpoints, bounded redacted request logging,
-  and a local synthetic non-release preview surface for M1–M7 seams.
-- `apps/worker`: Celery 5 worker package and stable job identity; durable ingestion is
-  not yet established.
-- `apps/web`: web scaffold plus a server-proxied `/preview` workspace for synthetic
-  non-release flows; no provider tokens are sent to the browser.
-- `apps/api/migrations`: Alembic migration target for PostgreSQL, pgvector, and
-  tenant RLS; verify the landed migration before calling M0 RLS complete.
-- `packages`: model-route, prompt, and eval configuration scaffolds. Model routes
-  must remain mock-only until the provider decision gate is approved.
-- `evals`: evaluation scaffolding, not a passed quality gate.
-- `infra`: Compose and deployment scaffolding; the default stack now contains a
-  one-shot migrator, real FastAPI/Celery processes, and the web shell, but this is not
-  evidence of a production environment.
-- `scripts`: repository maintenance utilities such as OpenAPI type generation.
-- `docs`: product index, runbooks, and decision records.
+| Area | Where | Notes |
+| --- | --- | --- |
+| Identity | Keycloak (public issuer under `/auth`), `apps/api/app/security/` | OIDC for the browser; the web server calls the API with 60 s signed assertions (ADR 0012) |
+| Library | `apps/api/app/library/`, `apps/worker/app/ingest/`, `packages/library/` | upload → render → chunk → embed → ready → Opus page parse + figure cases; resumable jobs |
+| Search | `apps/api/app/library/search.py` | tsvector + pgvector, RRF k=60, cited hits and figures |
+| Tutor | `packages/tutor/`, `apps/api/app/api/tutor.py` | sources first, allow-listed web research second; code-verified citations (ADR 0013) |
+| Assessment | `packages/assessment/`, `apps/api/app/assessment/` | SBA/SEQ/TOACS/viva generation, checker gate, exams (ADR 0015) |
+| Reminders | `packages/notifications/`, `apps/worker/app/reminders.py` | Web Push via VAPID, per-user time and timezone |
+| Models | `packages/models/` | Claude Code headless transport, agent gateway, Voyage embeddings (ADR 0010) |
 
-Directories named in the target architecture can exist before their behavior. Use
-executable verification evidence, not directory presence, to determine maturity.
+The M1–M7 in-memory **preview** under `/v1/preview/*` still exists for its eval
+gates but is superseded by the durable routes above.
 
-## Commands currently defined
+## Tenant tables
+
+Every tenant-scoped table has `tenant_id`, ENABLE + FORCE RLS, and a two-tenant
+negative proof run as `radbrain_app` in CI (`evals/checks/*_live.py`). Migrations
+0001–0009 are expand-only.
+
+## Runtime
+
+- Production: shared VPS, compose project `radiologyos` (api, worker with Celery beat,
+  web) using the platform Postgres, Redis and MinIO; Keycloak is `radbrain-keycloak`;
+  `radiologyos.polytronx.com` is served by nginx-proxy-manager through
+  `infra/proxy/radiologyos-manual.conf`. See
+  [`docs/runbooks/production-deploy.md`](docs/runbooks/production-deploy.md).
+- **Deploys are manual** and need the owner's OK (ADR 0011): push to `main` runs CI and
+  builds images only.
+- Secrets live only in `/opt/radiologyos/app.env` (mode 600): database, S3, OIDC,
+  `WEB_API_SECRET`, `CLAUDE_CODE_OAUTH_TOKEN`, `VOYAGE_API_KEY`, `VAPID_*`.
+
+## Commands
 
 | Command | Purpose |
 | --- | --- |
-| `make up` | Start the Compose stack and show service status. |
-| `make down` | Stop containers while retaining named volumes. |
-| `make migrate` | Apply Alembic migrations to the configured database. |
-| `make check` | Run lightweight local lint, type, Python test, and web checks. |
-| `make test` | Run Python unit tests. |
-| `make rls` | Dispatch the production runtime-role RLS verification through GitHub Actions. |
-| `make types` | Generate TypeScript API types from OpenAPI. |
-| `make security-scan` | Dispatch the security scan through GitHub Actions. |
-| `make ci` | Dispatch CI for the current revision and wait for its result. |
+| `python -m ruff check apps packages evals scripts` | lint |
+| `python -m mypy apps/api/app apps/worker/app` | strict typing |
+| `python -m pytest -q apps/api/tests evals/checks` | unit + eval gates (live proofs skip locally) |
+| `npm --prefix apps/web run check` / `test` / `build` | web checks |
+| `python scripts/generate_openapi_types.py` | refresh `docs/openapi.json` and web types |
+| `gh workflow run deploy-production.yml --ref main -f sha=<sha>` | deploy (owner OK only) |
 
-`make check` is the broad local gate, but success does not substitute for a Compose
-integration test, production OIDC verification, a real two-tenant database proof, or CI.
+Heavy verification (compose, migrations, live RLS, image builds) runs in GitHub
+Actions (ADR 0005).
 
-## Current API behavior and boundaries
+## Known limitations
 
-- Public liveness/readiness routes are `/health/live` and `/health/ready`.
-- Local routes accept `x-user-id`, `x-tenant-id`, and optional `x-role` headers only
-  when `APP_ENV` is `dev`, `development`, or `test`. This is not OIDC and must never
-  be enabled in staging, production, or unknown environments.
-- The web scaffold implements an OIDC authorization-code/PKCE session shell. Full
-  Keycloak browser login remains an M0 exit condition only after production
-  verification proves the API resolves the authenticated subject to a current,
-  authorized tenant membership and role.
-- Tenant context is a Python `ContextVar`; authenticated OIDC requests resolve the
-  current active membership from the database before a tenant-scoped session is opened.
-  `tenant_session()` sets transaction-local `app.tenant_id` immediately before tenant
-  data access. Development headers set the same context only in the explicit local test
-  environments. Endpoint coverage and adversarial two-tenant evidence must still be
-  checked separately.
-- Export/delete/admin routes in the scaffold are response-shape demonstrations, not
-  proof of the M6 deletion workflows.
-
-## Configuration baseline
-
-`.env.example` documents the current settings contract. It includes separate app
-and migrator database URLs, OIDC, Redis, S3, embedding dimensions, model config
-path, ungrounded-answer guard, and the reserved Core tenant UUID. Values marked
-`change-me` and public RustFS defaults are local-development placeholders only.
-
-`ALLOW_UNGROUNDED_DEFAULT=false` is a hard default. Concrete provider models and
-provider keys are not approved by `.env.example` or `packages/models/models.yaml`.
-Do not place keys in browser-visible configuration.
-
-## M0 definition of done
-
-M0 is complete only when all of the following have evidence for the same production
-candidate commit, as defined by ADR 0008:
-
-- `make up` brings up the required stack and health checks pass.
-- A real user signs in through OIDC, receives the correct tenant/role membership,
-  and cannot select a tenant they do not belong to.
-- A two-tenant suite, run as the RLS-bound application role, proves zero
-  cross-tenant reads or writes and fail-closed behavior without tenant context.
-- OpenAPI-to-TypeScript generation is reproducible and CI checks are green.
-- The observability skeleton reports service health without leaking source text,
-  prompts, embeddings, credentials, or patient data.
-- The runbook, five-minute clean-tenant demo, and security scan are current.
-
-The authoritative checklist and rollback steps are in
-[`docs/runbooks/m0-foundation.md`](docs/runbooks/m0-foundation.md). The full remaining
-A–Z goal is tracked in [`docs/remaining-work.md`](docs/remaining-work.md).
-
-## Known limitations and open decisions
-
-- Local study directories are Git-ignored private inputs; documentation agents do
-  not inspect their contents. Follow the data-handling runbook for any authorized
-  local test.
-- The model provider, embedding provider, launch data region, and monthly spend cap
-  are unapproved. The model ADR is a gate, not a selection.
-- The production M0 verification chain is implemented but M0 cannot be accepted until
-  the same commit passes deployment, OIDC, RLS, backup, security, and compliance
-  evidence checks.
-- CI run `36143277301` on revision `5ac9eff` is green, including full runtime Compose
-  startup, live migrations, and the non-privileged two-tenant RLS proof. The checkout
-  also contains production OIDC/RLS verification definitions plus a local synthetic
-  preview; current production verification evidence still needs to be captured for a
-  single release candidate.
-- Curriculum validation/weights, Core Library sourcing, pricing, retention changes,
-  and launch cohort details require human decisions.
+- AI parsing and embeddings need `CLAUDE_CODE_OAUTH_TOKEN` and `VOYAGE_API_KEY` in
+  `app.env`; without them sources are searchable by keyword only
+  ([`docs/runbooks/library.md`](docs/runbooks/library.md)).
+- Subscription-based model access covers the owner's own use only (ADR 0010).
+- Tutor answers are synchronous (no streaming yet); a semantic grounding judge is a
+  follow-up (ADR 0013).
+- Uploads over 100 MB must use the server-side bulk importer (Cloudflare limit).
+- Billing is parked behind `BILLING_ENABLED` (ADR 0011).
