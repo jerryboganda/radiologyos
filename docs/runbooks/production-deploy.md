@@ -29,15 +29,19 @@ same-commit OIDC, RLS, backup, security, and compliance evidence described by AD
 
 ## Normal operation
 
-Deployment is push-driven and needs no manual step:
+A push to main runs CI and builds images, but never deploys (ADR 0011). A
+deploy happens only after the owner approves it, and is dispatched for one exact
+commit on `main`:
 
 ```
-push to main -> CI -> Build images -> Deploy production -> Verify production RLS
+push to main -> CI + Build images
+owner OK     -> gh workflow run deploy-production.yml --ref main -f sha=<40-char sha>
+             -> Deploy production -> Verify production RLS + Verify production identity
 ```
 
-The deploy workflow fires on `workflow_run` of `Build images` and only when
-that build succeeded for `main`, so it never races the image build. It pins the
-exact 40-character commit SHA.
+The deploy job refuses unless the SHA is on `main` and both `CI` and
+`Build images` have a successful run for it. It checks out and deploys that
+exact SHA; the verify workflows check out the revision of the deploy run.
 
 ## Verification
 
@@ -81,7 +85,7 @@ docker compose --env-file app.env -f platform.yml pull
 docker compose --env-file app.env -f platform.yml up -d
 ```
 
-Prefer `gh workflow run deploy-production.yml -f image_tag=<sha>`, which does
+Prefer `gh workflow run deploy-production.yml --ref main -f sha=<previous full sha>`, which does
 the same thing through the audited path.
 
 Schema rollback is deliberately absent. Restoring a previous dump would discard
@@ -100,8 +104,11 @@ forward fix.
 
 ## Known limitations
 
-- **No identity provider.** OIDC variables are empty, so there is no federated
-  sign-in. Selecting an IdP is an open human decision.
+- **Identity is self-hosted Keycloak (ADR 0009)**, deployed as the separate
+  `radbrain-keycloak` compose project and configured by the root-run scripts in
+  `infra/ops/` (`build-keycloak-env.sh`, `keycloak-bootstrap.sh`,
+  `provision-tenant.sh`, `wire-oidc.sh`). Its issuer is internal only
+  (`http://keycloak:8080`) until the public hostname is routed.
 - **The public hostname is not yet routed.** `radiologyos.polytronx.com`
   resolves through Cloudflare but has no proxy host, so it returns HTTP 525
   (Cloudflare cannot complete an origin TLS handshake). The web container is

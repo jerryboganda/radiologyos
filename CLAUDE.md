@@ -23,9 +23,16 @@
   contracts and keep `svelte-check` clean.
 - Data: PostgreSQL 16 with pgvector, tsvector, and RLS; private S3-compatible
   object storage; Redis.
-- Models: call only through the LiteLLM-compatible named routes `reason`, `extract`,
-  `classify`, `vision`, and `local`. Concrete names live in model configuration,
-  currently `packages/models/models.yaml`, never inline in application code.
+- Models: call only through the named routes `reason`, `extract`, `classify`, and
+  `vision` (ADR 0010: Claude Opus 5.5 via the owner's subscription; Voyage AI for
+  embeddings). Concrete names live in `packages/models/models.yaml`, never inline
+  in application code.
+
+## Deploy rule (ADR 0011)
+
+Commit and push to `main` freely. Never dispatch `deploy-production.yml`, and never
+change it back to an automatic trigger, without the owner's explicit OK for that
+deploy.
 
 ## Non-release preview exception
 

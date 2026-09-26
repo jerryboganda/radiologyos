@@ -9,16 +9,17 @@ name: Deploy production (shared platform VPS)
 #   /opt/radiologyos/secrets.env             (radbrain migrator/app roles)
 #   /opt/radiologyos/app.env                 (compose interpolation, mode 600)
 # CI only needs SSH access, so it holds one secret: the deploy key.
+#
+# Deploys are manual only (ADR 0011): a push to main builds images but never
+# deploys. The owner approves each deploy, then it is dispatched for one exact
+# commit, and the job refuses unless CI and Build images both passed for it.
 
 on:
-  workflow_run:
-    workflows: ["Build images"]
-    types: [completed]
   workflow_dispatch:
     inputs:
-      image_tag:
-        description: "Image tag to deploy. Defaults to the pushed commit SHA."
-        required: false
+      sha:
+        description: "Full 40-character commit SHA on main to deploy."
+        required: true
         type: string
 
 concurrency:
@@ -27,6 +28,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
   # Short-lived token lets the host pull the private GHCR images for the
   # duration of the job; it is logged out and shredded by the deploy trap.
   packages: read
@@ -39,29 +41,44 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    # Only deploy after a successful image build for main (or on manual dispatch).
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+    if: github.ref == 'refs/heads/main'
     steps:
-      # Check out the exact revision whose images were just built, so the
-      # compose file deployed matches the images.
+      - name: Require green CI and image build for the exact commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ inputs.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$SHA" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "sha must be a full 40-character lowercase commit SHA" >&2; exit 1
+          fi
+          # "identical" or "ahead" means the commit is main or an ancestor of it.
+          status=$(gh api "repos/${REPO}/compare/${SHA}...main" --jq .status)
+          case "$status" in
+            identical|ahead) ;;
+            *) echo "commit is not on main (compare status: ${status})" >&2; exit 1 ;;
+          esac
+          for wf in ci.yml build-images.yml; do
+            ok=$(gh api "repos/${REPO}/actions/workflows/${wf}/runs?head_sha=${SHA}&status=success&per_page=1" --jq .total_count)
+            if [ "$ok" -lt 1 ]; then
+              echo "${wf} has no successful run for ${SHA}" >&2; exit 1
+            fi
+          done
+          echo "CI and Build images are green for ${SHA}"
+
+      # Check out the exact revision whose images are deployed, so the
+      # compose file matches the images.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ inputs.sha }}
 
       - name: Resolve image refs
         id: refs
         env:
-          DISPATCH_TAG: ${{ inputs.image_tag }}
-          BUILT_SHA: ${{ github.event.workflow_run.head_sha }}
+          tag: ${{ inputs.sha }}
         run: |
           set -euo pipefail
-          tag="${DISPATCH_TAG:-${BUILT_SHA}}"
-          if [ -z "$tag" ]; then
-            echo "no image tag resolvable" >&2; exit 1
-          fi
           ns="${IMAGE_NAMESPACE}"
           {
             echo "tag=$tag"

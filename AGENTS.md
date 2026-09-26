@@ -94,14 +94,15 @@ See [ADR 0007](docs/decisions/0007-production-on-shared-platform.md) and the
   from the shared `platform` project under `/opt/platform`, whose `PLATFORM-RULES.md`
   is mandatory: no project runs its own Postgres/Redis/MinIO, no port is published on
   `0.0.0.0`, and every service sets `cpus` and `mem_limit`.
-- Deployment is push-driven: `CI` -> `Build images` -> `Deploy production` ->
-  `Verify production RLS`. The deploy job gates on a successful build for `main` and
-  pins the exact commit SHA.
+- A push to `main` runs `CI` and `Build images` only. Deploys are manual (ADR 0011):
+  after the owner's explicit OK, dispatch `deploy-production.yml` with one exact SHA;
+  it refuses unless CI and the image build passed for that SHA, then `Verify
+  production RLS` and `Verify production identity` run.
 - CI holds one credential for the host, a dedicated `gha-deploy-radiologyos` deploy
   key. Database, Redis, and MinIO credentials never leave the host; compose reads
   `/opt/radiologyos/app.env` (mode 600).
-- `PREVIEW_ENABLED` is false on the public host. The non-release preview surface must
-  not be exposed publicly.
+- `PREVIEW_ENABLED` is true in production behind OIDC authentication (ADR 0009);
+  billing routes stay off unless `BILLING_ENABLED=true` (ADR 0011).
 
 ## Change workflow
 
