@@ -1,0 +1,51 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "points": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "scheme_index": {
+            "description": "0-based index into the frozen marking scheme.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "matched",
+              "partial",
+              "missed"
+            ],
+            "type": "string"
+          },
+          "awarded": {
+            "description": "Marks awarded, never above the point's marks.",
+            "minimum": 0,
+            "type": "number"
+          },
+          "justification": {
+            "description": "What in the answer earned or missed the point.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scheme_index",
+          "status",
+          "awarded",
+          "justification"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "feedback": {
+      "description": "Short, specific feedback tied to missed scheme points.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "points",
+    "feedback"
+  ],
+  "type": "object"
+}
