@@ -37,7 +37,7 @@ WITH cited AS (
     FROM votes GROUP BY question_id, curriculum_code
     ORDER BY question_id, count(*) DESC, curriculum_code
 )
-"""
+"""  # nosec B608 - interpolates only the constant _UUID_RE; values are bound
 BASELINE_COLUMNS = (
     "b.id, b.exam_id, b.question_ids, b.systems, b.started_at, b.submitted_at, b.results, "
     "e.deadline_at"
