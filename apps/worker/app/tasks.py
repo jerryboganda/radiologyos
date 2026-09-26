@@ -45,6 +45,8 @@ def ingest_source(self: object, tenant_id: str, job_id: str) -> str:
 
     outcome = asyncio.run(run())
     log.info("ingest job=%s outcome=%s", job_id, outcome)
+    if outcome == "continue":
+        ingest_source.apply_async(args=[tenant_id, job_id], countdown=1)
     if outcome == "deferred":
         delay = int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS))
         ingest_source.apply_async(args=[tenant_id, job_id], countdown=delay)

@@ -41,6 +41,18 @@ class Deferred(Exception):
     """Work paused (usage window); the task reschedules itself."""
 
 
+class Continue(Exception):
+    """This run hit its page budget; the task re-queues itself immediately.
+
+    Keeping each run short (well under the broker's one-hour visibility
+    timeout) stops Redis re-delivering a still-running job, which would parse
+    the same pages twice and spend the subscription window twice.
+    """
+
+
+PAGES_PER_RUN = 25
+
+
 async def run_ingest(deps: Deps, tenant_id: UUID, job_id: UUID) -> str:
     async with db.tenant_tx(deps.engine, tenant_id) as session:
         job = await db.load_job(session, job_id)
@@ -54,11 +66,18 @@ async def run_ingest(deps: Deps, tenant_id: UUID, job_id: UUID) -> str:
         await db.mark_step(session, job, "upload_dedupe_scan", "succeeded")
     try:
         await _step(deps, job, "render_pages", lambda: _render(deps, job, source))
-        await _chunk_and_embed(deps, job)
-        await _set_ready(deps, job, "ready")
+        if source["status"] != "ready":
+            # Native-text pass: searchable quickly. Later runs (vision
+            # continuations, reprocess) skip it; the vision pass re-chunks.
+            await _chunk_and_embed(deps, job)
+            await _set_ready(deps, job, "ready")
+        else:
+            await _embed(deps, job)  # only embeds chunks that have no vector yet
         await _vision_pass(deps, job, source)
     except Deferred:
         return "deferred"
+    except Continue:
+        return "continue"
     except Exception:
         async with db.tenant_tx(deps.engine, tenant_id) as session:
             await db.set_job_status(session, job_id, "failed", "pipeline_error")
@@ -161,8 +180,10 @@ async def _vision_pass(deps: Deps, job: dict[str, Any], source: dict[str, Any]) 
         todo = [p for p in await db_content.pages(session, source_id)
                 if p["vision_status"] == "pending"]
         await db.mark_step(session, job, "parse_layout", "running")
-    for page in todo:
+    for page in todo[:PAGES_PER_RUN]:
         await _parse_page(deps, job, source, page)
+    if len(todo) > PAGES_PER_RUN:
+        raise Continue
     async with db.tenant_tx(deps.engine, tenant_id) as session:
         await db.mark_step(session, job, "parse_layout", "succeeded")
         await db.mark_step(session, job, "extract_figures", "succeeded")

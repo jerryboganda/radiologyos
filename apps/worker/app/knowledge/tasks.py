@@ -38,6 +38,10 @@ def knowledge_extract(
 
     outcome = asyncio.run(run())
     log.info("knowledge source=%s mode=%s outcome=%s", source_id, mode, outcome)
+    if outcome == "continue":
+        knowledge_extract.apply_async(
+            args=[tenant_id, source_id, mode, exam_target, year], countdown=1
+        )
     if outcome == "deferred":
         delay = int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS))
         knowledge_extract.apply_async(

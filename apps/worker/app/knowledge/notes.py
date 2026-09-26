@@ -40,6 +40,14 @@ def _classify_prompt(chunk: dict[str, Any], concepts: list[str]) -> str:
     )
 
 
+UNITS_PER_RUN = 20
+
+
+class Continue(Exception):
+    """Run budget reached; the task re-queues itself (keeps runs under the
+    broker's visibility timeout so a job is never delivered twice)."""
+
+
 async def run_notes(
     deps: KnowledgeDeps, tenant_id: UUID, source: dict[str, Any], version: int
 ) -> str:
@@ -47,10 +55,15 @@ async def run_notes(
     async with tenant_tx(deps.engine, tenant_id) as session:
         chunks = await db.chunks(session, source["id"])
     totals = {"chunks": 0, "claims": 0, "rejected": 0, "failed": 0}
+    worked = 0
     for chunk in chunks:
         if word_count(chunk["text"]) < MIN_WORDS:
             continue
+        if worked >= UNITS_PER_RUN:
+            raise Continue
         outcome = await _chunk(deps, tenant_id, source, chunk, version)
+        if outcome:
+            worked += 1
         totals["chunks"] += 1
         for key, value in outcome.items():
             totals[key] = totals.get(key, 0) + value

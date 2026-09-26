@@ -13,6 +13,7 @@ from uuid import UUID
 from apps.worker.app.ingest import db as ingest_db
 from apps.worker.app.ingest.db import tenant_tx
 from apps.worker.app.knowledge import db
+from apps.worker.app.knowledge.notes import Continue as NotesContinue
 from apps.worker.app.knowledge.notes import run_notes
 from apps.worker.app.knowledge.papers import run_papers
 from apps.worker.app.knowledge.runtime import Deferred, KnowledgeDeps
@@ -48,6 +49,10 @@ async def run_knowledge(
         async with tenant_tx(deps.engine, tenant_id) as session:
             await ingest_db.mark_step(session, job, STEP, "pending", "usage_limit")
         return "deferred"
+    except NotesContinue:
+        async with tenant_tx(deps.engine, tenant_id) as session:
+            await ingest_db.mark_step(session, job, STEP, "pending", "continuing")
+        return "continue"
     except Exception:
         async with tenant_tx(deps.engine, tenant_id) as session:
             await ingest_db.mark_step(session, job, STEP, "failed", "knowledge_error")
