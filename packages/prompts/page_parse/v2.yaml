@@ -36,6 +36,11 @@ input_variables:
   - native_text
   - source_title
   - page_no
+user_template: |-
+  Source title: {{source_title}}
+  Page: {{page_no}}
+  Native text layer (may be empty or unordered):
+  {{native_text}}
 output_schema: schemas/page_parse_v1.json
 fixture: evals/fixtures/library_v1.json
 safety:

@@ -1,8 +1,10 @@
+# Retired (ADR 0032): every route is served by named, active agents. Kept only as
+# the M0 scaffold record for evals/fixtures/synthetic_smoke_v1.json; never loaded.
 schema_version: 1
 agent: classify
 version: 1
 route: classify
-status: placeholder
+status: retired
 description: Query-intent and curriculum-classification contract scaffold.
 system_prompt: >-
   Return only data matching the output schema. This placeholder makes no model call.

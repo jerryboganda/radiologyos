@@ -35,6 +35,21 @@ input_variables:
   - model_answer
   - marking_scheme
   - candidate_answer
+  - question_type
+user_template: |-
+  Question type: {{question_type}}
+  <question>
+  {{question}}
+  </question>
+  <model_answer>
+  {{model_answer}}
+  </model_answer>
+  <marking_scheme>
+  {{marking_scheme}}
+  </marking_scheme>
+  <candidate_answer>
+  {{candidate_answer}}
+  </candidate_answer>
 output_schema: schemas/seq_grade_v1.json
 fixture: evals/fixtures/assessment_v1.json
 safety:

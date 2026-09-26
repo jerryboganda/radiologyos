@@ -20,22 +20,24 @@ from packages.knowledge.curriculum import mapping_status, node_mapping, system_c
 from packages.knowledge.models import PaperTopics, PaperTopicsTree
 from packages.knowledge.text import collapse_ws, word_count
 from packages.knowledge.weights import Observation, Weight, compute_weights
+from packages.models.gateway import user_prompt
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 AGENT = "paper_topics/v3"
 THIN_TEXT_WORDS = 20
+# Filled into paper_topics/v3 {{image_note}} when the page image is attached.
+IMAGE_NOTE = "The rendered page image is attached; read it.\n"
 
 
 def _prompt(
     source: dict[str, Any], page: dict[str, Any], with_image: bool, exam_target: str | None
 ) -> str:
-    image = "The rendered page image is attached; read it.\n" if with_image else ""
     nodes = candidate_listing([exam_target] if exam_target else None)
-    return (
-        f"Valid curriculum node ids:\n{nodes}\n\nSource title: {source['title']}\n"
-        f"Page: {page['page_no']}\n{image}\nPage text:\n{page['text'][:12000]}"
-    )
+    return user_prompt("paper_topics", curriculum_node_ids=nodes,
+                       source_title=str(source["title"]), page_no=str(page["page_no"]),
+                       image_note=IMAGE_NOTE if with_image else "",
+                       page_text=str(page["text"][:12000]))
 
 
 async def run_papers(

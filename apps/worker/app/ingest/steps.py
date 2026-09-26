@@ -29,7 +29,7 @@ from packages.library.text_first import text_only_pages
 from packages.models.budget import EmbeddingBudgetExhausted
 from packages.models.claude_code import ModelCallError, UsageLimitError
 from packages.models.embeddings import EmbeddingError, VoyageEmbedder
-from packages.models.gateway import Transport, run_agent
+from packages.models.gateway import Transport, run_agent, user_prompt
 from packages.models.routing import EmbeddingBudget
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -246,10 +246,8 @@ async def _parse_page(
 ) -> None:
     tenant_id, source_id, page_no = job["tenant_id"], job["entity_id"], page["page_no"]
     png = deps.store.get(page["image_key"])
-    prompt = (
-        f"Source title: {source['title']}\nPage: {page_no}\n"
-        f"Native text layer (may be empty or unordered):\n{page['native_text'][:12000]}"
-    )
+    prompt = user_prompt("page_parse", source_title=str(source["title"]), page_no=str(page_no),
+                         native_text=page["native_text"][:12000])
     try:
         parsed, _ = run_agent(deps.transport, "page_parse", prompt,  # type: ignore[arg-type]
                               files=[(f"page-{page_no:05d}.png", png)],
@@ -294,8 +292,9 @@ async def _figure(
     deps.store.put(key, crop, "image/png")
     fig["image_key"] = key
     try:
-        case, _ = run_agent(deps.transport, "image_case",  # type: ignore[arg-type]
-                            f"Figure {number} on page {page_no}. Caption: {fig['caption']}",
+        prompt = user_prompt("image_case", figure_no=str(number), page_no=str(page_no),
+                             caption=str(fig["caption"]))
+        case, _ = run_agent(deps.transport, "image_case", prompt,  # type: ignore[arg-type]
                             files=[("figure.png", crop)])
     except UsageLimitError as exc:
         raise Deferred from exc

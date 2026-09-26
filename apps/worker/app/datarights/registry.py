@@ -92,6 +92,8 @@ OWNED: tuple[Owned, ...] = (
     # Tenant curriculum/blueprint decisions carry the deciding user's id (ADR 0023).
     Owned("curriculum_reviews", "t.decided_by = :u", "direct"),
     Owned("exam_blueprints", "t.updated_by = :u OR t.approved_by = :u", "direct"),
+    # Model-call ledger rows made on the user's behalf: ids and numbers only (ADR 0032).
+    Owned("llm_calls", "t.user_id = :u", "direct"),
 )
 
 # Tables that hold no row belonging to a single user.
@@ -112,7 +114,7 @@ DIRECT_DELETE_ORDER: tuple[str, ...] = (
     "card_reviews", "attempts", "exams", "cards", "questions", "study_plans",
     "study_profiles", "tutor_messages", "tutor_threads", "tutor_images", "topic_weights",
     "topic_frequencies", "push_subscriptions", "notification_settings",
-    "curriculum_reviews", "exam_blueprints",
+    "curriculum_reviews", "exam_blueprints", "llm_calls",
 )
 
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib
 import json
 import logging
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
@@ -18,10 +19,17 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, ValidationError
 
-from packages.models.claude_code import ModelCall, ModelCallError, ModelResult
+from packages.models import ledger
+from packages.models.claude_code import (
+    ModelCall,
+    ModelCallError,
+    ModelResult,
+    UsageLimitError,
+)
 from packages.models.claude_stream import DeltaCallback, StreamOutputInvalid, StreamUnsupported
 from packages.models.routing import ModelRoutingConfig, load_model_routing_config
 from packages.prompts.contracts import PromptFile, load_prompt
+from packages.prompts.templating import render
 
 ROOT = Path(__file__).resolve().parents[2]
 PROMPT_ROOT = ROOT / "packages" / "prompts"
@@ -61,6 +69,14 @@ def load_agent(name: str, version: int | None = None) -> Agent:
     output_model = getattr(importlib.import_module(module_name), class_name)
     schema = json.loads((PROMPT_ROOT / prompt.output_schema).read_text(encoding="utf-8"))
     return Agent(prompt, output_model, schema)
+
+
+def user_prompt(name: str, version: int | None = None, **values: str) -> str:
+    """Render the user turn from the same prompt version ``run_agent`` will use."""
+    template = load_agent(name, version).prompt.user_template
+    if template is None:
+        raise ValueError(f"agent {name} has no user_template")
+    return render(template, values)
 
 
 @lru_cache(maxsize=1)
@@ -109,10 +125,31 @@ def build_call(
     return build_calls(agent, user_prompt, files, effort, config)[0]
 
 
+def _record(
+    agent: Agent, call: ModelCall, started: float, status: ledger.Status,
+    result: ModelResult | None = None, code: str | None = None,
+) -> None:
+    """Hand one attempt's ids, numbers, and outcome to the ledger (no content)."""
+    tokens_in, tokens_out = ledger.token_counts(result.usage if result else None)
+    ledger.emit(ledger.CallRecord(
+        agent=agent.key, route=agent.prompt.route, model=call.model, effort=call.effort,
+        backend=result.backend if result else call.backend, status=status,
+        duration_ms=int((time.monotonic() - started) * 1000), error_code=code,
+        input_tokens=tokens_in, output_tokens=tokens_out,
+        cost_usd=result.cost_usd if result else None,
+    ))
+
+
+def _failure(exc: ModelCallError) -> ledger.Status:
+    return "usage_limit" if isinstance(exc, UsageLimitError) else "error"
+
+
 def _streamed(
-    transport: Transport, agent: Agent, call: ModelCall, on_delta: DeltaCallback
+    transport: Transport, agent: Agent, call: ModelCall, on_delta: DeltaCallback,
+    accept: Accept | None,
 ) -> tuple[BaseModel, ModelResult] | None:
-    """A streamed, validated answer, or None when the caller should make a plain call.
+    """A streamed, validated, accepted answer, or None when the caller should
+    make a plain call.
 
     Model failures (usage limit, errors) propagate: retrying them would only
     spend more of the usage window.
@@ -120,11 +157,24 @@ def _streamed(
     stream = getattr(transport, "run_stream", None)
     if stream is None:
         return None
+    started = time.monotonic()
+    result: ModelResult | None = None
     try:
-        result: ModelResult = stream(call, on_delta)
-        return agent.output_model.model_validate(result.output), result
-    except (StreamUnsupported, StreamOutputInvalid, ValidationError):
+        result = stream(call, on_delta)
+        assert result is not None
+        parsed = agent.output_model.model_validate(result.output)
+    except StreamUnsupported:
+        return None  # no model call was made
+    except (StreamOutputInvalid, ValidationError):
+        _record(agent, call, started, "error", result, "schema_invalid")
         return None
+    except ModelCallError as exc:
+        _record(agent, call, started, _failure(exc), None, type(exc).__name__)
+        raise
+    reason = accept(parsed) if accept else None
+    _record(agent, call, started, "ok" if reason is None else "rejected", result,
+            None if reason is None else "quality_gate")
+    return (parsed, result) if reason is None else None
 
 
 def run_agent(
@@ -158,8 +208,8 @@ def run_agent(
     if not calls:
         raise ModelCallError(f"{agent.key} has no target this transport can serve")
     if on_delta is not None:
-        streamed = _streamed(transport, agent, calls[0], on_delta)
-        if streamed is not None and (accept is None or accept(streamed[0]) is None):
+        streamed = _streamed(transport, agent, calls[0], on_delta, accept)
+        if streamed is not None:
             return streamed
     return _run_targets(transport, agent, calls, accept)
 
@@ -169,23 +219,30 @@ def _run_targets(
 ) -> tuple[BaseModel, ModelResult]:
     last: ModelCallError | None = None
     for n, call in enumerate(calls):
+        started = time.monotonic()
+        result: ModelResult | None = None
         try:
             result = transport.run(call)
             parsed = agent.output_model.model_validate(result.output)
         except ValidationError:
+            _record(agent, call, started, "error", result, "schema_invalid")
             last = ModelCallError(f"{agent.key} output failed schema validation")
             continue
         except ModelCallError as exc:
+            _record(agent, call, started, _failure(exc), None, type(exc).__name__)
             last = exc
             continue
         reason = accept(parsed) if accept else None
         if reason is None:
+            _record(agent, call, started, "ok", result)
             return parsed, result
         final = n == len(calls) - 1
         log.warning("quality gate agent=%s backend=%s reason=%s action=%s",
                     agent.key, call.backend, reason, "kept_last" if final else "fallback")
         if final:
+            _record(agent, call, started, "ok", result, "gate_kept_last")
             return parsed, result
+        _record(agent, call, started, "rejected", result, "quality_gate")
         last = ModelCallError(f"{agent.key} output rejected: {reason}")
     assert last is not None
     raise last

@@ -62,6 +62,19 @@ input_variables:
   - exam_target
   - count
   - topic
+  - type_label
+  - excerpt_ids
+user_template: |-
+  Write {{count}} {{type_label}} (type "sba") for {{exam_target}}.
+  Topic focus: {{topic}}
+  Supplied excerpt ids: {{excerpt_ids}}.
+  Test the verified claims; build distractors from the graph neighbours listed.
+
+  <neighbours>
+  {{neighbours}}
+  </neighbours>
+
+  {{excerpts}}
 output_schema: schemas/question_generate_v2.json
 fixture: evals/fixtures/assessment_v2.json
 safety:

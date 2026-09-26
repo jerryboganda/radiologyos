@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 from uuid import UUID
 
+from packages.observability import metrics
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
@@ -103,6 +104,8 @@ async def mark_step(
             "output": output_ref,
         },
     )
+    if status != "running":  # outcome counters for /metrics (ADR 0032); ids never labelled
+        metrics.shared().inc("radbrain_job_steps_total", {"step": step, "status": status})
 
 
 async def set_job_status(

@@ -6,6 +6,7 @@
   import DataExport from '$lib/components/settings/DataExport.svelte';
   import DeleteAccount from '$lib/components/settings/DeleteAccount.svelte';
   import EmbeddingUsage from '$lib/components/settings/EmbeddingUsage.svelte';
+  import ModelUsage from '$lib/components/settings/ModelUsage.svelte';
   import InstallApp from '$lib/components/settings/InstallApp.svelte';
   import ReminderForm from '$lib/components/settings/ReminderForm.svelte';
   import ThemeToggle from '$lib/components/shell/ThemeToggle.svelte';
@@ -46,6 +47,13 @@
     <section id="ai-usage" class="panel scroll-mt-20 p-5 sm:p-6" aria-labelledby="ai-usage-heading">
       <h2 id="ai-usage-heading" class="text-xl font-semibold text-ink">AI usage</h2>
       <EmbeddingUsage usage={data.usageCard.usage} problem={data.usageCard.problem} />
+    </section>
+  {/if}
+
+  {#if data.modelUsageCard}
+    <section id="model-usage" class="panel scroll-mt-20 p-5 sm:p-6" aria-labelledby="model-usage-heading">
+      <h2 id="model-usage-heading" class="text-xl font-semibold text-ink">Model calls</h2>
+      <ModelUsage usage={data.modelUsageCard.usage} problem={data.modelUsageCard.problem} />
     </section>
   {/if}
 

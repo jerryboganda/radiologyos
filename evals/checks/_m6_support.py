@@ -34,6 +34,10 @@ class Result:
     def scalar_one(self) -> Any:
         return self._rows[0]
 
+    def scalar_one_or_none(self) -> Any:
+        row = self._rows[0] if self._rows else None
+        return row[0] if isinstance(row, tuple) else row
+
     def __iter__(self) -> Any:
         return iter(self._rows)
 

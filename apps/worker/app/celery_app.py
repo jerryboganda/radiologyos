@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import os
 
+# Registers the trace/ledger signal handlers in every process that uses this app,
+# including the API, which publishes tasks (ADR 0032).
+from apps.worker.app.ops import worker_signals  # noqa: F401
 from celery import Celery
 
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")

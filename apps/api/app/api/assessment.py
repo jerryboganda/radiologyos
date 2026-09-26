@@ -27,8 +27,10 @@ from apps.api.app.assessment.contracts import (
     RejectedItem,
     public_question,
 )
+from apps.api.app.core.config import get_settings
 from apps.api.app.core.time import now_utc
 from apps.api.app.db.session import set_database_tenant
+from apps.api.app.ops.ratelimit import rate_limit
 from apps.api.app.security.context import (
     build_shared_dependencies,
     build_tenant_db_session_dependency,
@@ -69,7 +71,7 @@ class ModelTransport(Protocol):
 
 
 def get_transport() -> ModelTransport:
-    return ClaudeCodeTransport()
+    return ClaudeCodeTransport(get_settings().claude_code_bin)
 
 
 PrincipalDep = Annotated[Principal, Depends(principal_context)]
@@ -142,7 +144,8 @@ async def _chunk_excerpts(
 
 
 @router.post("/questions/generate", response_model=GenerateResponse,
-             status_code=status.HTTP_201_CREATED)
+             status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(rate_limit("generate", principal_context))])
 async def generate_questions(
     body: GenerateRequest, principal: PrincipalDep, session: SessionDep, transport: TransportDep
 ) -> GenerateResponse:

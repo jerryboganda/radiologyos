@@ -6,6 +6,57 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Readiness",
+        "operationId": "readiness_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/library/sources": {
       "post": {
         "tags": [
@@ -1159,6 +1210,116 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/model-usage": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Model Usage",
+        "operationId": "model_usage_v1_admin_model_usage_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "default": 14,
+              "title": "Days"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelUsage"
+                }
+              }
+            }
           },
           "401": {
             "content": {
@@ -10624,47 +10785,6 @@
           }
         }
       }
-    },
-    "/health/ready": {
-      "get": {
-        "tags": [
-          "health"
-        ],
-        "summary": "Readiness",
-        "operationId": "readiness_health_ready_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -14743,6 +14863,117 @@
         ],
         "title": "MixGroupOut"
       },
+      "ModelAlert": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "amber",
+              "red"
+            ],
+            "title": "Level"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "acknowledged_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acknowledged At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "level",
+          "created_at",
+          "acknowledged_at"
+        ],
+        "title": "ModelAlert"
+      },
+      "ModelUsage": {
+        "properties": {
+          "window_days": {
+            "type": "integer",
+            "title": "Window Days"
+          },
+          "calls": {
+            "type": "integer",
+            "title": "Calls"
+          },
+          "errors": {
+            "type": "integer",
+            "title": "Errors"
+          },
+          "usage_limit": {
+            "type": "integer",
+            "title": "Usage Limit"
+          },
+          "rejected": {
+            "type": "integer",
+            "title": "Rejected"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          },
+          "cost_usd": {
+            "type": "number",
+            "title": "Cost Usd"
+          },
+          "usage_limit_last_hour": {
+            "type": "integer",
+            "title": "Usage Limit Last Hour"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/UsageRow"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "alerts": {
+            "items": {
+              "$ref": "#/components/schemas/ModelAlert"
+            },
+            "type": "array",
+            "title": "Alerts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "window_days",
+          "calls",
+          "errors",
+          "usage_limit",
+          "rejected",
+          "input_tokens",
+          "output_tokens",
+          "cost_usd",
+          "usage_limit_last_hour",
+          "rows",
+          "alerts"
+        ],
+        "title": "ModelUsage"
+      },
       "NegativeMarkingOut": {
         "properties": {
           "enabled": {
@@ -15610,6 +15841,46 @@
           "created_at"
         ],
         "title": "QuestionPublic"
+      },
+      "ReadinessResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "service": {
+            "type": "string",
+            "title": "Service"
+          },
+          "environment": {
+            "type": "string",
+            "title": "Environment"
+          },
+          "checks": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "ok",
+                "unavailable"
+              ]
+            },
+            "type": "object",
+            "title": "Checks"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "service",
+          "environment",
+          "checks"
+        ],
+        "title": "ReadinessResponse"
       },
       "RejectedItem": {
         "properties": {
@@ -18064,6 +18335,75 @@
           "duplicate"
         ],
         "title": "UploadResponse"
+      },
+      "UsageRow": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date",
+            "title": "Day"
+          },
+          "agent": {
+            "type": "string",
+            "title": "Agent"
+          },
+          "backend": {
+            "type": "string",
+            "title": "Backend"
+          },
+          "calls": {
+            "type": "integer",
+            "title": "Calls"
+          },
+          "ok": {
+            "type": "integer",
+            "title": "Ok"
+          },
+          "errors": {
+            "type": "integer",
+            "title": "Errors"
+          },
+          "usage_limit": {
+            "type": "integer",
+            "title": "Usage Limit"
+          },
+          "rejected": {
+            "type": "integer",
+            "title": "Rejected"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens"
+          },
+          "cost_usd": {
+            "type": "number",
+            "title": "Cost Usd"
+          },
+          "avg_duration_ms": {
+            "type": "integer",
+            "title": "Avg Duration Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "agent",
+          "backend",
+          "calls",
+          "ok",
+          "errors",
+          "usage_limit",
+          "rejected",
+          "input_tokens",
+          "output_tokens",
+          "cost_usd",
+          "avg_duration_ms"
+        ],
+        "title": "UsageRow"
       },
       "ValidationError": {
         "properties": {

@@ -13,7 +13,7 @@ from typing import Any, cast
 
 from packages.assessment.models import GeneratedItem, GeneratedQuestions, QuestionCheck, SeqGrade
 from packages.assessment.validation import Excerpt, render_excerpts
-from packages.models.gateway import Transport, run_agent
+from packages.models.gateway import Transport, run_agent, user_prompt
 
 EXAM_TARGETS: dict[str, str] = {
     "fcps2_theory": "FCPS-II Radiology theory (CPSP): SBA/BCQ and SEQ papers",
@@ -35,22 +35,17 @@ CLAIM_VERSION = 2
 def generation_prompt(
     excerpts: Sequence[Excerpt], item_type: str, exam_target: str, count: int, topic: str | None
 ) -> str:
-    focus = f"Topic focus: {topic}\n" if topic else ""
-    return (
-        f"Write {count} {TYPE_LABELS[item_type]} (type \"{item_type}\") for "
-        f"{EXAM_TARGETS[exam_target]}.\n{focus}"
-        f"Supplied excerpt ids: {', '.join(e.ref for e in excerpts)}.\n"
-        "Use only facts stated in the excerpts below; cite excerpt ids exactly.\n\n"
-        f"{render_excerpts(excerpts)}"
+    return user_prompt(
+        "question_generate", CHUNK_VERSION, count=str(count), type_label=TYPE_LABELS[item_type],
+        item_type=item_type, exam_target=EXAM_TARGETS[exam_target],
+        topic_focus=f"Topic focus: {topic}\n" if topic else "",
+        excerpt_ids=", ".join(e.ref for e in excerpts), excerpts=render_excerpts(excerpts),
     )
 
 
 def check_prompt(item: GeneratedItem, excerpts: Sequence[Excerpt]) -> str:
-    return (
-        "Check this draft exam item against the supplied excerpts.\n\n"
-        f"<item>\n{item.model_dump_json(indent=1)}\n</item>\n\n"
-        f"{render_excerpts(excerpts)}"
-    )
+    return user_prompt("question_check", item=item.model_dump_json(indent=1),
+                       excerpts=render_excerpts(excerpts))
 
 
 def grade_prompt(question: Mapping[str, Any], answer_text: str) -> str:
@@ -59,12 +54,11 @@ def grade_prompt(question: Mapping[str, Any], answer_text: str) -> str:
         {"scheme_index": i, "point": p["point"], "marks": p["marks"]}
         for i, p in enumerate(answer.get("marking_scheme", []))
     ]
-    return (
-        f"Question type: {question['type']}\n"
-        f"<question>\n{question['stem']}\n</question>\n"
-        f"<model_answer>\n{answer.get('model_answer', '')}\n</model_answer>\n"
-        f"<marking_scheme>\n{json.dumps(scheme, indent=1)}\n</marking_scheme>\n"
-        f"<candidate_answer>\n{answer_text[:MAX_ANSWER_CHARS]}\n</candidate_answer>"
+    return user_prompt(
+        "seq_grade", question_type=str(question["type"]), question=str(question["stem"]),
+        model_answer=str(answer.get("model_answer", "")),
+        marking_scheme=json.dumps(scheme, indent=1),
+        candidate_answer=answer_text[:MAX_ANSWER_CHARS],
     )
 
 
@@ -85,12 +79,10 @@ def generate(
 def claim_prompt(
     excerpts: Sequence[Excerpt], neighbours: str, exam_target: str, count: int, topic: str
 ) -> str:
-    return (
-        f"Write {count} {TYPE_LABELS['sba']} (type \"sba\") for {EXAM_TARGETS[exam_target]}.\n"
-        f"Topic focus: {topic}\n"
-        f"Supplied excerpt ids: {', '.join(e.ref for e in excerpts)}.\n"
-        "Test the verified claims; build distractors from the graph neighbours listed.\n\n"
-        f"<neighbours>\n{neighbours}\n</neighbours>\n\n{render_excerpts(excerpts)}"
+    return user_prompt(
+        "question_generate", CLAIM_VERSION, count=str(count), type_label=TYPE_LABELS["sba"],
+        exam_target=EXAM_TARGETS[exam_target], topic=topic, neighbours=neighbours,
+        excerpt_ids=", ".join(e.ref for e in excerpts), excerpts=render_excerpts(excerpts),
     )
 
 

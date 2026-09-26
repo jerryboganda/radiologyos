@@ -21,7 +21,7 @@ from apps.worker.app.ingest.db import tenant_tx
 from packages.models.routing import EmbeddingBudget
 from packages.notifications import push
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 log = logging.getLogger("radbrain.budget")
 
@@ -86,23 +86,27 @@ async def record_alert(
         ).scalar_one_or_none()
         if created is None:
             return False
-        subs = (
-            await session.execute(
-                text(
-                    "SELECT ps.endpoint, ps.p256dh, ps.auth FROM push_subscriptions ps "
-                    "JOIN memberships m ON m.tenant_id = ps.tenant_id AND m.user_id = ps.user_id "
-                    "WHERE m.active AND m.deleted_at IS NULL "
-                    "AND m.role IN ('org_admin', 'superadmin')"
-                )
-            )
-        ).all()
+        subs = await admin_subscriptions(session)
     log.warning("%s_alert tenant=%s level=%s used=%s cap=%s",
                 kind, tenant_id, level, used, budget.hard_cap_tokens)
-    _notify(subs, alert_payload(level, used, budget, kind))
+    notify(subs, alert_payload(level, used, budget, kind))
     return True
 
 
-def _notify(subs: list[tuple[str, str, str]], payload: dict[str, str]) -> None:
+async def admin_subscriptions(session: AsyncSession) -> list[tuple[str, str, str]]:
+    """Push subscriptions of the tenant's active org_admin/superadmin members."""
+    rows = await session.execute(
+        text(
+            "SELECT ps.endpoint, ps.p256dh, ps.auth FROM push_subscriptions ps "
+            "JOIN memberships m ON m.tenant_id = ps.tenant_id AND m.user_id = ps.user_id "
+            "WHERE m.active AND m.deleted_at IS NULL "
+            "AND m.role IN ('org_admin', 'superadmin')"
+        )
+    )
+    return [(str(a), str(b), str(c)) for a, b, c in rows.all()]
+
+
+def notify(subs: list[tuple[str, str, str]], payload: dict[str, str]) -> None:
     private = os.environ.get("VAPID_PRIVATE_KEY")
     if not private:
         return

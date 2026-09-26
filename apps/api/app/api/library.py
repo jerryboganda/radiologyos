@@ -9,6 +9,7 @@ from uuid import UUID
 
 from apps.api.app.core.config import get_settings
 from apps.api.app.library import reader, rerank, search, service
+from apps.api.app.ops.ratelimit import rate_limit
 from apps.api.app.security.context import (
     build_shared_dependencies,
     build_tenant_db_session_dependency,
@@ -124,7 +125,8 @@ class SearchResponse(BaseModel):
                                    "false means fused (RRF) order.")
 
 
-@router.post("/sources", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/sources", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED,
+             dependencies=[Depends(rate_limit("upload", principal_context))])
 async def upload_source(
     principal: PrincipalDep,
     session: SessionDep,

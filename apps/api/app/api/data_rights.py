@@ -8,6 +8,7 @@ from uuid import UUID
 
 from apps.api.app.api.library import get_store
 from apps.api.app.datarights import service
+from apps.api.app.ops.ratelimit import rate_limit
 from apps.api.app.security.context import (
     build_shared_dependencies,
     build_tenant_db_session_dependency,
@@ -64,7 +65,8 @@ def _job(row: dict[str, Any]) -> DataJob:
     return job
 
 
-@router.post("/export", response_model=DataJob, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/export", response_model=DataJob, status_code=status.HTTP_202_ACCEPTED,
+             dependencies=[Depends(rate_limit("export", principal_context))])
 async def request_export(principal: PrincipalDep, session: SessionDep) -> DataJob:
     """Queue a ZIP of everything stored for the caller; re-requests return the active job."""
     try:

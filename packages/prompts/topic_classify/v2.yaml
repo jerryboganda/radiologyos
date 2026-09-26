@@ -31,6 +31,15 @@ input_variables:
   - heading_path
   - concepts
   - curriculum_codes
+user_template: |-
+  Allowed curriculum codes:
+  {{curriculum_codes}}
+
+  Heading path: {{heading_path}}
+  Extracted concepts: {{concepts}}
+
+  Chunk text:
+  {{chunk_text}}
 output_schema: schemas/topic_classify_v1.json
 fixture: evals/fixtures/knowledge_v1.json
 safety:

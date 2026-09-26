@@ -36,6 +36,15 @@ input_variables:
   - chunk_text
   - heading_path
   - source_title
+  - page_from
+  - page_to
+user_template: |-
+  Source title: {{source_title}}
+  Heading path: {{heading_path}}
+  Pages: {{page_from}}-{{page_to}}
+
+  Chunk text:
+  {{chunk_text}}
 output_schema: schemas/knowledge_extract_v1.json
 fixture: evals/fixtures/knowledge_v1.json
 safety:

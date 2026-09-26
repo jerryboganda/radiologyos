@@ -26,7 +26,7 @@ from apps.api.app.study.service import (
     curriculum_codes,
 )
 from packages.models.claude_code import ModelCallError, UsageLimitError
-from packages.models.gateway import Transport, run_agent
+from packages.models.gateway import Transport, run_agent, user_prompt
 from packages.study.card_models import CardBatch, GeneratedCard
 
 AGENT = "card_generate"
@@ -57,7 +57,7 @@ def build_prompt(chunks: Sequence[dict[str, Any]], codes: Sequence[str], max_car
             for c in chunks
         ],
     }
-    return "Write recall cards from these chunks.\n" + json.dumps(payload, ensure_ascii=False)
+    return user_prompt(AGENT, payload=json.dumps(payload, ensure_ascii=False))
 
 
 def accept_cards(

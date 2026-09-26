@@ -65,6 +65,69 @@ every `tenant_id` table from the catalog as well as the two-tenant M0 matrix (AD
 checks the login, tokens, forged credentials, role denial, tenant-switch denial and
 logout. Collect the same-SHA run table with `python scripts/evidence_record.py <sha>`.
 
+### Readiness, metrics, and the model ledger (ADR 0032)
+
+```bash
+# dependency detail: {"checks": {"database": "ok", "redis": "ok", "object_storage": "ok"}}
+docker exec radiologyos-api-1 python -c \
+  "import urllib.request as u; print(u.urlopen('http://127.0.0.1:8000/health/ready').read().decode())"
+# Prometheus text; loopback/private callers only (404 otherwise, and 404 if METRICS_TOKEN
+# is set and the bearer token is missing)
+docker exec radiologyos-api-1 python -c \
+  "import urllib.request as u; print(u.urlopen('http://127.0.0.1:8000/metrics').read().decode()[:2000])"
+```
+
+`/metrics` shows request counts and latency per route template, rate-limit
+refusals, `radbrain_job_steps_total`, and `radbrain_model_calls_total` by agent,
+backend, and outcome. Model usage per day and agent, usage-limit pauses, and the
+amber "usage window exhausted" alert are on Settings → *Model calls* for admins
+(`GET /v1/admin/model-usage`). Every API response carries `X-Request-ID`; the
+same id is on audit rows, `llm_calls` rows, and the worker log lines of tasks
+the request queued (`task=… tenant=… request=…`).
+
+New optional environment (all have safe defaults):
+
+| Variable | Service | Purpose |
+| --- | --- | --- |
+| `METRICS_TOKEN` | api | also require `Authorization: Bearer <token>` on `/metrics` |
+| `RATE_LIMITS` | api | JSON overrides per bucket, e.g. `{"upload": {"user": {"per_minute": 60, "burst": 200}, "tenant": {"per_minute": 120, "burst": 300}}}` |
+| `RATE_LIMIT_ENABLED` | api | `false` switches limits off (incident use only) |
+| `MODEL_USAGE_LIMIT_ALERT_PER_HOUR` | api, worker | usage-limit errors per hour before the amber alert (default 5) |
+| `KEYCLOAK_ADMIN_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_ADMIN_CLIENT_ID`, `KEYCLOAK_ADMIN_CLIENT_SECRET` | worker | revoke an erased user's sessions (see below) |
+
+### Admin MFA rollout (ADR 0032) — owner present, owner's OK required
+
+Admins (`org_admin`, `superadmin`) must enter an authenticator (TOTP) code at
+every sign-in. Nothing changes for other users. Apply it only with the owner
+ready to enrol, because their next sign-in stops at "Mobile Authenticator Setup":
+
+1. The owner installs an authenticator app on their phone (Google Authenticator,
+   Microsoft Authenticator, Aegis, 1Password, …) and keeps a second factor
+   recovery plan: the Keycloak master-realm admin can remove a lost OTP credential.
+2. On the VPS as root: `cp infra/ops/keycloak-mfa.sh infra/ops/keycloak_mfa.py
+   /opt/radiologyos/keycloak/` and run `/opt/radiologyos/keycloak/keycloak-mfa.sh`.
+   It is idempotent. It creates the realm role `mfa_required` (included in both
+   admin roles), the TOTP policy, the `radbrain browser` flow, and the
+   `radbrain-ops` service client. The client's secret is generated into
+   `/opt/radiologyos/keycloak/ops-client.env` (600) and never printed. The
+   script ends with a `--check` report (`browserFlow=radbrain browser`).
+3. The owner signs out and signs in at `https://radiologyos.polytronx.com`. They
+   scan the QR code, enter the 6-digit code, and name the device. Every later
+   sign-in asks for a code.
+4. Wire session revocation for account erasure into `app.env` (worker), then
+   redeploy with the owner's OK:
+   `KEYCLOAK_ADMIN_URL=http://radbrain-keycloak-keycloak-1:8080`,
+   `KEYCLOAK_ADMIN_CLIENT_ID=radbrain-ops`, and `KEYCLOAK_ADMIN_CLIENT_SECRET`
+   from `ops-client.env`.
+5. Re-run `Verify production identity`. `verify-oidc.py` signs in as the
+   bootstrap user; if that user holds an admin role it now needs a code, so
+   either give the verification user the `student` role or update the script.
+
+Roll back by binding the built-in flow again. In the Keycloak admin console,
+open *Authentication*, find `browser`, and choose *Bind flow → Browser flow*.
+Or run
+`kcadm.sh update realms/radbrain -s browserFlow=browser`.
+
 ## Common failures
 
 | Symptom | Cause | Fix |

@@ -189,16 +189,19 @@ def test_model_routes_follow_adr_0010() -> None:
 
 
 @pytest.mark.parametrize("route", list(RouteName))
-def test_every_route_has_a_versioned_prompt(route: RouteName) -> None:
-    prompt_path = PROMPT_ROOT / route.value / "v1.yaml"
-    prompt = load_prompt(prompt_path)
-
-    assert prompt.agent == route.value
-    assert prompt.route == route
-    assert prompt.status == "placeholder"
-    assert prompt.safety.allow_ungrounded is False
-    assert prompt.safety.source_text_is_data is True
-    assert prompt.fixture == "evals/fixtures/synthetic_smoke_v1.json"
+def test_every_route_is_served_by_active_agents_not_placeholders(route: RouteName) -> None:
+    # ADR 0032 retired the M0 per-route placeholder prompts; each route is now
+    # served by named agents with versioned prompts, schemas, and fixtures.
+    scaffold = load_prompt(PROMPT_ROOT / route.value / "v1.yaml")
+    assert scaffold.status == "retired"
+    assert scaffold.fixture == "evals/fixtures/synthetic_smoke_v1.json"
+    active = [load_prompt(p) for p in PROMPT_ROOT.glob("*/v*.yaml")]
+    serving = [p for p in active if p.route == route and p.status == "active"]
+    assert serving, f"no active agent serves route {route.value}"
+    for prompt in serving:
+        assert prompt.safety.allow_ungrounded is False
+        assert prompt.safety.source_text_is_data is True
+    assert not [p for p in active if p.status == "placeholder"]
 
 
 def test_placeholder_prompts_are_valid_and_reference_fixture() -> None:

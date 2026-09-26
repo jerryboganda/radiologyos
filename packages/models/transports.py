@@ -28,10 +28,14 @@ class MultiTransport:
         return result
 
 
-def default_transport() -> MultiTransport | None:
-    """Every backend that has credentials here; None when none does."""
+def default_transport(claude_binary: str) -> MultiTransport | None:
+    """Every backend that has credentials here; None when none does.
+
+    The Claude CLI path comes from application Settings (``CLAUDE_CODE_BIN``),
+    never read here, so one setting governs every process (ADR 0032).
+    """
     transports: dict[str, Any] = {}
-    claude = ClaudeCodeTransport(os.environ.get("CLAUDE_CODE_BIN", "claude"))
+    claude = ClaudeCodeTransport(claude_binary)
     has_token = bool(
         os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY")
     )

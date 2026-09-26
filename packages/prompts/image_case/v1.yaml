@@ -30,6 +30,11 @@ system_prompt: |
 input_variables:
   - image
   - source_title
+  - figure_no
+  - page_no
+  - caption
+user_template: |-
+  Figure {{figure_no}} on page {{page_no}}. Caption: {{caption}}
 output_schema: schemas/image_case_v1.json
 fixture: evals/fixtures/library_v1.json
 safety:

@@ -195,7 +195,13 @@ A retention change requires human approval and an ADR.
      per-source purge (pages, blocks, figures, chunks and embeddings, claims,
      edges, conflicts, mappings, knowledge runs, jobs, orphaned concepts);
   3. `exports`: every export ZIP and its row;
-  4. `identity`: `app.erase_user_identity` deletes `users`, `memberships`, and
+  4. `idp_sessions` (ADR 0032): a best-effort Keycloak logout of every session
+     of the user's login subject, made through the `radbrain-ops` service client
+     (`manage-users` only). The job detail records `revoked`, `not_found`,
+     `not_configured` (the `KEYCLOAK_ADMIN_*` settings are unset), `no_subject`,
+     or `failed`. None of these block the erasure, because the API already
+     refuses a subject with no membership;
+  5. `identity`: `app.erase_user_identity` deletes `users`, `memberships`, and
      the user's audit trail, marks an emptied tenant deleted, and writes one
      content-free `account.erased` audit row.
 - Legal hold: held sources (and what cascades from them) stay; the job reports
@@ -215,12 +221,42 @@ A retention change requires human approval and an ADR.
   users as the runtime role in CI and asserts nothing of theirs remains while
   the other tenant is untouched. A local pass is not release evidence.
 
-Still open: session revocation at the identity provider (the deleted user can no
-longer resolve a membership, so API calls fail closed), purge of provider-side
-logs, and backup expiry. Backups must be encrypted, access-controlled, tested
-for tenant-safe restore, and documented with expiry and RPO/RTO. The product
-target is RPO 1 hour and RTO 4 hours, with a quarterly restore drill once
-production backups exist.
+### What an erasure cannot reach at once (ADR 0032)
+
+- **Identity provider.** Sessions are revoked by the `idp_sessions` step. The
+  Keycloak *account* (username, email, OTP credential) is not deleted by the
+  job. It is left for the owner to remove in the admin console, because it
+  also grants sign-in to nothing once the membership is gone. Record the removal
+  against the delete job id.
+- **Model providers.** Prompts go to Anthropic (Claude Code, owner's
+  subscription), Mistral (bulk page reading, ADR 0027), and Voyage
+  (embeddings). radbrain keeps no copy of any prompt. Its own `llm_calls` ledger
+  holds ids and numbers only, and is erased with the account. The providers keep
+  request logs under their own terms. None offers an API to purge one user's
+  requests, and radbrain sends no user identifier to them. For a purge request,
+  the owner, as the account holder, contacts each provider's privacy channel
+  with the date range from the `llm_calls` rows (export them first). Keep
+  Anthropic's "help improve Claude" setting off on the subscription account.
+- **radbrain logs.** API and worker logs carry request, task, tenant, and user
+  ids, route templates, counts, and error classes; never content. After an
+  erasure the ids resolve to nothing. Container logs follow the Docker daemon's
+  rotation on the host (check `max-size`/`max-file` in `/etc/docker/daemon.json`).
+- **Backups expire by rotation, not by edit.** Erased rows and objects stay in
+  backups until those backups age out. No backup is edited to remove one user.
+  A restore made before expiry must re-run pending delete jobs before it serves
+  traffic. The windows are:
+  - on-box nightly dumps: 7 nights (`/opt/platform/backups/nightly`);
+  - off-host database dumps (Google Drive `radiologyos-backups/db/`): 14 days;
+  - the off-host object mirror `objects/current/` follows the bucket at the
+    next nightly sync. Removed objects move to `objects/deleted/<day>/` and are
+    kept 30 days.
+  - So an erased account is fully gone from every copy **within 31 days** of
+    the job finishing: about 15 days for database rows and about 31 days for
+    objects.
+
+Backups must be encrypted, access-controlled, tested for tenant-safe restore,
+and documented with expiry and RPO/RTO. The product target is RPO 1 hour and
+RTO 4 hours, with a quarterly restore drill once production backups exist.
 
 
 ## 7. Logging, observability, and support access
@@ -229,6 +265,16 @@ Logs and traces may include opaque request/trace/job IDs, tenant ID where justif
 model/route/version, token/cost counters, latency, error class, and content hashes.
 They must not include source text, full prompts, figure pixels, embeddings, auth
 tokens, client secrets, provider keys, signed URLs, or personal study content.
+
+What is implemented (ADR 0032):
+
+- every request has an `X-Request-ID`, propagated to worker tasks, audit rows,
+  and model-call ledger rows;
+- `/metrics` labels are fixed vocabularies with no tenant ids;
+- every successful mutating API request writes an `audit_log` row holding the
+  actor, route template, status, and target id, and never a body;
+- `llm_calls` records agent, backend, model, effort, outcome, tokens, and cost
+  per model attempt, and never a prompt or output.
 
 Support access is time-limited and audited. Break-glass database access is not a
 substitute for RLS and must not use the runtime application's broad credentials.

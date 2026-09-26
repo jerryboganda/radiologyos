@@ -7,12 +7,13 @@ a server-timed assessment exam; the weekly report is written by a beat task.
 
 from __future__ import annotations
 
-import os
 from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
+from apps.api.app.core.config import get_settings
 from apps.api.app.core.time import now_utc
+from apps.api.app.ops.ratelimit import rate_limit
 from apps.api.app.schemas.study import (
     BaselineOut,
     CardIn,
@@ -60,7 +61,7 @@ def get_now() -> datetime:
 def get_transport() -> Transport:
     from packages.models.claude_code import ClaudeCodeTransport
 
-    transport = ClaudeCodeTransport(os.environ.get("CLAUDE_CODE_BIN", "claude"))
+    transport = ClaudeCodeTransport(get_settings().claude_code_bin)
     if not transport.available():
         raise HTTPException(status_code=503, detail="card generation is unavailable")
     return transport
@@ -133,7 +134,8 @@ async def due_cards(
 
 
 @router.post("/cards/generate", response_model=GenerateOut,
-             status_code=status.HTTP_201_CREATED)
+             status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(rate_limit("generate", principal_context))])
 async def generate_cards(
     body: GenerateIn, principal: PrincipalDep, repo: RepoDep, now: NowDep,
     transport: Annotated[Transport, Depends(get_transport)],

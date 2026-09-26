@@ -56,3 +56,44 @@ export interface AdminBanner {
   hardCapTokens: number;
   warnTokens: number;
 }
+
+// Model-call ledger (GET /v1/admin/model-usage, ADR 0032). Counts and names only.
+export interface ModelUsageRow {
+  day: string;
+  agent: string;
+  backend: string;
+  calls: number;
+  ok: number;
+  errors: number;
+  usage_limit: number;
+  rejected: number;
+  input_tokens: number;
+  output_tokens: number;
+  /** Transport-reported cost; for subscription calls an API-price equivalent. */
+  cost_usd: number;
+  avg_duration_ms: number;
+}
+
+export interface ModelUsage {
+  window_days: number;
+  calls: number;
+  errors: number;
+  usage_limit: number;
+  rejected: number;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+  usage_limit_last_hour: number;
+  rows: ModelUsageRow[];
+  alerts: UsageAlert[];
+}
+
+/** One agent's totals across the window, for the Settings table. */
+export interface AgentUsage {
+  agent: string;
+  calls: number;
+  failures: number;
+  usageLimit: number;
+  tokens: number;
+  costUsd: number;
+}

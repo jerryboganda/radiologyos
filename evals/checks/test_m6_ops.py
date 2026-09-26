@@ -169,7 +169,7 @@ async def test_account_erasure_runs_every_step_in_the_tenant_and_keeps_held_sour
     deps: Any = type("Deps", (), {"engine": None, "store": store})()
 
     assert await delete.run_delete(deps, TENANT_A, job_id) == "succeeded"
-    assert steps == ["study_rows", "sources", "sources", "exports", "identity"]
+    assert steps == ["study_rows", "sources", "sources", "exports", "idp_sessions", "identity"]
     assert purged == [free] and finished["held_sources"] == 1
     assert set(tx.tenants) == {TENANT_A}
     assert storage.original_key(TENANT_A, held, "pdf") in store.objects

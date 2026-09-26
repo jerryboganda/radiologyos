@@ -20,10 +20,11 @@ RETRY_SECONDS = 60
 
 
 def _build() -> tuple[AsyncEngine, Transport | None]:
+    from apps.api.app.core.config import get_settings
     from apps.worker.app.ingest.db import make_engine
     from packages.models.claude_code import ClaudeCodeTransport
 
-    transport = ClaudeCodeTransport(os.environ.get("CLAUDE_CODE_BIN", "claude"))
+    transport = ClaudeCodeTransport(get_settings().claude_code_bin)
     has_token = bool(
         os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY")
     )
