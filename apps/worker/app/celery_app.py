@@ -33,5 +33,7 @@ celery_app.conf.update(
         "study-weekly-reports": {"task": "radbrain.weekly_reports", "schedule": 3600.0},
         "study-nightly-replan": {"task": "radbrain.nightly_replan", "schedule": 1800.0},
         "expire-data-exports": {"task": "radbrain.expire_data_exports", "schedule": 3600.0},
+        # No-op unless RETENTION_PURGE_MODE is dry_run or enforce (ADR 0020).
+        "retention-purge": {"task": "radbrain.retention_purge", "schedule": 86400.0},
     },
 )

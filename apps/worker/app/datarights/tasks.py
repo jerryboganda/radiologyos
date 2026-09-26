@@ -1,4 +1,4 @@
-"""Celery entry points for account export, account deletion, and export expiry.
+"""Celery entry points for account export and deletion, export expiry, and retention.
 
 Both jobs are idempotent and resumable (see export.py and delete.py): a failure
 is recorded by error class only, the job returns to ``queued``, and Celery
@@ -85,6 +85,28 @@ def expire_data_exports() -> int:
             await deps.engine.dispose()
 
     return asyncio.run(run())
+
+
+@celery_app.task(name="radbrain.retention_purge")  # type: ignore[untyped-decorator]
+def retention_purge() -> dict[str, int]:
+    """Daily retention pass; a no-op unless RETENTION_PURGE_MODE opts in (ADR 0020)."""
+    from apps.worker.app.datarights import retention
+
+    mode = retention.configured_mode()
+    if mode == "off":
+        return {"due": 0, "purged": 0}
+
+    async def run() -> dict[str, int]:
+        deps = build_data_deps()
+        try:
+            return await retention.sweep(deps, datetime.now(UTC), mode,
+                                         retention.configured_months())
+        finally:
+            await deps.engine.dispose()
+
+    outcome = asyncio.run(run())
+    log.info("retention mode=%s due=%s purged=%s", mode, outcome["due"], outcome["purged"])
+    return outcome
 
 
 async def expire(deps: jobs.DataDeps, now: datetime) -> int:

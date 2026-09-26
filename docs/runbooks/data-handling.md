@@ -124,7 +124,7 @@ for shared caches; only immutable, explicitly Core-scoped artifacts may share.
 
 | Data | Kept for | Removed by |
 | --- | --- | --- |
-| Account content (sources, derived rows, embeddings, objects, study data) | Until the user deletes it, at most 24 months (ADR 0009) | Per-source delete, account delete, scheduled purge |
+| Account content (sources, derived rows, embeddings, objects, study data) | Until the user deletes it; 24 months once the purge is enforced (ADR 0009, ADR 0020) | Per-source delete, account delete, scheduled purge (off by default) |
 | Export ZIPs (`tenants/<tenant>/exports/<job>.zip`) and their `data_jobs` rows | 7 days after the ZIP is built | Hourly beat task `radbrain.expire_data_exports` |
 | Delete-job rows (`data_jobs`, kind `delete`) | Indefinitely: ids, step, counts, held source ids only | Not removed; this is the deletion evidence |
 | `account.erased` audit row | Indefinitely: tenant id, user id, identity outcome only | Not removed |
@@ -132,6 +132,31 @@ for shared caches; only immutable, explicitly Core-scoped artifacts may share.
 | Backups | Per the backup runbook window | Expiry of the backup set |
 
 A retention change requires human approval and an ADR.
+
+### Scheduled retention purge (ADR 0020)
+
+- **State:** built but **off** in production. The owner decided this on 2026-09-26.
+  The daily beat task `radbrain.retention_purge` returns at once while
+  `RETENTION_PURGE_MODE` is unset or `off`.
+- **Dry run (read and count only):** run
+  `docker exec radiologyos-worker-1 python -m apps.worker.app.datarights.retention`.
+  It prints `{"due": n, "purged": 0}` and writes one `retention.dry_run` audit row
+  per affected tenant. It cannot delete.
+- **Enable:** get the owner's approval first. Then add
+  `RETENTION_PURGE_MODE: ${RETENTION_PURGE_MODE:-off}` (and optionally
+  `RETENTION_DEFAULT_MONTHS`) to the worker environment, set the value in
+  `app.env`, and recreate the worker. Run a dry run first and review the count.
+- **Per-tenant override:** set `tenants.settings.retention_months` to a whole
+  number of months, or to `0` to exempt the tenant. This is an admin SQL change
+  and needs the same approval.
+- **Never purged:** sources under `legal_hold`, Core scope or Core tenant
+  content, and exempt tenants. The hold is re-checked under a row lock
+  immediately before deletion.
+- **Evidence:** `SELECT action, target_id, metadata, created_at FROM audit_log
+  WHERE action LIKE 'retention.%'` under the tenant context. The live proof is
+  `evals/checks/test_retention_live.py` in CI.
+- **Rollback:** set the mode back to `off` and recreate the worker. Purged
+  sources can be recovered only from a backup taken before the purge.
 
 ### Export (`POST /v1/me/export`)
 
