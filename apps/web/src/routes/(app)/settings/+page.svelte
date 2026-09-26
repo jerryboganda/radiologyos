@@ -1,0 +1,82 @@
+<script lang="ts">
+  import { enhance } from '$app/forms';
+  import Notice from '$lib/components/Notice.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import PushSetup from '$lib/components/settings/PushSetup.svelte';
+  import ReminderForm from '$lib/components/settings/ReminderForm.svelte';
+  import ThemeToggle from '$lib/components/shell/ThemeToggle.svelte';
+  import type { ActionData, PageData } from './$types';
+
+  let { data, form }: { data: PageData; form: ActionData } = $props();
+  let timezone = $state('');
+  $effect(() => {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  });
+</script>
+
+<svelte:head><title>Settings · radbrain</title></svelte:head>
+
+<PageHeader eyebrow="Settings" title="Settings" description="Appearance, your exam, and reminders. Everything here is private to your account." />
+
+{#snippet feedback(section: string)}
+  {#if form?.section === section}
+    <div class="mt-4">
+      {#if 'error' in form && form.error}<Notice tone="warn">{form.error}</Notice>{:else}<Notice tone="ok">Saved.</Notice>{/if}
+    </div>
+  {/if}
+{/snippet}
+
+<div class="flex max-w-3xl flex-col gap-6">
+  <section class="panel p-5 sm:p-6" aria-labelledby="appearance-heading">
+    <h2 id="appearance-heading" class="text-xl font-semibold text-ink">Appearance</h2>
+    <p class="mt-1 mb-4 text-sm text-ink-2">Light for reading, dark for the reading room. System follows your device. Image viewers always use a dark stage.</p>
+    <ThemeToggle variant="segmented" />
+  </section>
+
+  <section class="panel p-5 sm:p-6" aria-labelledby="profile-heading">
+    <h2 id="profile-heading" class="text-xl font-semibold text-ink">Study profile</h2>
+    <form method="POST" action="?/profile" use:enhance class="mt-4 grid gap-4 sm:grid-cols-3">
+      <label class="block sm:col-span-3">
+        <span class="label">Exam</span>
+        <input name="exam_name" value={data.profile?.exam_name ?? 'FCPS-II Radiology'} maxlength="120" class="field mt-1.5" />
+      </label>
+      <label class="block">
+        <span class="label">Exam date</span>
+        <input name="exam_date" type="date" required value={data.profile?.exam_date ?? ''} class="field mt-1.5 font-mono" />
+      </label>
+      <label class="block">
+        <span class="label">Minutes per day</span>
+        <input name="daily_minutes" type="number" min="15" max="600" step="15" required value={data.profile?.daily_minutes ?? 90} class="field mt-1.5 font-mono" />
+      </label>
+      <input type="hidden" name="timezone" value={timezone} />
+      <div class="flex items-end"><button class="btn btn-primary w-full" type="submit">Save profile</button></div>
+    </form>
+    {#if !data.profile}
+      <p class="mt-3 text-xs text-warn">TODO (API): <code class="font-mono">/v1/study/profile</code> is not deployed yet; saving reports that nothing was stored.</p>
+    {/if}
+    {@render feedback('profile')}
+  </section>
+
+  <section class="panel p-5 sm:p-6" aria-labelledby="reminders-heading">
+    <h2 id="reminders-heading" class="text-xl font-semibold text-ink">Reminders</h2>
+    <p class="mt-1 mb-4 text-sm text-ink-2">A short nudge at the time you usually study. Notifications never contain your notes or source text.</p>
+    <ReminderForm prefs={data.reminders} online={data.reminders !== null} />
+    {@render feedback('reminders')}
+    <hr class="my-6 border-line" />
+    <h3 class="label mb-3">Push on this device</h3>
+    <PushSetup vapidKey={data.vapidKey} />
+  </section>
+
+  <section class="panel p-5 sm:p-6" aria-labelledby="account-heading">
+    <h2 id="account-heading" class="text-xl font-semibold text-ink">Account</h2>
+    {#if data.user}
+      <p class="mt-2 text-sm text-ink-2">{data.user.name} · {data.user.email ?? data.user.subject} · {data.user.tenantRole}</p>
+    {/if}
+    <div class="mt-4 flex flex-wrap gap-2">
+      <form method="POST" action="/auth/logout"><button class="btn btn-ghost" type="submit">Sign out</button></form>
+      {#if data.previewEnabled}
+        <a class="btn btn-ghost" href="/preview" data-sveltekit-reload>Open non-release preview</a>
+      {/if}
+    </div>
+  </section>
+</div>

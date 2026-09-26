@@ -1,5 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  // Legacy global styles, loaded only here. Links inside reload the page so
+  // these globals never leak into the Tailwind app (see ADR 0017).
+  import './legacy-base.css';
+  import './preview.css';
   import type { ActionData, PageData } from './$types';
 
   type PreviewAction = {
@@ -25,7 +29,7 @@
   <meta name="description" content="Synthetic non-release radbrain preview." />
 </svelte:head>
 
-<div class="preview-shell">
+<div class="preview-shell" data-sveltekit-reload>
   <header class="preview-header">
     <div>
       <a class="brand" href="/">radbrain</a>

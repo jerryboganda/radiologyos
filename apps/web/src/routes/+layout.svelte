@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import '../app.css';
-  import '../preview.css';
+  import { page } from '$app/state';
+  import { parseThemePref } from '$lib/theme';
+  import { themeState, watchSystemTheme } from '$lib/theme.svelte';
 
   let { children } = $props();
 
@@ -9,6 +11,7 @@
     if ('serviceWorker' in navigator) {
       void navigator.serviceWorker.register('/service-worker.js');
     }
+    return watchSystemTheme(() => themeState.pref ?? parseThemePref(page.data.theme as string | undefined));
   });
 </script>
 
@@ -16,19 +19,4 @@
   <title>radbrain</title>
 </svelte:head>
 
-<header class="site-header">
-  <a class="brand" href="/" aria-label="radbrain home">radbrain</a>
-  <nav aria-label="Primary navigation">
-    <a href="/">Workspace</a>
-    <a href="/api/health">Health</a>
-    <a href="/preview">Preview</a>
-  </nav>
-</header>
-
-<main>
-  {@render children()}
-</main>
-
-<footer>
-  <p>Private by default. Not a medical device.</p>
-</footer>
+{@render children()}

@@ -1,6 +1,12 @@
-const CACHE = 'radbrain-shell-v1';
+// radbrain service worker.
+//
+// Caching policy (ADR 0017): only the public app shell is cached — hashed
+// build assets under /_app/immutable/, the icon, the manifest, and the offline
+// page. Authenticated responses (pages, /media images, /library, /api, /auth,
+// uploads, API JSON) are NEVER cached; they always go to the network.
+const CACHE = 'radbrain-shell-v2';
 const PRECACHE = ['/manifest.webmanifest', '/favicon.svg', '/offline'];
-const ASSET_EXTENSIONS = /\.(?:avif|css|gif|ico|jpe?g|js|mjs|png|svg|webp|woff2?)$/iu;
+const PUBLIC_FILES = new Set(['/manifest.webmanifest', '/favicon.svg']);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)));
@@ -16,29 +22,76 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-function isStaticAsset(request) {
-  const url = new URL(request.url);
-  return url.pathname.startsWith('/_app/') || ASSET_EXTENSIONS.test(url.pathname);
+function isCacheable(url) {
+  return url.pathname.startsWith('/_app/immutable/') || PUBLIC_FILES.has(url.pathname);
+}
+
+function isPrivateResponse(response) {
+  const control = response.headers.get('cache-control') || '';
+  return /private|no-store/i.test(control) || response.headers.has('set-cookie');
 }
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
-  if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request).catch(() => caches.match('/offline')));
+  const { request } = event;
+  const url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+  if (request.mode === 'navigate') {
+    // Pages are rendered per user: network only, with the static offline page as fallback.
+    event.respondWith(fetch(request).catch(() => caches.match('/offline')));
     return;
   }
-  if (!isStaticAsset(event.request)) return;
+  if (!isCacheable(url)) return;
   event.respondWith(
-    caches.match(event.request).then(
+    caches.match(request).then(
       (cached) =>
         cached ||
-        fetch(event.request).then((response) => {
-          if (response.ok) {
+        fetch(request).then((response) => {
+          if (response.ok && response.type === 'basic' && !isPrivateResponse(response)) {
             const copy = response.clone();
-            void caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+            void caches.open(CACHE).then((cache) => cache.put(request, copy));
           }
           return response;
         })
     )
+  );
+});
+
+// Study reminders. Payloads carry only a title, a short generic body, and a
+// same-origin path — never source text or personal notes.
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = {};
+  }
+  const title = typeof payload.title === 'string' ? payload.title.slice(0, 80) : 'Time to study';
+  const body = typeof payload.body === 'string' ? payload.body.slice(0, 200) : 'Your plan for today is ready.';
+  const path = typeof payload.url === 'string' && payload.url.startsWith('/') && !payload.url.startsWith('//') ? payload.url : '/';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/favicon.svg',
+      badge: '/favicon.svg',
+      tag: 'radbrain-reminder',
+      data: { url: path }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const path = (event.notification.data && event.notification.data.url) || '/';
+  const target = new URL(path, self.location.origin);
+  if (target.origin !== self.location.origin) return;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => new URL(w.url).origin === target.origin);
+      if (open) {
+        void open.navigate(target.href);
+        return open.focus();
+      }
+      return self.clients.openWindow(target.href);
+    })
   );
 });
