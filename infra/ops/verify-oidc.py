@@ -126,6 +126,9 @@ def main() -> int:
     opener = urllib.request.build_opener(
         urllib.request.HTTPCookieProcessor(jar), NoRedirect()
     )
+    # The public authorize endpoint sits behind Cloudflare, whose browser
+    # integrity check refuses the default Python-urllib user agent with 403.
+    opener.addheaders = [("User-Agent", "Mozilla/5.0 (compatible; radbrain-verify-oidc/1.0)")]
     authorize_url = (
         f"{discovery['authorization_endpoint']}"
         f"?response_type=code"
