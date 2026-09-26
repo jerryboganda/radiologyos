@@ -19,6 +19,37 @@ def _source_hash(label: str) -> str:
     return hashlib.sha256(label.encode()).hexdigest()
 
 
+async def _assert_runtime_role(runtime: Any) -> None:
+    role = await runtime.fetchrow(
+        "SELECT rolsuper, rolbypassrls, rolcreaterole, rolcreatedb "
+        "FROM pg_roles WHERE rolname = current_user"
+    )
+    assert role is not None
+    assert not any(tuple(role))
+    assert not await runtime.fetchval(
+        "SELECT pg_has_role(current_user, 'radbrain_migrator', 'member')"
+    )
+    owners = await runtime.fetch(
+        "SELECT c.relname, pg_get_userbyid(c.relowner) AS owner "
+        "FROM pg_class AS c "
+        "WHERE c.relname = ANY($1::text[])",
+        ["tenants", "users", "memberships", "sources", "jobs", "job_steps", "audit_log"],
+    )
+    assert owners
+    assert all(row["owner"] != "radbrain_app" for row in owners)
+
+
+async def _cleanup(admin: Any, tenants: list[Any], sources: list[Any], users: list[Any]) -> None:
+    by_tenant = ("audit_log", "job_steps", "jobs")
+    async with admin.transaction():
+        for table in by_tenant:
+            await admin.execute(f"DELETE FROM {table} WHERE tenant_id = ANY($1::uuid[])", tenants)
+        await admin.execute("DELETE FROM sources WHERE id = ANY($1::uuid[])", sources)
+        await admin.execute("DELETE FROM memberships WHERE tenant_id = ANY($1::uuid[])", tenants)
+        await admin.execute("DELETE FROM users WHERE id = ANY($1::uuid[])", users)
+        await admin.execute("DELETE FROM tenants WHERE id = ANY($1::uuid[])", tenants)
+
+
 async def _assert_tenant_isolation() -> None:
     admin_dsn = os.environ["RADBRAIN_RLS_ADMIN_DATABASE_URL"]
     runtime_dsn = os.environ["RADBRAIN_RLS_RUNTIME_DATABASE_URL"]
@@ -36,23 +67,7 @@ async def _assert_tenant_isolation() -> None:
     admin = await asyncpg.connect(admin_dsn)
     runtime = await asyncpg.connect(runtime_dsn)
     try:
-        role = await runtime.fetchrow(
-            "SELECT rolsuper, rolbypassrls, rolcreaterole, rolcreatedb "
-            "FROM pg_roles WHERE rolname = current_user"
-        )
-        assert role is not None
-        assert not any(tuple(role))
-        assert not await runtime.fetchval(
-            "SELECT pg_has_role(current_user, 'radbrain_migrator', 'member')"
-        )
-        owners = await runtime.fetch(
-            "SELECT c.relname, pg_get_userbyid(c.relowner) AS owner "
-            "FROM pg_class AS c "
-            "WHERE c.relname = ANY($1::text[])",
-            ["tenants", "users", "memberships", "sources", "jobs", "job_steps", "audit_log"],
-        )
-        assert owners
-        assert all(row["owner"] != "radbrain_app" for row in owners)
+        await _assert_runtime_role(runtime)
 
         async with admin.transaction():
             await admin.execute(
@@ -361,34 +376,12 @@ async def _assert_tenant_isolation() -> None:
             } == {str(audit_target_b)}
     finally:
         await runtime.close()
-        async with admin.transaction():
-            await admin.execute(
-                "DELETE FROM audit_log WHERE tenant_id = ANY($1::uuid[])",
-                [tenant_a, tenant_b],
-            )
-            await admin.execute(
-                "DELETE FROM job_steps WHERE tenant_id = ANY($1::uuid[])",
-                [tenant_a, tenant_b],
-            )
-            await admin.execute(
-                "DELETE FROM jobs WHERE tenant_id = ANY($1::uuid[])",
-                [tenant_a, tenant_b],
-            )
-            await admin.execute(
-                "DELETE FROM sources WHERE id = ANY($1::uuid[])",
-                [source_a, source_b, core_source],
-            )
-            await admin.execute(
-                "DELETE FROM memberships WHERE tenant_id = ANY($1::uuid[])",
-                [tenant_a, tenant_b],
-            )
-            await admin.execute(
-                "DELETE FROM users WHERE id = ANY($1::uuid[])",
-                [user_a, user_b, user_b_extra],
-            )
-            await admin.execute(
-                "DELETE FROM tenants WHERE id = ANY($1::uuid[])", [tenant_a, tenant_b]
-            )
+        await _cleanup(
+            admin,
+            [tenant_a, tenant_b],
+            [source_a, source_b, core_source],
+            [user_a, user_b, user_b_extra],
+        )
         await admin.close()
 
 
