@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from uuid import UUID
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,7 +33,6 @@ class Settings(BaseSettings):
     pipeline_version: int = Field(default=1, ge=1)
     models_config_path: Path = Path("packages/models/models.yaml")
     allow_ungrounded_default: bool = False
-    preview_enabled: bool = False
     # ADR 0011: billing is parked; its routes answer 404 unless this is set.
     billing_enabled: bool = False
     # Private object storage (platform MinIO in production, RustFS locally).
@@ -68,24 +67,6 @@ class Settings(BaseSettings):
         if not prefix.startswith("/"):
             prefix = f"/{prefix}"
         return prefix.rstrip("/") or ""
-
-    @model_validator(mode="after")
-    def validate_preview_mode(self) -> Settings:
-        if not self.preview_enabled or self.is_local_development:
-            return self
-        # ADR 0009: the non-release preview surface ships to production, but
-        # only behind authentication. principal_from_request already refuses
-        # header-based identity outside local development, so the only way in is
-        # a verified OIDC bearer token whose membership is resolved from the
-        # database. Requiring an explicit JWKS URL means preview cannot be
-        # switched on for a host that has no identity provider wired up, where it
-        # would be unreachable rather than merely unauthenticated.
-        if not self.oidc_jwks_url:
-            raise ValueError(
-                "preview outside local development requires a configured "
-                "OIDC_JWKS_URL so it is only reachable behind authentication"
-            )
-        return self
 
     @property
     def is_local_development(self) -> bool:

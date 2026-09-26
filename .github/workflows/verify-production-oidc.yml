@@ -80,7 +80,7 @@ jobs:
             ${STUDENT_ARG[@]+"${STUDENT_ARG[@]}"}
           REMOTE
 
-      - name: Confirm the preview surface is authentication-gated
+      - name: Confirm the retired preview surface is absent (ADR 0031)
         env:
           VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
         run: |

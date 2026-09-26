@@ -21,13 +21,7 @@ from packages.models.rerank import (
     VoyageReranker,
     estimate_tokens,
 )
-from packages.models.routing import (
-    EmbeddingBudget,
-    ModelRoutingConfig,
-    RerankConfig,
-    RouteName,
-    require_mock_routes,
-)
+from packages.models.routing import EmbeddingBudget, RerankConfig
 from pydantic import ValidationError
 
 TENANT = UUID("40000000-0000-0000-0000-000000000001")
@@ -118,13 +112,6 @@ def test_config_rules_and_checked_in_block() -> None:
     assert cfg is not None and cfg.model == "rerank-2.5"
     assert cfg.api_key_env == "VOYAGE_API_KEY" and cfg.top_k <= cfg.candidates
     assert cfg.budget.hard_cap_tokens == 195_000_000 and cfg.budget.warn_tokens == 150_000_000
-    mock = {"targets": [{"backend": "mock", "model": "mock-only"}]}
-    preview = ModelRoutingConfig.model_validate({
-        "config_version": "t", "provider_gate": {"status": "blocked"},
-        "default_backend": "mock", "routes": {r.value: mock for r in RouteName}})
-    require_mock_routes(preview)
-    with pytest.raises(ValueError, match="reranker"):
-        require_mock_routes(preview.model_copy(update={"rerank": CONFIG}))
 
 
 def test_rerank_alert_payload_is_numbers_only_and_distinct() -> None:

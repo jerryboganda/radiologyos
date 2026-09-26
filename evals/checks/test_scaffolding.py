@@ -8,7 +8,7 @@ import yaml
 from apps.worker.app.job_id import IngestStep, JobId
 from evals.contracts import load_eval_fixtures
 from packages.curriculum.loader import radiology_pack
-from packages.models.routing import RouteName, load_model_routing_config, require_mock_routes
+from packages.models.routing import RouteName, load_model_routing_config
 from packages.prompts.contracts import load_prompt
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,8 +29,8 @@ OIDC_WORKFLOW = ROOT / ".github" / "workflows" / "verify-production-oidc.yml"
 RLS_WORKFLOW = ROOT / ".github" / "workflows" / "verify-production-rls.yml"
 REMAINING_WORK = ROOT / "docs" / "remaining-work.md"
 PREVIEW_ADR = ROOT / "docs" / "decisions" / "0006-non-release-preview-mode.md"
+RETIREMENT_ADR = ROOT / "docs" / "decisions" / "0031-retire-in-memory-preview.md"
 ENV_EXAMPLE = ROOT / ".env.example"
-PREVIEW_RUNBOOK = ROOT / "docs" / "runbooks" / "m1-preview.md"
 
 
 def test_compute_policy_and_production_verification_are_fail_closed() -> None:
@@ -76,19 +76,19 @@ def test_compute_policy_and_production_verification_are_fail_closed() -> None:
     assert "No M1–M7 feature has been accepted" in goal
 
 
-def test_preview_mode_is_explicitly_non_release() -> None:
-    adr = PREVIEW_ADR.read_text(encoding="utf-8")
-    env_example = ENV_EXAMPLE.read_text(encoding="utf-8")
-    runbook = PREVIEW_RUNBOOK.read_text(encoding="utf-8")
-    main = (ROOT / "apps" / "api" / "app" / "api" / "preview.py").read_text(encoding="utf-8")
-    production = PRODUCTION_COMPOSE.read_text(encoding="utf-8")
-
-    assert "non-release preview" in adr
-    assert "does not supersede" in adr
-    assert "PREVIEW_ENABLED=true" in env_example
-    assert "Non-release preview" in runbook
-    assert "preview: non-release" in main
-    assert 'PREVIEW_ENABLED: "false"' in production
+def test_the_in_memory_preview_surface_is_retired() -> None:
+    """ADR 0031: the preview package, routers, and switch are gone for good."""
+    adr = RETIREMENT_ADR.read_text(encoding="utf-8")
+    assert "Status: accepted" in adr
+    assert "Amends: ADR 0006" in adr
+    assert "Superseded by ADR 0031" in PREVIEW_ADR.read_text(encoding="utf-8")
+    assert not list((ROOT / "apps" / "api" / "app" / "preview").glob("*.py"))
+    assert not list((ROOT / "apps" / "api" / "app" / "api").glob("preview*.py"))
+    assert not (ROOT / "apps" / "web" / "src" / "routes" / "preview").exists()
+    assert not (ROOT / "apps" / "web" / "src" / "lib" / "server" / "preview.ts").exists()
+    for path in (COMPOSE, PRODUCTION_COMPOSE, ENV_EXAMPLE,
+                 ROOT / "infra" / "compose" / "platform.yml"):
+        assert "PREVIEW_ENABLED" not in path.read_text(encoding="utf-8"), path.name
 
 
 def test_compose_runs_real_m0_processes_with_separate_migrator_role() -> None:
@@ -186,12 +186,6 @@ def test_model_routes_follow_adr_0010() -> None:
     assert (embeddings.query.backend, embeddings.query.model) == ("voyage", "voyage-4-large")
     assert embeddings.budget.hard_cap_tokens == 195_000_000
     assert embeddings.budget.warn_tokens == 150_000_000
-
-
-def test_mock_gate_still_rejects_network_capable_targets() -> None:
-    config = load_model_routing_config(MODEL_CONFIG)
-    with pytest.raises(ValueError, match="mock-only"):
-        require_mock_routes(config)
 
 
 @pytest.mark.parametrize("route", list(RouteName))

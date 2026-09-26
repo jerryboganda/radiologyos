@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Point the radbrain app at Keycloak and keep the in-memory preview surface off.
-# ADR 0011 (personal-first, durable routes) supersedes the ADR 0009 decision to
-# enable the preview behind authentication; production runs PREVIEW_ENABLED=false.
+# Point the radbrain app at Keycloak.
+# The in-memory preview surface was removed (ADR 0031); a leftover PREVIEW_ENABLED
+# entry in the env file is ignored by the app and can be deleted at leisure.
 #
 # The API fetches JWKS over the internal address while validating the issuer.
 # That decoupling is what lets the internal issuer work now and the public one
@@ -45,10 +45,6 @@ echo "  OIDC_CLIENT_ID=radbrain-web"
 echo "  OIDC_AUDIENCE=radbrain-api"
 echo "  OIDC_CLIENT_SECRET=<set, not displayed>"
 
-echo
-echo "=== keep the in-memory preview surface off (ADR 0011) ==="
-set_env PREVIEW_ENABLED "false"
-echo "  PREVIEW_ENABLED=false (durable routes only; the preview is outside RLS)"
 
 echo
 echo "=== web origin settings ==="
@@ -62,7 +58,7 @@ grep -c COOKIE_SECURE "$APPENV" | sed 's/^/  COOKIE_SECURE entries: /'
 
 echo
 echo "=== key names now set (values redacted) ==="
-sed -E 's/=.*/=<set>/' "$APPENV" | grep -E '^(OIDC|PREVIEW|PUBLIC_ORIGIN|API_PUBLIC_URL|COOKIE_SECURE)' | grep -v '^#'
+sed -E 's/=.*/=<set>/' "$APPENV" | grep -E '^(OIDC|PUBLIC_ORIGIN|API_PUBLIC_URL|COOKIE_SECURE)' | grep -v '^#'
 
 echo
 echo "=== redeploy the app so it picks the configuration up ==="

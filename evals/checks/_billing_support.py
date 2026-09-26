@@ -26,14 +26,12 @@ HEADERS = {
 
 def enable_billing() -> None:
     settings.app_env = "test"
-    settings.preview_enabled = True
     settings.billing_enabled = True
     reset_billing_service()
 
 
 def restore_settings() -> None:
     settings.app_env = "dev"
-    settings.preview_enabled = False
     settings.billing_enabled = False
     reset_billing_service()
 

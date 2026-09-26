@@ -17,7 +17,7 @@ milestones defined by the implementation specification.
 | Model-provider approval gate | [`decisions/0002-model-provider-gate.md`](decisions/0002-model-provider-gate.md) |
 | OIDC API audience decision | [`decisions/0004-api-oidc-audience.md`](decisions/0004-api-oidc-audience.md) |
 | GitHub Actions compute policy | [`decisions/0005-github-actions-compute-policy.md`](decisions/0005-github-actions-compute-policy.md) |
-| Non-release preview boundary | [`decisions/0006-non-release-preview-mode.md`](decisions/0006-non-release-preview-mode.md) |
+| Non-release preview boundary (history; surface removed by ADR 0031) | [`decisions/0006-non-release-preview-mode.md`](decisions/0006-non-release-preview-mode.md) |
 | Production on the shared platform VPS | [`decisions/0007-production-on-shared-platform.md`](decisions/0007-production-on-shared-platform.md) |
 | Evidence-based M0 acceptance | [`decisions/0008-evidence-based-m0-acceptance.md`](decisions/0008-evidence-based-m0-acceptance.md) |
 | Identity, billing, and retention decisions | [`decisions/0009-identity-model-billing-retention.md`](decisions/0009-identity-model-billing-retention.md) |
@@ -34,16 +34,15 @@ milestones defined by the implementation specification.
 | Scheduled retention purge (off by default) | [`decisions/0020-scheduled-retention-purge.md`](decisions/0020-scheduled-retention-purge.md) |
 | Quota-aware effort for bulk ingest | [`decisions/0021-quota-aware-effort.md`](decisions/0021-quota-aware-effort.md) |
 | Derived schema evidence and branch-protected checks | [`decisions/0022-derived-schema-evidence-and-branch-protection.md`](decisions/0022-derived-schema-evidence-and-branch-protection.md) |
+| Preview retired; durable vault export; real `/v1/me` | [`decisions/0031-retire-in-memory-preview.md`](decisions/0031-retire-in-memory-preview.md) |
 | M0 production evidence and RLS acceptance | [`runbooks/m0-foundation.md`](runbooks/m0-foundation.md) |
 | Production deploy, rollback, and known gaps | [`runbooks/production-deploy.md`](runbooks/production-deploy.md) |
-| Local M1–M7 preview operation | [`runbooks/m1-preview.md`](runbooks/m1-preview.md) |
-| M2 knowledge and editor authority | [`runbooks/m2-preview.md`](runbooks/m2-preview.md) |
-| M3 retrieval, grounding, tutor threads | [`runbooks/m3-preview.md`](runbooks/m3-preview.md) |
+| Library upload, parsing, reader, search | [`runbooks/library.md`](runbooks/library.md) |
+| Knowledge graph and editor queue | [`runbooks/knowledge.md`](runbooks/knowledge.md) |
 | Grounded tutor: figures, grounding judge, SSE streaming | [`runbooks/tutor.md`](runbooks/tutor.md) |
-| M4 planner, Today, scheduling | [`runbooks/m4-preview.md`](runbooks/m4-preview.md) |
-| M5 items, exam mode, autosave | [`runbooks/m5-preview.md`](runbooks/m5-preview.md) |
-| M6 preview operations boundaries | [`runbooks/m6-preview-operations.md`](runbooks/m6-preview-operations.md) |
-| M7 local mode and portable export | [`runbooks/m7-preview.md`](runbooks/m7-preview.md) |
+| Planner, Today session, cards | [`runbooks/study.md`](runbooks/study.md) |
+| Questions, exams, autosave | [`runbooks/assessment.md`](runbooks/assessment.md) |
+| Web UI and the Playwright E2E workflow | [`runbooks/web-ui.md`](runbooks/web-ui.md) |
 | Backup, restore drill, RPO/RTO | [`runbooks/backup-restore.md`](runbooks/backup-restore.md) |
 | Completion plan: gap list and phases (tracking) | [`completion-plan.md`](completion-plan.md) |
 | Remaining-work goal and A–Z queue | [`remaining-work.md`](remaining-work.md) |
@@ -65,9 +64,9 @@ milestones defined by the implementation specification.
   `platform` project. See [`runbooks/production-deploy.md`](runbooks/production-deploy.md).
 - Production deployment is **not** acceptance by itself. M0–M7 exit evidence must
   pass for the same commit through the required verification workflows.
-- The non-release preview surface is **off** in production
-  (`PREVIEW_ENABLED=false` since 2026-09-26). Do not infer M0 or any later acceptance
-  from the preview, from the deployment, or from this documentation.
+- The in-memory preview surface was **removed** (ADR 0031); former `/v1/preview/*`
+  paths answer 404. Do not infer M0 or any later acceptance from the deployment or
+  from this documentation.
 - Acceptance evidence is automated and same-SHA on production (ADR 0008, amended by
   ADR 0022); evidence records live in `evidence/`.
 - Production deploys are manual and need the owner's explicit OK (ADR 0011).

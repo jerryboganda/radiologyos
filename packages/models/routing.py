@@ -170,25 +170,6 @@ class ModelRoutingConfig(BaseModel):
         return self
 
 
-def require_mock_routes(config: ModelRoutingConfig) -> None:
-    """Reject any route that could perform network egress in preview mode."""
-
-    if config.default_backend != "mock" or config.provider_gate.status != "blocked":
-        raise ValueError("preview model routes must be blocked and mock-only")
-    if config.agents:
-        raise ValueError("preview model routes cannot carry agent targets")
-    if config.rerank is not None:
-        raise ValueError("preview model routes cannot carry a reranker")
-    for route in config.routes.values():
-        if route.fallbacks:
-            raise ValueError("preview model routes cannot have fallbacks")
-        for target in route.targets:
-            if target.backend != "mock" or target.model != "mock-only":
-                raise ValueError("preview model routes must be mock-only")
-            if target.api_key_env is not None or target.base_url is not None:
-                raise ValueError("preview model routes cannot carry network configuration")
-
-
 def load_model_routing_config(path: Path) -> ModelRoutingConfig:
     """Load model routes without interpreting environment-specific secrets."""
 

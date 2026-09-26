@@ -1,261 +1,215 @@
-"""M6 eval gate: export/delete purge, isolation boundaries, and ops honesty.
+"""M6 eval gate: delete purge, export, parked billing, and object isolation.
 
-Covers slices T, U, and the object/cache isolation part of V that can be
-verified without a billing provider:
-  T  billing degradation and the caps that apply while billing is gated
-  U  export and delete across data, derived artifacts, caches and queues
-  V  the release-boundary behaviour that must not be faked
+Covers slices T, U, and the object/cache isolation part of V:
+  T  billing stays parked (ADR 0011): absent unless switched on
+  U  source delete and account erasure purge data, derived artifacts, caches,
+     and objects; the export's notes and vault leave deleted sources out
+  V  data-rights endpoints are durable, authenticated jobs
 
-Stripe webhooks, caps enforcement against a real provider, and the
-load/backup/restore evidence in slice V need a provider decision and the
-    production release evidence; they are recorded as open, not simulated.
+ADR 0031 retired the in-memory preview this gate used to exercise. These
+checks drive the durable code (``apps/api/app/library/service.py``,
+``apps/worker/app/datarights/*``, ``packages/library/storage.py``) with a
+statement-recording session; the row-level proofs against PostgreSQL as the
+runtime role are ``test_library_live.py`` and ``test_data_rights_live.py``.
+The preview-only capability matrix and release-audit endpoints went with the
+preview; release evidence is the same-SHA record from ``scripts/evidence_record.py``.
 
 All content is synthetic.
 """
 
 from __future__ import annotations
 
-from uuid import UUID
+from typing import Any
+from uuid import UUID, uuid4
 
-from apps.api.app.main import app, settings
-from apps.api.app.preview.knowledge import extract_source
-from apps.api.app.preview.library import derive_object_key, ingest_source
-from apps.api.app.preview.operations import (
-    billing_status,
-    capabilities,
-    markdown_export,
-    release_audit,
-)
-from apps.api.app.preview.service import reset_preview_state
-from evals.checks._harness import (
-    CHEST,
-    HEAD,
-    OWNER_A,
-    OWNER_B,
-    TENANT_A,
-    TENANT_B,
-    new_state,
-    seed,
-)
+import pytest
+from apps.api.app.library import service
+from apps.api.app.main import app
+from apps.api.app.security.principal import Principal
+from apps.worker.app.datarights import delete, jobs, notes, registry, vault_sql
+from apps.worker.app.datarights.vault import render_vault
+from evals.checks._m6_support import RecordingSession, Result, TenantTx
+from evals.checks._vault_support import CHEST, rows_for_user_a, without_source
 from fastapi.testclient import TestClient
+from packages.library import storage
+from packages.library.storage import MemoryObjectStore
 
 client = TestClient(app)
-BASE = {
-    "x-user-id": "10000000-0000-0000-0000-00000000000a",
-    "x-tenant-id": "30000000-0000-0000-0000-00000000000a",
-}
+TENANT_A = UUID("30000000-0000-4000-8000-00000000000a")
+TENANT_B = UUID("30000000-0000-4000-8000-00000000000b")
+USER_A = UUID("10000000-0000-4000-8000-00000000000a")
+HEADERS = {"x-user-id": str(USER_A), "x-tenant-id": str(TENANT_A), "x-role": "org_admin"}
+SOURCE = UUID("50000000-0000-4000-8000-000000000001")
 
 
-def setup_function() -> None:
-    reset_preview_state()
-    settings.preview_enabled = True
-
-
-def teardown_function() -> None:
-    settings.preview_enabled = False
-    reset_preview_state()
-
-
-def seeded_with_claims():
-    state = new_state()
-    source, _ = ingest_source(state, TENANT_A, OWNER_A, "Synthetic", "note", CHEST, "m6-source")
-    extract_source(state, TENANT_A, OWNER_A, source.id)
-    return state, source
+def _store_with_two_tenants() -> MemoryObjectStore:
+    store = MemoryObjectStore()
+    for tenant in (TENANT_A, TENANT_B):
+        store.put(storage.original_key(tenant, SOURCE, "pdf"), b"%PDF", "application/pdf")
+        store.put(storage.page_image_key(tenant, SOURCE, 1), b"png", "image/png")
+        store.put(storage.figure_image_key(tenant, SOURCE, 1, 1), b"png", "image/png")
+    return store
 
 
 # ---------------------------------------------------------------- slice U
 
 
-def test_delete_purges_every_derived_artifact() -> None:
-    """Slice U: delete must not leave derived data behind."""
-    state, source = seeded_with_claims()
-    assert state.source_chunks(TENANT_A, source.id)
-    assert state.claims(TENANT_A)
-    assert state.jobs(TENANT_A)
-
-    assert state.soft_delete_source(TENANT_A, source.id, state.now()) is True
-
-    assert state.source_chunks(TENANT_A, source.id) == []
-    assert state.source_figures(TENANT_A, source.id) == []
-    assert state.page(TENANT_A, source.id, 1) is None
-    assert state.page_blocks(TENANT_A, source.id, 1) == []
-    assert state.claims(TENANT_A) == []
-    assert state.jobs(TENANT_A) == []
-    # The source row is retained as a tombstone for the audit trail.
-    tombstone = state.source(TENANT_A, source.id)
-    assert tombstone is not None
-    assert tombstone.status == "deleted"
-    assert tombstone.deleted_at is not None
+async def test_purge_removes_the_source_its_jobs_and_orphaned_derivatives() -> None:
+    session = RecordingSession([
+        ("SELECT concept_id FROM claims", lambda _: Result([(uuid4(),)])),
+        ("SELECT content_sha256 FROM chunks", lambda _: Result([("a" * 64,)])),
+    ])
+    await service.purge_source_rows(session, SOURCE)  # type: ignore[arg-type]
+    sql = session.sql()
+    assert any(s.startswith("DELETE FROM jobs WHERE entity_id") for s in sql)
+    # Pages, blocks, figures, chunks, claims, mappings, and cards cascade from it.
+    assert any(s.startswith("DELETE FROM sources WHERE id") for s in sql)
+    cache = next(s for s in sql if s.startswith("DELETE FROM embedding_cache"))
+    concepts = next(s for s in sql if s.startswith("DELETE FROM concepts"))
+    assert "NOT EXISTS" in cache and "NOT EXISTS" in concepts  # shared rows survive
+    assert all(p.get("id") == SOURCE for _, p, _ in session.calls if "id" in p)
 
 
-def test_delete_releases_the_idempotency_key_for_reingestion() -> None:
-    state, source = seeded_with_claims()
-    state.soft_delete_source(TENANT_A, source.id, state.now())
-    assert state.idempotent_source(TENANT_A, "m6-source") is None
-
-    again, _job = ingest_source(
-        state, TENANT_A, OWNER_A, "Synthetic again", "note", CHEST, "m6-source"
-    )
-    assert again.id != source.id
-    assert again.status == "ready"
-    assert again.deleted_at is None
+async def test_purge_skips_cache_and_concept_sweeps_when_nothing_was_derived() -> None:
+    session = RecordingSession()
+    await service.purge_source_rows(session, SOURCE)  # type: ignore[arg-type]
+    assert not [s for s in session.sql() if "embedding_cache" in s or "FROM concepts" in s]
 
 
-def test_delete_is_idempotent_and_refuses_a_second_purge() -> None:
-    state, source = seeded_with_claims()
-    assert state.soft_delete_source(TENANT_A, source.id, state.now()) is True
-    assert state.soft_delete_source(TENANT_A, source.id, state.now()) is False
+async def test_delete_removes_objects_first_then_rows_and_audits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = RecordingSession([("SELECT legal_hold", lambda _: Result([False]))])
+    store = _store_with_two_tenants()
+
+    async def owned(*_: Any) -> dict[str, Any]:
+        return {"id": SOURCE}
+
+    monkeypatch.setattr(service, "get_source", owned)
+    principal = Principal(USER_A, TENANT_A)
+    assert await service.delete_source(session, store, principal, SOURCE)  # type: ignore[arg-type]
+    assert not [k for k in store.objects if k.startswith(f"tenants/{TENANT_A}/")]
+    assert len([k for k in store.objects if k.startswith(f"tenants/{TENANT_B}/")]) == 3
+    assert any("INSERT INTO audit_log" in s for s in session.sql())
+    assert session.commits == 1
 
 
-def test_delete_does_not_touch_another_tenants_data() -> None:
-    state = new_state()
-    a_source, _ = ingest_source(state, TENANT_A, OWNER_A, "A", "note", CHEST, "m6-a")
-    b_source, _ = ingest_source(state, TENANT_B, OWNER_B, "B", "note", HEAD, "m6-b")
-    extract_source(state, TENANT_B, OWNER_B, b_source.id)
+async def test_delete_refuses_a_source_the_caller_does_not_own(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session, store = RecordingSession(), _store_with_two_tenants()
 
-    assert state.soft_delete_source(TENANT_A, a_source.id, state.now()) is True
+    async def not_mine(*_: Any) -> None:
+        return None
 
-    assert state.source_chunks(TENANT_B, b_source.id)
-    assert state.claims(TENANT_B)
-    assert state.source(TENANT_B, b_source.id).status == "ready"
-
-
-def test_delete_through_the_api_is_owner_scoped_and_audited() -> None:
-    created = client.post(
-        "/v1/preview/sources",
-        headers={**BASE, "Idempotency-Key": "m6-api"},
-        json={"title": "Synthetic", "kind": "note", "content": CHEST},
-    )
-    source_id = created.json()[0]["id"]
-
-    other_owner = client.delete(
-        f"/v1/preview/sources/{source_id}",
-        headers={**BASE, "x-user-id": "10000000-0000-0000-0000-0000000000ff"},
-    )
-    assert other_owner.status_code == 404
-
-    other_tenant = client.delete(
-        f"/v1/preview/sources/{source_id}",
-        headers={
-            "x-user-id": "10000000-0000-0000-0000-00000000000b",
-            "x-tenant-id": "30000000-0000-0000-0000-00000000000b",
-        },
-    )
-    assert other_tenant.status_code == 404
-
-    deleted = client.delete(f"/v1/preview/sources/{source_id}", headers=BASE)
-    assert deleted.status_code == 202
-    assert deleted.json()["status"] == "deleted"
-    assert client.get("/v1/preview/sources", headers=BASE).json() == []
+    monkeypatch.setattr(service, "get_source", not_mine)
+    principal = Principal(USER_A, TENANT_A)
+    assert not await service.delete_source(session, store, principal, SOURCE)  # type: ignore[arg-type]
+    assert session.calls == [] and len(store.objects) == 6
 
 
-def test_a_deleted_source_disappears_from_search_and_export() -> None:
-    created = client.post(
-        "/v1/preview/sources",
-        headers={**BASE, "Idempotency-Key": "m6-search"},
-        json={"title": "Synthetic", "kind": "note", "content": CHEST},
-    )
-    source_id = created.json()[0]["id"]
-    assert client.post("/v1/preview/search", headers=BASE, json={"query": "costophrenic"}).json()[
-        "chunks"
+async def test_legal_hold_blocks_delete_and_touches_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = RecordingSession([("SELECT legal_hold", lambda _: Result([True]))])
+    store = _store_with_two_tenants()
+
+    async def owned(*_: Any) -> dict[str, Any]:
+        return {"id": SOURCE}
+
+    monkeypatch.setattr(service, "get_source", owned)
+    with pytest.raises(service.SourceOnHold):
+        await service.delete_source(session, store, Principal(USER_A, TENANT_A),  # type: ignore[arg-type]
+                                    SOURCE)
+    assert len(store.objects) == 6 and session.commits == 0
+
+
+def _erasure_script(held: UUID, free: UUID) -> list[tuple[str, Any]]:
+    return [
+        ("SELECT id, legal_hold FROM sources", lambda _: Result([(free, False), (held, True)])),
+        ("SELECT id FROM data_jobs", lambda _: Result([(uuid4(),)])),
+        ("erase_user_identity", lambda _: Result(["stubbed"])),
+        ("DELETE FROM", lambda _: Result(rowcount=1)),
     ]
 
-    client.delete(f"/v1/preview/sources/{source_id}", headers=BASE)
 
-    assert (
-        client.post("/v1/preview/search", headers=BASE, json={"query": "costophrenic"}).json()[
-            "chunks"
-        ]
-        == []
-    )
-    assert (
-        source_id not in client.get("/v1/preview/export/markdown", headers=BASE).json()["markdown"]
-    )
+async def test_account_erasure_runs_every_step_in_the_tenant_and_keeps_held_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    held, free, job_id = uuid4(), uuid4(), uuid4()
+    session = RecordingSession(_erasure_script(held, free))
+    tx, steps, purged = TenantTx(session), [], []
+    finished: dict[str, Any] = {}
 
+    async def load(_s: Any, _job: UUID, kind: str) -> dict[str, Any]:
+        return {"user_id": USER_A, "status": "running" if finished else "queued"}
 
-# ---------------------------------------------------- export and round trip
+    async def record_step(_s: Any, _job: UUID, step: str, *_: Any) -> None:
+        steps.append(step)
 
+    async def finish(_s: Any, _job: UUID, detail: dict[str, Any], *_: Any) -> bool:
+        finished.update(detail)
+        return True
 
-def test_markdown_export_cites_every_derived_sentence() -> None:
-    state, source = seeded_with_claims()
-    document = markdown_export(state, TENANT_A, OWNER_A)
+    async def purge(_s: Any, source_id: UUID) -> None:
+        purged.append(source_id)
 
-    assert document.startswith("# radbrain preview export")
-    assert "Not a Core Library artifact" in document
-    # One Source line per visible source and one Citation line per chunk: every
-    # piece of exported body content is attributable.
-    assert document.count("Source: `") == 1
-    assert document.count("Citation: `") == len(state.source_chunks(TENANT_A, source.id))
-    assert document.count("Citation: `") > 0
+    async def nothing(*_: Any) -> None:
+        return None
 
+    for name, fake in (("load", load), ("set_step", record_step), ("finish", finish),
+                       ("start", nothing)):
+        monkeypatch.setattr(jobs, name, fake)
+    monkeypatch.setattr(delete, "tenant_tx", tx)
+    monkeypatch.setattr(delete, "purge_source_rows", purge)
+    store = MemoryObjectStore()
+    store.put(storage.original_key(TENANT_A, free, "pdf"), b"x", "application/pdf")
+    store.put(storage.original_key(TENANT_A, held, "pdf"), b"x", "application/pdf")
+    store.put(storage.original_key(TENANT_B, free, "pdf"), b"x", "application/pdf")
+    deps: Any = type("Deps", (), {"engine": None, "store": store})()
 
-def test_markdown_export_links_back_to_real_pages() -> None:
-    state, source = seeded_with_claims()
-    document = markdown_export(state, TENANT_A, OWNER_A)
-
-    for chunk in state.source_chunks(TENANT_A, source.id):
-        assert f"p. {chunk.page_no}" in document
-        assert f"block `{chunk.block_start}`" in document
-
-
-def test_markdown_export_is_tenant_scoped() -> None:
-    state, _ = seeded_with_claims()
-    ingest_source(state, TENANT_B, OWNER_B, "Head", "note", HEAD, "m6-b")
-
-    a_doc = markdown_export(state, TENANT_A, OWNER_A)
-    b_doc = markdown_export(state, TENANT_B, OWNER_B)
-
-    a_source = state.sources(TENANT_A)[0]
-    b_source = state.sources(TENANT_B)[0]
-    assert str(a_source.id) in a_doc
-    assert str(b_source.id) not in a_doc
-    assert str(b_source.id) in b_doc
-    assert "costophrenic" in a_doc
-    assert "costophrenic" not in b_doc
+    assert await delete.run_delete(deps, TENANT_A, job_id) == "succeeded"
+    assert steps == ["study_rows", "sources", "sources", "exports", "identity"]
+    assert purged == [free] and finished["held_sources"] == 1
+    assert set(tx.tenants) == {TENANT_A}
+    assert storage.original_key(TENANT_A, held, "pdf") in store.objects
+    assert storage.original_key(TENANT_B, free, "pdf") in store.objects
+    assert storage.original_key(TENANT_A, free, "pdf") not in store.objects
+    direct = [s for s in session.sql() if s.startswith("DELETE FROM") and " t WHERE " in s]
+    assert len(direct) == len(registry.DIRECT_DELETE_ORDER)
+    assert all(p == {"u": USER_A} for s, p, _ in session.calls if " t WHERE " in s)
 
 
-def test_markdown_export_is_owner_scoped_within_a_tenant() -> None:
-    state, _ = seeded_with_claims()
-    other, _job = ingest_source(state, TENANT_A, OWNER_B, "Owned by B", "note", HEAD, "m6-owner-b")
-
-    document = markdown_export(state, TENANT_A, OWNER_A)
-    assert str(other.id) not in document
-    assert "Owned by B" not in document
-
-
-def test_markdown_export_is_deterministic() -> None:
-    state, _ = seeded_with_claims()
-    assert markdown_export(state, TENANT_A, OWNER_A) == markdown_export(state, TENANT_A, OWNER_A)
+def test_a_deleted_source_leaves_the_export_vault_and_notes() -> None:
+    assert "deleted_at IS NULL" in vault_sql.LIVE_SOURCES
+    for statement in (vault_sql.CLAIMS_SQL, vault_sql.CONCEPTS_SQL, vault_sql.EDGES_SQL):
+        assert vault_sql.LIVE_SOURCES in str(statement)
+    files = render_vault(without_source(rows_for_user_a(), CHEST))
+    assert CHEST.hex[:8] not in "\n".join(files.values())
 
 
-# --------------------------------------------------------------- slice T
+async def test_exported_notes_cite_every_card_and_claim() -> None:
+    card = {"curriculum_code": "CHEST", "topic": "Pleura", "front": "Q?", "back": "A.",
+            "title": "Synthetic chest notes", "page_from": "2", "page_to": "2"}
+    claim = {"name": "Pleural effusion", "statement": "S.", "evidence_span": "E.",
+             "status": "disputed", "page_from": 2, "page_to": 3, "title": None}
+    cards = await notes.cards_markdown(
+        RecordingSession([("FROM cards", lambda _: Result([card]))]), USER_A)  # type: ignore[arg-type]
+    claims = await notes.claims_markdown(
+        RecordingSession([("FROM claims", lambda _: Result([claim]))]), USER_A)  # type: ignore[arg-type]
+    assert "_Source: Synthetic chest notes, p. 2_" in cards
+    assert "- S. (disputed)" in claims and "Source: deleted source, pp. 2-3" in claims
 
 
-def test_billing_reports_preview_only_and_never_a_live_subscription() -> None:
-    status = billing_status(new_state(), TENANT_A)
-    assert status["provider"] == "mock_stripe_test_mode"
-    assert status["status"] == "preview_only"
-    message = str(status["message"])
-    # No customer, checkout, portal or charge may be implied to exist.
-    for absent in ("Stripe customer", "checkout", "portal", "charge"):
-        assert absent in message
-    assert "No " in message or "no " in message
+# ---------------------------------------------------------------- slice T
 
 
-def test_billing_never_reports_a_live_subscription_over_http() -> None:
-    body = client.get("/v1/preview/billing/status", headers=BASE).json()
-    assert body["mode"] == "preview"
-    assert body["status"] == "preview_only"
-    assert body["provider"] == "mock_stripe_test_mode"
+def test_billing_is_parked_and_absent_unless_switched_on() -> None:
+    for path in ("/v1/billing/plans", "/v1/billing/subscription"):
+        assert client.get(path, headers=HEADERS).status_code == 404
 
 
-def test_billing_is_tenant_scoped() -> None:
-    state = new_state()
-    state.tenant(TENANT_A).billing[TENANT_A] = {"plan": "synthetic-probe"}
-    assert billing_status(state, TENANT_B).get("plan") != "synthetic-probe"
-
-
-# --------------------------------------------------------------- slice V
+# ---------------------------------------------------------------- slice V
 
 
 def test_release_data_rights_are_durable_jobs_not_placeholders() -> None:
@@ -268,56 +222,31 @@ def test_release_data_rights_are_durable_jobs_not_placeholders() -> None:
 
 
 def test_release_data_rights_require_authentication() -> None:
-    """Unauthenticated callers must be rejected before any job is queued."""
     for method, path in (("post", "/v1/me/export"), ("delete", "/v1/me")):
         assert getattr(client, method)(path).status_code in {401, 403}
-
-
-def test_capability_matrix_is_explicit_about_blocked_slices() -> None:
-    matrix = {item["slice"]: item for item in capabilities()}
-
-    assert set(matrix) == set("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    # A-D are the M0 staging gate and release is Z; both stay blocked.
-    for letter in "ABCDZ":
-        assert matrix[letter]["status"] == "blocked", letter
-    for letter in "EFGHIJKLMNOPQRSTUVWXY":
-        assert matrix[letter]["status"] == "preview", letter
-
-
-def test_release_audit_reports_the_open_gates() -> None:
-    audit = release_audit()
-    assert audit["status"] == "blocked"
-    blocked = " ".join(audit["blocked"])
-    for expected in (
-        "m0:staging-acceptance",
-        "m1:staging-evidence",
-        "m7:staging-evidence",
-        "release:human-approvals",
-    ):
-        assert expected in blocked
-    # Nothing may claim acceptance.
-    assert "accepted" not in blocked
 
 
 # --------------------------------------------------- object/cache isolation
 
 
-def test_object_keys_for_two_tenants_never_collide() -> None:
-    keys = {
-        derive_object_key(tenant, UUID(int=7), "pages/1.png") for tenant in (TENANT_A, TENANT_B)
-    }
-    assert len(keys) == 2
-    assert all(key.startswith("tenants/") for key in keys)
+def test_every_object_key_is_tenant_prefixed_and_never_collides() -> None:
+    job, user, image = uuid4(), uuid4(), uuid4()
+    for tenant, other in ((TENANT_A, TENANT_B), (TENANT_B, TENANT_A)):
+        keys = [storage.original_key(tenant, SOURCE, "pdf"),
+                storage.page_image_key(tenant, SOURCE, 1),
+                storage.figure_image_key(tenant, SOURCE, 1, 1),
+                storage.export_key(tenant, job),
+                storage.tutor_image_key(tenant, user, image, "png")]
+        for key in keys:
+            assert key.startswith(f"tenants/{tenant}/")
+            storage.require_tenant_key(tenant, key)
+            with pytest.raises(PermissionError):
+                storage.require_tenant_key(other, key)
+    assert storage.export_key(TENANT_A, job) != storage.export_key(TENANT_B, job)
 
 
-def test_seeding_two_tenants_keeps_all_state_separate() -> None:
-    state = new_state()
-    seed(state, TENANT_A, OWNER_A)
-    seed(state, TENANT_B, OWNER_B)
-
-    assert {s.tenant_id for s in state.sources(TENANT_A)} == {TENANT_A}
-    assert {s.tenant_id for s in state.sources(TENANT_B)} == {TENANT_B}
-    assert {c.tenant_id for c in state.claims(TENANT_A)} == {TENANT_A}
-    assert {c.tenant_id for c in state.claims(TENANT_B)} == {TENANT_B}
-    assert state.thread(TENANT_A, OWNER_A) == []
-    assert state.thread(TENANT_B, OWNER_B) == []
+def test_a_prefix_delete_never_reaches_another_tenant() -> None:
+    store = _store_with_two_tenants()
+    store.delete_prefix(storage.source_prefix(TENANT_A, SOURCE) + "/")
+    assert all(key.startswith(f"tenants/{TENANT_B}/") for key in store.objects)
+    assert len(store.objects) == 3

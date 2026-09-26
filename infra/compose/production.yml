@@ -6,14 +6,10 @@ services:
   api:
     image: ${RADBRAIN_API_IMAGE:?RADBRAIN_API_IMAGE must be an immutable image reference}
     build: !reset null
-    environment:
-      PREVIEW_ENABLED: "false"
 
   worker:
     image: ${RADBRAIN_WORKER_IMAGE:?RADBRAIN_WORKER_IMAGE must be an immutable image reference}
     build: !reset null
-    environment:
-      PREVIEW_ENABLED: "false"
 
   storage:
     image: ${RADBRAIN_STORAGE_IMAGE:?RADBRAIN_STORAGE_IMAGE must be an immutable image reference}
@@ -22,5 +18,3 @@ services:
   web:
     image: ${RADBRAIN_WEB_IMAGE:?RADBRAIN_WEB_IMAGE must be an immutable image reference}
     build: !reset null
-    environment:
-      PREVIEW_ENABLED: "false"

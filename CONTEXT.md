@@ -4,7 +4,7 @@ Last reviewed: **2026-09-26**
 Delivery mode: **personal-first (ADR 0011)** — a real study platform for the owner's
 own tenant on the production VPS. Milestone acceptance evidence (ADR 0008) is tracked
 separately in [`docs/remaining-work.md`](docs/remaining-work.md).
-Canonical requirements: [`docs/SPEC.md`](docs/SPEC.md) plus ADRs 0001–0022.
+Canonical requirements: [`docs/SPEC.md`](docs/SPEC.md) plus the ADRs in `docs/decisions/`.
 Tracking: [`docs/completion-plan.md`](docs/completion-plan.md) (gap list and phases).
 
 ## Purpose
@@ -27,11 +27,15 @@ page, and block, or to an allow-listed web URL.
 | Assessment | `packages/assessment/`, `apps/api/app/assessment/` | SBA/SEQ/TOACS/viva generation, checker gate, exams (ADR 0015) |
 | Study | `packages/study/`, `apps/api/app/study/`, `apps/worker/app/study_jobs.py` | FSRS cards, approved-weight planner, baseline test, weekly reports, nightly replan (ADR 0014) |
 | Reminders | `packages/notifications/`, `apps/worker/app/reminders.py` | Web Push via VAPID, per-user time and timezone |
+| Account | `apps/api/app/api/account.py`, `apps/worker/app/datarights/` | `/v1/me` and `/v1/tenants/switch` answer from the membership row; export ZIP includes an Obsidian-compatible `vault/` (ADR 0031) |
 | Models | `packages/models/` | Claude Code headless transport, agent gateway, Voyage embeddings (ADR 0010) |
 
-The M1–M7 in-memory **preview** under `/v1/preview/*` still exists for its eval
-gates but is superseded by the durable routes above. It is **off in production**
-(`PREVIEW_ENABLED=false`) since 2026-09-26; removing it is tracked as G18.
+The M1–M7 in-memory **preview** was removed (ADR 0031); former `/v1/preview/*` paths
+answer 404 and `PREVIEW_ENABLED` is ignored. The M1–M7 eval gates
+(`evals/checks/test_m*.py`, `test_determinism.py`) run against the durable code with
+in-memory repositories and recording sessions; their live PostgreSQL counterparts are
+the `*_live.py` proofs. A Playwright E2E workflow (`.github/workflows/e2e.yml`) drives
+the real stack in Actions with a seeded synthetic tenant and no model credentials.
 
 ## Tenant tables
 
@@ -57,14 +61,14 @@ and covers every `tenant_id` table from the catalog (ADR 0022).
 | Command | Purpose |
 | --- | --- |
 | `python -m ruff check apps packages evals scripts` | lint |
-| `python -m mypy apps/api/app apps/worker/app` | strict typing |
+| `python -m mypy apps/api/app apps/worker/app packages` | strict typing |
 | `python -m pytest -q apps/api/tests evals/checks` | unit + eval gates (live proofs skip locally) |
 | `npm --prefix apps/web run check` / `test` / `build` | web checks |
 | `python scripts/generate_openapi_types.py` | refresh `docs/openapi.json` and web types |
 | `gh workflow run deploy-production.yml --ref main -f sha=<sha>` | deploy (owner OK only) |
 
-Heavy verification (compose, migrations, live RLS, image builds) runs in GitHub
-Actions (ADR 0005).
+Heavy verification (compose, migrations, live RLS, browser E2E, image builds) runs in
+GitHub Actions (ADR 0005).
 
 ## Known limitations
 

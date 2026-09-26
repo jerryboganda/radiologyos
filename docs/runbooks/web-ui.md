@@ -14,6 +14,26 @@ npm --prefix apps/web run build   # adapter-node output in apps/web/build
 
 Browser/E2E and staging checks run in GitHub Actions only (ADR 0005/0008).
 
+## End-to-end browser flow (GitHub Actions only)
+
+`.github/workflows/e2e.yml` runs on every push to `main` and on pull requests:
+
+1. `docker compose up -d --build` with `CLAUDE_CODE_OAUTH_TOKEN` and
+   `VOYAGE_API_KEY` empty and no embedder, so no model or embedding call can run.
+2. `infra/ops/e2e-seed.sh` sets the `radbrain-web` client secret in Keycloak to the
+   web container's value, creates one synthetic Keycloak user (random password,
+   masked in the log), and inserts a synthetic personal tenant, user, and student
+   membership as the bootstrap database user. Never point it at production.
+3. `npm run test:e2e` (Playwright project `e2e`, Chromium) runs
+   `apps/web/e2e/study-flow.spec.ts`: anonymous refusal → Keycloak sign-in → upload
+   of a generated one-page PDF → ready → reader (native text, vision pending) →
+   keyword-only search hit → Today onboarding → questions (empty bank) → exams →
+   export request → sign-out.
+4. No traces, screenshots, videos, or artifacts are kept; logs print only on failure.
+
+`m0-staging.spec.ts` (project `staging`, `npm run test:staging`) skips unless the
+staging variables are set. Both specs typecheck with `npm run typecheck:staging`.
+
 ## Runtime configuration
 
 | Variable | Purpose |
@@ -21,7 +41,6 @@ Browser/E2E and staging checks run in GitHub Actions only (ADR 0005/0008).
 | `WEB_API_SECRET` | Shared with the API; signs the per-request user assertion. |
 | `API_INTERNAL_URL` | API base URL reachable from the web container. |
 | `BODY_SIZE_LIMIT` | Must exceed the API upload cap; the Dockerfile sets `310M`. |
-| `PREVIEW_ENABLED` | Shows the Settings link to the non-release `/preview`. |
 
 Uploads over 100 MB fail on the public hostname (Cloudflare request limit,
 HTTP 413). Split the file or upload from the local network.

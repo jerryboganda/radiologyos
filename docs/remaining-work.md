@@ -47,8 +47,8 @@ claimed complete before the preceding milestone passes its authoritative exit ev
   (`https://radiologyos.polytronx.com/auth/realms/radbrain`); JWKS and the token
   exchange stay on the internal Keycloak address.
 - Production runs on the shared platform VPS under ADR 0007; see
-  [`runbooks/production-deploy.md`](runbooks/production-deploy.md). The preview
-  surface is **off** in production (`PREVIEW_ENABLED=false`) since 2026-09-26.
+  [`runbooks/production-deploy.md`](runbooks/production-deploy.md). The in-memory
+  preview surface was removed (ADR 0031); its paths answer 404.
 - The live database is at alembic head `20260926_0014` with 38 tenant tables, all
   ENABLE + FORCE RLS. The runtime role is `NOBYPASSRLS` and owns nothing.
 - Schema evidence is derived, not hand-written (ADR 0022). The production RLS proof
@@ -59,8 +59,8 @@ claimed complete before the preceding milestone passes its authoritative exit ev
   exist; see [`runbooks/backup-restore.md`](runbooks/backup-restore.md).
 - **No M1–M7 feature has been accepted.** M0 is not accepted: it needs its same-SHA
   evidence record in `docs/evidence/m0.md` (generated with
-  `scripts/evidence_record.py`), plus the drill output and compliance result. Preview tests and deployment alone are not
-  acceptance evidence.
+  `scripts/evidence_record.py`), plus the drill output and compliance result. Eval
+  gates and deployment alone are not acceptance evidence.
 
 ## A–Z execution queue
 
@@ -102,20 +102,22 @@ decision or required release evidence.
 
 ## Eval gates
 
-Each gate is a standalone pytest module run by CI, using synthetic data only.
+Each gate is a standalone pytest module run by CI, using synthetic data only. Since
+ADR 0031 every gate drives the durable services (in-memory repositories, recording
+sessions, fake model transports); the row-level proofs are the `*_live.py` modules.
 
 | Gate | Covers | Tests |
 | --- | --- | --- |
-| `evals/checks/test_m1_library.py` | E, F, G, H | 24 |
-| `evals/checks/test_m2_knowledge.py` | I, J, K, L | 30 |
-| `evals/checks/test_m3_tutor.py` | M, N, O | 19 |
-| `evals/checks/test_m4_planner.py` | P, Q | 39 |
-| `evals/checks/test_m5_assessment.py` | R, S | 28 |
-| `evals/checks/test_m6_ops.py` | U, V | 20 |
+| `evals/checks/test_m1_library.py` (+ `apps/api/tests/test_library_api.py`, 21) | E, F, G, H | 17 |
+| `evals/checks/test_m2_knowledge.py` | I, J, K, L | 33 |
+| `evals/checks/test_m3_tutor.py` | M, N, O | 33 |
+| `evals/checks/test_m4_planner.py` | P, Q | 49 |
+| `evals/checks/test_m5_assessment.py` | R, S | 27 |
+| `evals/checks/test_m6_ops.py` | U, V | 13 |
 | `evals/checks/test_m6_billing.py`, `test_m6_billing_http.py` | T | 52 |
-| `evals/checks/test_m7_portability.py` | W, X | 15 |
+| `evals/checks/test_m7_portability.py` | W, X | 17 |
 
-Plus `test_preview_determinism.py`, `test_scaffolding.py`, and the opt-in
+Plus `test_determinism.py` (10), `test_scaffolding.py`, and the opt-in
 `*_live.py` proofs, which CI runs against a migrated database. `test_rls_live.py`
 also runs against production in `Verify production RLS`. It covers every
 `tenant_id` table from the catalog (ADR 0022).

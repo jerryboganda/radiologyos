@@ -1,4 +1,3 @@
-import { env } from '$env/dynamic/private';
 import { fail } from '@sveltejs/kit';
 import { dataOr, loadProblem } from '$lib/api-state';
 import { parseDeleteForm } from '$lib/data-rights';
@@ -28,8 +27,7 @@ export const load: PageServerLoad = async (event) => {
     pushEnabled: vapid.state === 'ok' && vapid.data.enabled,
     exports: dataOr(exports, []),
     exportsProblem: loadProblem(exports),
-    usageCard,
-    previewEnabled: env.PREVIEW_ENABLED === 'true'
+    usageCard
   };
 };
 

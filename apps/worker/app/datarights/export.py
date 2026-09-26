@@ -2,9 +2,10 @@
 
 Layout: ``data/<table>.json`` (the user's own rows of every table in the
 registry, embeddings included), ``notes/cards.md`` and ``notes/claims.md``
-(readable, cited), ``files/<source>/`` (original uploads), ``figures/<source>/``
-(figure crops), ``tutor-images/`` (images attached to tutor questions),
-``manifest.json`` (counts), and ``README.md``. The ZIP is
+(readable, cited), ``vault/`` (an Obsidian-compatible Markdown vault of the
+same knowledge with round-trip-safe links, ADR 0031), ``files/<source>/``
+(original uploads), ``figures/<source>/`` (figure crops), ``tutor-images/``
+(images attached to tutor questions), ``manifest.json`` (counts), and ``README.md``. The ZIP is
 written to a temporary file, uploaded to ``tenants/<tenant>/exports/<job>.zip``
 and removed locally. Re-running rebuilds the same key, so the job is idempotent.
 """
@@ -21,6 +22,8 @@ from typing import Any
 from uuid import UUID
 
 from apps.worker.app.datarights import jobs, notes, registry
+from apps.worker.app.datarights.vault import render_vault
+from apps.worker.app.datarights.vault_sql import load_vault
 from apps.worker.app.ingest.db import tenant_tx
 from packages.library import storage
 from sqlalchemy import text
@@ -34,6 +37,9 @@ This archive holds everything radbrain stores for your account:
 - `data/<table>.json` - your rows in every table, as JSON (embeddings included);
 - `notes/cards.md`, `notes/claims.md` - your cards and extracted claims, each
   with its source and page citation;
+- `vault/` - the same concepts, claims, and cards as an Obsidian-compatible
+  Markdown vault: one file per concept and source, linked with `[[wikilinks]]`,
+  every claim and card citing its source and page;
 - `files/<source-id>/` - the original files you uploaded;
 - `figures/<source-id>/` - figure crops extracted from your sources;
 - `tutor-images/` - images you attached to tutor questions;
@@ -91,9 +97,13 @@ async def write_zip(
                 tables[item.table] = await _write_table(session, zf, item, user_id)
             zf.writestr("notes/cards.md", await notes.cards_markdown(session, user_id))
             zf.writestr("notes/claims.md", await notes.claims_markdown(session, user_id))
+            vault = render_vault(await load_vault(session, user_id))
+            for name, body in vault.items():
+                zf.writestr(name, body)
             files = await _object_files(session, user_id)
         copied, missing = _copy_objects(deps.store, zf, tenant_id, files)
-        counts = {"tables": tables, "files": copied, "missing_files": missing}
+        counts = {"tables": tables, "files": copied, "missing_files": missing,
+                  "vault_files": len(vault)}
         manifest = {"format": FORMAT, "job_id": str(job_id), "user_id": str(user_id),
                     "generated_at": datetime.now(UTC).isoformat(), **counts}
         zf.writestr("manifest.json", json.dumps(manifest, indent=2, sort_keys=True))

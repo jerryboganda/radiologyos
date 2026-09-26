@@ -67,7 +67,11 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-change-me}
       KC_HEALTH_ENABLED: "true"
-      KC_HOSTNAME_URL: http://localhost:8080
+      # Keycloak 26 hostname v2: tokens always carry iss=http://localhost:8080/...,
+      # including those minted for the web container's back-channel exchange at
+      # keycloak:8080, which is what the web and API verifiers expect.
+      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HOSTNAME_STRICT: "false"
     ports:
       - "${KEYCLOAK_PORT:-8080}:8080"
@@ -102,7 +106,6 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_APP_USER:-radbrain_app}:${POSTGRES_APP_PASSWORD:-radbrain_app}@postgres:5432/${POSTGRES_DB:-radbrain}
       APP_ENV: ${APP_ENV:-dev}
-      PREVIEW_ENABLED: ${PREVIEW_ENABLED:-true}
       OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:8080/realms/radbrain}
       OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/radbrain/protocol/openid-connect/certs}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-radbrain-web}
@@ -199,7 +202,6 @@ services:
     restart: unless-stopped
     environment:
       APP_ENV: ${APP_ENV:-dev}
-      PREVIEW_ENABLED: ${PREVIEW_ENABLED:-true}
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-local-development-secret-change-me-32chars}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}
       ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}

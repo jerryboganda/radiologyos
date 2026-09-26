@@ -1,379 +1,399 @@
-"""M2 eval gate: extraction, entity resolution, conflicts, and editor authority.
+"""M2 eval gate: cited extraction, entity resolution, explicit conflicts, editor authority.
 
-Covers slices I, J, K, L of the A-Z queue:
-  I  extraction workers, schemas, versioning, and the mock/local route boundary
-  J  entity resolution and the tenant-isolated knowledge graph
-  K  claims, explicit conflicts, curriculum seed/mapping, concept pages
-  L  editor queues for mappings/conflicts with authorization and audit
+Runs the durable notes worker (``apps/worker/app/knowledge``), ``packages/knowledge``,
+and the ``/v1/knowledge`` routers against an in-memory, tenant-bound SQL fake
+(``_m2_support``) and a scripted model transport. It proves:
 
+  I  only claims whose evidence span is verbatim in the chunk are kept, each cited to
+     source/page/block/bbox; short chunks are skipped; units are idempotent per (text
+     hash, agent version, PIPELINE_VERSION) in ``knowledge_runs``; a model failure
+     stores no claims and a usage limit defers;
+  J  concepts resolve by alias/normalised key without duplicates, per tenant;
+  K  a contradiction is an explicit open conflict, both claims ``disputed``, neither
+     overwritten; agreement is supporting evidence; mappings keep known codes and
+     queue confidence < 0.7 for review;
+  L  over HTTP, extraction requests and the conflict/mapping queues are owner scoped,
+     resolution is audited by id only, unknown/foreign conflicts are 404, bodies are
+     closed (422), and approving the curriculum needs a privileged role (403).
+
+The fake models RLS as "a session sees only its tenant's rows"; the row-level proof as
+the runtime role is ``test_knowledge_live.py`` / ``test_knowledge_pipeline_live.py`` (CI).
 All content is synthetic.
 """
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager
+from typing import Any
 from uuid import UUID
 
 import pytest
-from apps.api.app.main import app, settings
-from apps.api.app.preview.knowledge import (
-    claims,
-    concepts,
-    conflicts,
-    ensure_knowledge,
-    extract_source,
-)
-from apps.api.app.preview.library import ingest_source
-from apps.api.app.preview.service import reset_preview_state
-from evals.checks._harness import (
-    CHEST,
-    HEAD,
-    OWNER_A,
-    OWNER_B,
-    TENANT_A,
-    TENANT_B,
-    new_state,
-    seed,
-)
+from apps.api.app.api import curriculum as curriculum_api
+from apps.api.app.api import knowledge as knowledge_api
+from apps.api.app.main import app
+from apps.api.app.security.context import local_principal
+from apps.api.app.security.principal import Principal
+from apps.worker.app.knowledge import notes
+from apps.worker.app.knowledge.runtime import Deferred, KnowledgeDeps
+from evals.checks._knowledge_support import ScriptedTransport
+from evals.checks._m2_support import KnowledgeDB
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from packages.curriculum.loader import radiology_hash
+from packages.knowledge.text import collapse_ws
+from packages.models.claude_code import ModelCallError, UsageLimitError
 
-client = TestClient(app)
-BASE = {
-    "x-user-id": "10000000-0000-0000-0000-00000000000a",
-    "x-tenant-id": "30000000-0000-0000-0000-00000000000a",
-}
+TENANT_A = UUID("30000000-0000-4000-8000-00000000000a")
+TENANT_B = UUID("30000000-0000-4000-8000-00000000000b")
+USER_A = UUID("10000000-0000-4000-8000-00000000000a")
+USER_A2 = UUID("10000000-0000-4000-8000-0000000000a2")
+USER_B = UUID("10000000-0000-4000-8000-00000000000b")
+VERSION = 7
+CHUNK_60 = (
+    "Synthetic chest notes. Usual interstitial pneumonia (UIP) shows basal subpleural "
+    "reticulation with honeycombing and traction bronchiectasis on HRCT. In this synthetic "
+    "teaching note the typical age at presentation is over 60 years and men are affected "
+    "more often than women.")
+CHUNK_50 = (
+    "Second synthetic paragraph. For UIP the typical age at presentation is over 50 years "
+    "according to this contradictory synthetic note, which exists only to exercise the "
+    "conflict detector of the knowledge pipeline in automated tests.")
+CHUNK_AGREE = (
+    "Third synthetic paragraph, from another synthetic deck. It repeats that the typical age at "
+    "presentation is over 60 years for usual interstitial pneumonia so that the pipeline "
+    "records a second supporting citation instead of a duplicate claim.")
+CHUNK_HEAD = (
+    "Synthetic neuro notes. Subarachnoid haemorrhage shows hyperdense blood in the basal "
+    "cisterns with sulcal effacement on non-contrast CT; honeycombing is a lung sign and is "
+    "mentioned here only so the same concept name exists in a second tenant.")
+SHORT = "Too short to extract."
+INVENTED = "an invented span that is not in the chunk"
+UIP = "Usual interstitial pneumonia"
+AGE = "Typical age at presentation of UIP is over {} years"
+SPAN = "typical age at presentation is over {} years"
 
 
-def editor_headers(role: str) -> dict[str, str]:
-    return {**BASE, "x-role": role}
+def _claim(concept: str, text: str, span: str) -> dict[str, Any]:
+    return {"concept": concept, "type": "epidemiology", "text": text, "evidence_span": span,
+            "importance": 4, "modality": ""}
 
 
-def setup_function() -> None:
-    reset_preview_state()
-    settings.preview_enabled = True
+def _concept(name: str, kind: str, *aliases: str) -> dict[str, Any]:
+    return {"name": name, "type": kind, "aliases": list(aliases)}
 
 
-def teardown_function() -> None:
-    settings.preview_enabled = False
-    reset_preview_state()
+def _extract(prompt: str) -> dict[str, Any]:
+    span, out = SPAN, {"concepts": [], "claims": [], "relations": []}
+    if "Second synthetic" in prompt:
+        return out | {"concepts": [_concept("UIP", "disease")],
+                      "claims": [_claim("UIP", AGE.format(50), span.format(50))]}
+    if "Third synthetic" in prompt:
+        return out | {"claims": [_claim(UIP, AGE.format(60), span.format(60))]}
+    if "Synthetic neuro" in prompt:
+        return out | {"concepts": [_concept("Honeycombing", "sign")], "claims": [_claim(
+            "Subarachnoid haemorrhage", "SAH causes sulcal effacement",
+            "sulcal effacement on non-contrast CT")]}
+    return {"concepts": [_concept(UIP, "disease", "UIP"), _concept("Honeycombing", "sign")],
+            "claims": [_claim(UIP, AGE.format(60), span.format(60)),
+                       _claim(UIP, "UIP is most common in children", INVENTED)],
+            "relations": [{"src": "Honeycombing", "dst": UIP, "relation": "sign_of"}]}
+
+
+def _classify(prompt: str) -> dict[str, Any]:
+    codes = (("CHEST", "usual interstitial pneumonia", 0.9), ("PHYSICS", "hrct technique", 0.4),
+             ("NOT_A_CODE", "x", 0.99))
+    return {"topics": [{"curriculum_code": c, "topic": t, "confidence": n} for c, t, n in codes]}
+
+
+def transport() -> ScriptedTransport:
+    return ScriptedTransport({"knowledge_extract": _extract, "topic_classify": _classify})
+
+
+def extract(db: KnowledgeDB, tenant: UUID, source: UUID, model: Any, version: int = VERSION) -> str:
+    deps = KnowledgeDeps(engine=None, transport=model)  # type: ignore[arg-type]
+    row = {"id": source, "title": db.sources[source]["title"]}
+    return asyncio.run(notes.run_notes(deps, tenant, row, version))
+
+
+class World:
+    def __init__(self) -> None:
+        self.db, self.model = KnowledgeDB(), transport()
+        self.sa = self.db.add_source(TENANT_A, USER_A, "Chest", [CHUNK_60, CHUNK_50, SHORT])
+        self.sb = self.db.add_source(TENANT_B, USER_B, "Neuro", [CHUNK_HEAD])
+
+    def run_all(self) -> World:
+        extract(self.db, TENANT_A, self.sa, self.model)
+        extract(self.db, TENANT_B, self.sb, self.model)
+        return self
+
+    def claims(self, tenant: UUID = TENANT_A) -> list[dict[str, Any]]:
+        return self.db.rows("claims", tenant)
+
+    def concepts(self, tenant: UUID = TENANT_A) -> dict[str, dict[str, Any]]:
+        return {c["normalized_name"]: c for c in self.db.rows("concepts", tenant)}
+
+
+@pytest.fixture()
+def world(monkeypatch: pytest.MonkeyPatch) -> World:
+    built = World()
+
+    @asynccontextmanager
+    async def tenant_tx(_engine: Any, tenant_id: UUID) -> AsyncIterator[Any]:
+        yield built.db.session(tenant_id)
+
+    monkeypatch.setattr(notes, "tenant_tx", tenant_tx)
+    return built
 
 
 # ---------------------------------------------------------------- slice I
 
 
-def test_extraction_emits_one_cited_claim_per_chunk() -> None:
-    state = new_state()
-    source, _ = ingest_source(state, TENANT_A, OWNER_A, "Synthetic", "note", CHEST, "m2-extract")
-    chunks = state.source_chunks(TENANT_A, source.id)
-
-    produced = extract_source(state, TENANT_A, OWNER_A, source.id)
-
-    assert len(produced) == len(chunks)
-    for claim in produced:
-        assert claim.tenant_id == TENANT_A
-        assert claim.source_id == source.id
-        assert claim.text.strip()
-        citation = claim.citation
-        assert citation is not None
-        # Every claim must carry a resolvable citation or it is not usable.
-        assert citation["source_id"] == str(source.id)
-        assert int(citation["page_no"]) >= 1
-        assert citation["block_id"]
+def test_only_claims_with_verbatim_evidence_are_kept(world: World) -> None:
+    claims = world.run_all().claims()
+    assert len(claims) == 2 and all(c["evidence_span"] != INVENTED for c in claims)
+    for claim in claims:
+        chunk = next(c for c in world.db.chunks if c["id"] == claim["chunk_id"])
+        assert collapse_ws(claim["evidence_span"]) in collapse_ws(chunk["text"])
+    refs = {r["output_ref"] for r in world.db.rows("runs", TENANT_A)}
+    assert "claims:1,rej:1" in refs  # the invented span was counted, never stored
 
 
-def test_extraction_is_idempotent_and_never_duplicates_claims() -> None:
-    state = new_state()
-    source, _ = ingest_source(
-        state, TENANT_A, OWNER_A, "Synthetic", "note", CHEST, "m2-extract-idem"
-    )
-
-    first = extract_source(state, TENANT_A, OWNER_A, source.id)
-    second = extract_source(state, TENANT_A, OWNER_A, source.id)
-
-    assert {c.id for c in first} == {c.id for c in second}
-    assert len(state.claims(TENANT_A)) == len(first)
+def test_every_kept_claim_is_cited_to_source_page_and_block(world: World) -> None:
+    for claim in world.run_all().claims():
+        citation = claim["citation"]
+        assert citation["source_id"] == str(world.sa) and citation["source_title"] == "Chest"
+        assert citation["chunk_id"] == str(claim["chunk_id"])
+        assert citation["page_from"] >= 1 and citation["blocks"]
+        for block in citation["blocks"]:
+            assert citation["page_from"] <= block["page_no"] <= citation["page_to"]
+            assert block["block_no"] >= 0 and len(block["bbox"]) == 4
 
 
-def test_extraction_refuses_a_source_owned_by_someone_else() -> None:
-    state = new_state()
-    source, _ = ingest_source(
-        state, TENANT_A, OWNER_A, "Synthetic", "note", CHEST, "m2-extract-owner"
-    )
-
-    with pytest.raises(LookupError):
-        extract_source(state, TENANT_A, OWNER_B, source.id)
-
-
-def test_extraction_refuses_a_quarantined_source() -> None:
-    state = new_state()
-    source, _ = ingest_source(
-        state,
-        TENANT_A,
-        OWNER_A,
-        "Quarantined",
-        "note",
-        "MRN: 44556677 synthetic identifier",
-        "m2-extract-quar",
-    )
-    assert source.status == "quarantined"
-
-    with pytest.raises(LookupError):
-        extract_source(state, TENANT_A, OWNER_A, source.id)
+def test_reruns_skip_done_units_and_a_new_version_never_duplicates(world: World) -> None:
+    world.run_all()
+    assert world.model.calls.count("knowledge_extract") == 3  # 2 in A (short skipped), 1 in B
+    before = (len(world.claims()), len(world.concepts()), len(world.db.conflicts))
+    extract(world.db, TENANT_A, world.sa, world.model)
+    assert world.model.calls.count("knowledge_extract") == 3  # knowledge_runs: nothing redone
+    assert (len(world.claims()), len(world.concepts()), len(world.db.conflicts)) == before
+    keys = {key[2:] for key in world.db.runs if key[0] == TENANT_A}
+    assert {(agent, version) for _, agent, version in keys} == {(notes.EXTRACT, VERSION)}
+    assert all(unit.startswith("chunk:") and len(unit) == 38 for unit, _, _ in keys)
+    extract(world.db, TENANT_A, world.sa, world.model, VERSION + 1)  # new PIPELINE_VERSION
+    assert world.model.calls.count("knowledge_extract") == 5
+    assert (len(world.claims()), len(world.concepts()), len(world.db.conflicts)) == before
 
 
-def test_extraction_refuses_across_tenants() -> None:
-    state = new_state()
-    source, _ = ingest_source(state, TENANT_A, OWNER_A, "Synthetic", "note", CHEST, "m2-extract-x")
+@pytest.mark.parametrize("error", [None, ModelCallError("x"), UsageLimitError("limit")])
+def test_a_model_failure_never_stores_fake_claims(world: World, error: Any) -> None:
+    model = failing(error) if error else None
+    if isinstance(error, UsageLimitError):  # deferred: no unit is marked done, so it resumes
+        with pytest.raises(Deferred):
+            extract(world.db, TENANT_A, world.sa, model)
+        assert world.db.runs == {}
+    else:
+        extract(world.db, TENANT_A, world.sa, model)
+        assert {r["status"] for r in world.db.rows("runs", TENANT_A)} == {"failed"}
+    assert world.claims() == [] and world.concepts() == {}
 
-    with pytest.raises(LookupError):
-        extract_source(state, TENANT_B, OWNER_B, source.id)
-    assert state.claims(TENANT_B) == []
+
+def failing(exc: Exception) -> ScriptedTransport:
+    def script(_prompt: str) -> dict[str, Any]:
+        raise exc
+    return ScriptedTransport({"knowledge_extract": script, "topic_classify": script})
 
 
 # ---------------------------------------------------------------- slice J
 
 
-def test_knowledge_fixture_is_created_once_and_is_idempotent() -> None:
-    state = new_state()
-    ensure_knowledge(state, TENANT_A, OWNER_A)
-    before = len(state.claims(TENANT_A))
-    ensure_knowledge(state, TENANT_A, OWNER_A)
-
-    assert len(state.claims(TENANT_A)) == before
-    assert concepts(state, TENANT_A, OWNER_A)
-    assert conflicts(state, TENANT_A, OWNER_A)
+def test_alias_resolution_never_duplicates_a_concept(world: World) -> None:
+    concepts = world.run_all().concepts()
+    assert set(concepts) == {"usual interstitial pneumonia", "honeycombing"}  # "UIP" merged
+    uip = concepts[UIP.lower()]
+    assert "UIP" in uip["aliases"] and "usual interstitial pneumonia" in uip["alias_keys"]
+    assert {c["concept_id"] for c in world.claims()} == {uip["id"]}
+    assert len(world.db.edges) == 1 and world.db.edges[0]["relation"] == "sign_of"
 
 
-def test_concepts_carry_tenant_id_and_backing_claims() -> None:
-    state = new_state()
-    seed(state)
-    found = concepts(state, TENANT_A, OWNER_A)
-
-    assert found
-    claim_ids = {str(c.id) for c in state.claims(TENANT_A)}
-    for concept in found:
-        assert concept["tenant_id"] == str(TENANT_A)
-        assert concept["name"]
-        assert concept["type"]
-        # A concept must be grounded in at least one real claim.
-        assert concept["claim_ids"]
-        assert set(concept["claim_ids"]) <= claim_ids
-
-
-def test_duplicate_concepts_are_not_created_for_the_same_fixture() -> None:
-    """Slice J: entity resolution must not fan out on repeated seeding."""
-    state = new_state()
-    seed(state)
-    first = {c["name"] for c in concepts(state, TENANT_A, OWNER_A)}
-    seed(state)
-    ensure_knowledge(state, TENANT_A, OWNER_A)
-    second = [c["name"] for c in concepts(state, TENANT_A, OWNER_A)]
-
-    assert len(second) == len(set(second)), "concept names must be unique per tenant"
-    assert first <= set(second)
-
-
-def test_the_graph_is_tenant_isolated() -> None:
-    state = new_state()
-    seed(state, TENANT_A, OWNER_A)
-    seed(state, TENANT_B, OWNER_B)
-
-    a_ids = {c["id"] for c in concepts(state, TENANT_A, OWNER_A)}
-    b_ids = {c["id"] for c in concepts(state, TENANT_B, OWNER_B)}
-    assert a_ids and b_ids
-    assert a_ids.isdisjoint(b_ids)
-
-    for concept in concepts(state, TENANT_A, OWNER_A):
-        assert concept["tenant_id"] == str(TENANT_A)
-    for concept in concepts(state, TENANT_B, OWNER_B):
-        assert concept["tenant_id"] == str(TENANT_B)
-
-
-def test_claims_never_cross_tenants() -> None:
-    state = new_state()
-    seed(state, TENANT_A, OWNER_A)
-    seed(state, TENANT_B, OWNER_B)
-
-    a_claims = claims(state, TENANT_A, OWNER_A)
-    b_claims = claims(state, TENANT_B, OWNER_B)
-    assert {c.id for c in a_claims}.isdisjoint({c.id for c in b_claims})
-    assert all(c.tenant_id == TENANT_A for c in a_claims)
-    assert all(c.tenant_id == TENANT_B for c in b_claims)
+def test_the_same_name_in_another_tenant_is_a_separate_concept(world: World) -> None:
+    a, b = world.run_all().concepts(), world.concepts(TENANT_B)
+    assert a["honeycombing"]["id"] != b["honeycombing"]["id"] and b["honeycombing"][
+        "tenant_id"] == TENANT_B
+    assert {c["source_id"] for c in world.claims(TENANT_B)} == {world.sb}
+    assert "usual interstitial pneumonia" not in b and "subarachnoid hemorrhage" not in a
 
 
 # ---------------------------------------------------------------- slice K
 
 
-def test_conflicts_are_explicit_and_open_until_resolved() -> None:
-    state = new_state()
-    seed(state)
-    found = conflicts(state, TENANT_A, OWNER_A)
-
-    assert found
-    for conflict in found:
-        assert conflict["status"] == "open"
-        assert conflict["description"]
-        assert conflict["claim_ids"]
+def test_a_contradiction_is_explicit_open_and_overwrites_nothing(world: World) -> None:
+    [conflict] = world.run_all().db.rows("conflicts", TENANT_A)
+    assert (conflict["kind"], conflict["status"]) == ("numeric", "open")
+    assert "years" in conflict["description"]
+    assert {c["id"] for c in world.claims()} == {conflict["claim_a"], conflict["claim_b"]}
+    assert {c["status"] for c in world.claims()} == {"disputed"}
+    assert {c["statement"] for c in world.claims()} == {AGE.format(60), AGE.format(50)}
+    assert world.db.rows("conflicts", TENANT_B) == []
 
 
-def test_coverage_links_every_concept_to_a_cited_claim() -> None:
-    """Slice K coverage: nothing may be asserted without provenance."""
-    state = new_state()
-    seed(state)
-    claim_ids = {str(c.id) for c in state.claims(TENANT_A)}
-    for concept in concepts(state, TENANT_A, OWNER_A):
-        assert set(concept["claim_ids"]) <= claim_ids
-    for conflict in conflicts(state, TENANT_A, OWNER_A):
-        assert set(conflict["claim_ids"]) <= claim_ids
+def test_agreement_from_a_second_source_is_support_not_a_new_claim(world: World) -> None:
+    world.run_all()
+    second = world.db.add_source(TENANT_A, USER_A, "Second deck", [CHUNK_AGREE])
+    extract(world.db, TENANT_A, second, world.model)
+    assert len(world.claims()) == 2
+    sixty = next(c for c in world.claims() if "60" in c["statement"])
+    assert sixty["verification"] == "verified"
+    assert [s["source_id"] for s in sixty["supporting"]] == [str(second)]
 
 
-# ---------------------------------------------------------------- slice L
+def test_curriculum_mapping_keeps_known_codes_and_queues_low_confidence(world: World) -> None:
+    mappings = world.run_all().db.rows("mappings", TENANT_A)
+    assert {(m["curriculum_code"], m["status"]) for m in mappings} == {
+        ("CHEST", "accepted"), ("PHYSICS", "review")}
+    assert all(m["curriculum_node_id"] == m["curriculum_code"] for m in mappings)
+    assert world.concepts()["usual interstitial pneumonia"]["curriculum_code"] == "CHEST"
+    for mapping in mappings:  # coverage is traceable to a cited chunk of the source
+        chunk = next(c for c in world.db.chunks if c["id"] == mapping["chunk_id"])
+        assert chunk["source_id"] == mapping["source_id"] == world.sa
 
 
-def test_editor_queue_is_visible_to_privileged_roles_only() -> None:
-    seed_privileged = client.get(
-        "/v1/preview/editor/queues",
-        headers=editor_headers("editor"),
-    )
-    assert seed_privileged.status_code == 200
-    assert seed_privileged.json()["conflicts"]
+# ---------------------------------------------------------------- slice L (HTTP)
 
-    # A plain student must be refused, not merely hidden.
-    learner = client.get("/v1/preview/editor/queues", headers=editor_headers("student"))
-    assert learner.status_code == 403
+OTHERS = (Principal(USER_A2, TENANT_A, "editor"), Principal(USER_B, TENANT_B, "superadmin"))
 
 
-def test_conflict_resolution_is_authorized_and_audited() -> None:
-    client.post(
-        "/v1/preview/sources",
-        headers={**BASE, "Idempotency-Key": "m2-audit"},
-        json={"title": "Synthetic", "kind": "note", "content": CHEST},
-    )
-    queue = client.get("/v1/preview/editor/queues", headers=editor_headers("editor"))
-    conflict_id = queue.json()["conflicts"][0]["id"]
-
-    denied = client.post(
-        f"/v1/preview/editor/conflicts/{conflict_id}/resolve",
-        headers=editor_headers("student"),
-        json={"resolution": "keep_both"},
-    )
-    assert denied.status_code == 403
-
-    resolved = client.post(
-        f"/v1/preview/editor/conflicts/{conflict_id}/resolve",
-        headers=editor_headers("editor"),
-        json={"resolution": "keep_both"},
-    )
-    assert resolved.status_code == 200
-    assert resolved.json()["status"] == "resolved"
+@pytest.fixture()
+def http(world: World) -> Iterator[tuple[TestClient, World, dict[str, Principal]]]:
+    world.run_all()
+    who = {"p": Principal(USER_A, TENANT_A)}
+    for router in (knowledge_api, curriculum_api):
+        app.dependency_overrides[router.principal_context] = lambda: who["p"]
+        app.dependency_overrides[router.tenant_db_session] = (
+            lambda: world.db.session(who["p"].tenant_id))
+    try:
+        yield TestClient(app), world, who
+    finally:
+        app.dependency_overrides.clear()
 
 
-def test_admin_overview_requires_an_admin_role() -> None:
-    assert (
-        client.get("/v1/preview/admin/overview", headers=editor_headers("org_admin")).status_code
-        == 200
-    )
-    assert (
-        client.get("/v1/preview/admin/overview", headers=editor_headers("editor")).status_code
-        == 403
-    )
+def test_only_the_owner_can_request_extraction(http: Any, monkeypatch: Any) -> None:
+    client, world, who = http
+    queued: list[Any] = []
+    monkeypatch.setattr(knowledge_api, "enqueue_knowledge", lambda *args: queued.append(args))
+    target = f"/v1/knowledge/sources/{world.sa}/extract"
+    for other in OTHERS:
+        who["p"] = other
+        assert client.post(target).status_code == 404
+    who["p"] = Principal(USER_A, TENANT_A)
+    assert client.post(target, json={"mode": "everything"}).status_code == 422
+    assert client.post(target, json={"mode": "notes"}).status_code == 202
+    assert [args[:2] for args in queued] == [(TENANT_A, world.sa)]
+    assert world.db.sources[world.sa]["knowledge_step"] == "pending"
+    assert [a["action"] for a in world.db.audit] == ["knowledge.extract_requested"]
 
 
-def test_editor_authority_does_not_cross_tenants() -> None:
-    other = {
-        "x-user-id": "10000000-0000-0000-0000-00000000000b",
-        "x-tenant-id": "30000000-0000-0000-0000-00000000000b",
-        "x-role": "superadmin",
-    }
-    client.post(
-        "/v1/preview/sources",
-        headers={**BASE, "Idempotency-Key": "m2-tenant-a"},
-        json={"title": "Synthetic A", "kind": "note", "content": CHEST},
-    )
-    queue = client.get("/v1/preview/editor/queues", headers=editor_headers("editor"))
-    conflict_id = queue.json()["conflicts"][0]["id"]
-
-    # Even a superadmin in another tenant must not resolve this tenant's conflict.
-    crossed = client.post(
-        f"/v1/preview/editor/conflicts/{conflict_id}/resolve",
-        headers=other,
-        json={"resolution": "keep_both"},
-    )
-    assert crossed.status_code == 404
+def _conflict_id(world: World) -> UUID:
+    return UUID(str(world.db.rows("conflicts", TENANT_A)[0]["id"]))
 
 
-@pytest.mark.parametrize("role", ["learner", "admin", "EDITOR", "super_admin", "root"])
-def test_only_the_declared_role_vocabulary_is_accepted(role: str) -> None:
-    """An unrecognised role must be rejected outright, not coerced to a default."""
-    assert client.get("/v1/preview/editor/queues", headers=editor_headers(role)).status_code == 400
+def test_the_conflict_queue_is_owner_scoped(http: Any) -> None:
+    client, world, who = http
+    [row] = client.get("/v1/knowledge/conflicts").json()
+    assert row["status"] == "open" and row["kind"] == "numeric"
+    for side in ("claim_a", "claim_b"):
+        assert row[side]["citation"]["source_id"] == str(world.sa)
+    for other in OTHERS:
+        who["p"] = other  # another member of the tenant, or another tenant entirely
+        assert client.get("/v1/knowledge/conflicts").json() == []
 
 
-@pytest.mark.parametrize("headers", [{**BASE}, {**BASE, "x-role": ""}])
-def test_an_absent_or_blank_role_header_defaults_to_unprivileged(
-    headers: dict[str, str],
-) -> None:
-    """No role must never become an accidental privilege grant."""
-    assert client.get("/v1/preview/editor/queues", headers=headers).status_code == 403
+def test_resolution_is_audited_by_id_and_keeps_both_claims(http: Any) -> None:
+    client, world, _ = http
+    conflict = world.db.conflicts[_conflict_id(world)]
+    keep = conflict["claim_a"]
+    response = client.post(f"/v1/knowledge/conflicts/{conflict['id']}/resolve", json={
+        "resolution": "Prefer the textbook value", "preferred_claim_id": str(keep)})
+    assert response.status_code == 200 and response.json()["status"] == "resolved"
+    assert conflict["status"] == "resolved" and conflict["resolved_by"] == USER_A
+    statuses = {c["id"]: c["status"] for c in world.claims()}
+    assert statuses == {keep: "active", conflict["claim_b"]: "superseded"}  # nothing deleted
+    [entry] = world.db.audit
+    assert entry["action"] == "knowledge.conflict_resolved"
+    assert entry["target_id"] == str(conflict["id"])
+    assert entry["metadata"] == {"preferred_claim": str(keep)}  # ids only, no claim text
 
 
-def test_resolving_an_unknown_conflict_is_a_404() -> None:
-    missing = UUID("40000000-0000-0000-0000-0000000000ff")
-    assert (
-        client.post(
-            f"/v1/preview/editor/conflicts/{missing}/resolve",
-            headers=editor_headers("editor"),
-            json={"resolution": "keep_both"},
-        ).status_code
-        == 404
-    )
+def test_foreign_or_unknown_conflicts_are_404(http: Any) -> None:
+    client, world, who = http
+    target = f"/v1/knowledge/conflicts/{_conflict_id(world)}/resolve"
+    for other in OTHERS:
+        who["p"] = other
+        assert client.post(target, json={"resolution": "keep both"}).status_code == 404
+    who["p"] = Principal(USER_A, TENANT_A)
+    missing = "/v1/knowledge/conflicts/40000000-0000-4000-8000-0000000000ff/resolve"
+    assert client.post(missing, json={"resolution": "keep both"}).status_code == 404
+    assert world.db.rows("conflicts", TENANT_A)[0]["status"] == "open" and not world.db.audit
 
 
-@pytest.mark.parametrize("resolution", ["keep-both", "delete-everything", "", "ACCEPT_A"])
-def test_only_declared_resolution_values_are_accepted(resolution: str) -> None:
-    """The resolution vocabulary is closed; anything else must be rejected."""
-    queue = client.get("/v1/preview/editor/queues", headers=editor_headers("editor"))
-    conflict_id = queue.json()["conflicts"][0]["id"]
-
-    assert (
-        client.post(
-            f"/v1/preview/editor/conflicts/{conflict_id}/resolve",
-            headers=editor_headers("editor"),
-            json={"resolution": resolution},
-        ).status_code
-        == 422
-    )
+@pytest.mark.parametrize("body", [
+    {"resolution": ""}, {"resolution": "x" * 2001}, {"resolution": 123}, {},
+    {"resolution": "ok", "preferred_claim_id": "not-a-uuid"},
+    {"resolution": "ok", "preferred_claim_id": "40000000-0000-4000-8000-0000000000ff"},
+    {"resolution": "keep both", "override_rls": True},
+])
+def test_resolution_accepts_only_the_declared_body(http: Any, body: dict[str, Any]) -> None:
+    client, world, _ = http
+    response = client.post(f"/v1/knowledge/conflicts/{_conflict_id(world)}/resolve", json=body)
+    assert response.status_code == 422
+    assert world.db.rows("conflicts", TENANT_A)[0]["status"] == "open" and not world.db.audit
 
 
-def test_resolution_body_rejects_unknown_fields() -> None:
-    queue = client.get("/v1/preview/editor/queues", headers=editor_headers("editor"))
-    conflict_id = queue.json()["conflicts"][0]["id"]
+def test_the_mapping_review_queue_is_owner_scoped_and_closed(http: Any) -> None:
+    client, world, who = http
+    queue = client.get("/v1/knowledge/mappings?status=review").json()
+    assert {m["curriculum_code"] for m in queue} == {"PHYSICS"} and queue[0]["excerpt"]
+    target = f"/v1/knowledge/mappings/{queue[0]['id']}/decide"
+    for decision in ("approve", "delete", "", "ACCEPT"):
+        assert client.post(target, json={"decision": decision}).status_code == 422
+    who["p"] = Principal(USER_A2, TENANT_A, "editor")
+    assert client.get("/v1/knowledge/mappings?status=review").json() == []
+    assert client.post(target, json={"decision": "accept"}).status_code == 404
+    who["p"] = Principal(USER_A, TENANT_A)
+    assert client.post(target, json={"decision": "accept"}).json()["status"] == "accepted"
+    assert [a["action"] for a in world.db.audit] == ["knowledge.mapping_decided"]
 
-    assert (
-        client.post(
-            f"/v1/preview/editor/conflicts/{conflict_id}/resolve",
-            headers=editor_headers("editor"),
-            json={"resolution": "keep_both", "override_rls": True},
-        ).status_code
-        == 422
-    )
+
+@pytest.mark.parametrize("role", ["student", "editor"])
+def test_approving_the_curriculum_needs_a_privileged_role(http: Any, role: str) -> None:
+    client, world, who = http
+    who["p"] = Principal(USER_A, TENANT_A, role)
+    body = {"decision": "approved", "content_hash": radiology_hash()}
+    assert client.post("/v1/knowledge/curriculum/decision", json=body).status_code == 403
+    assert world.db.reviews == [] and world.db.audit == []
+    who["p"] = Principal(USER_A, TENANT_A, "org_admin")
+    approved = client.post("/v1/knowledge/curriculum/decision", json=body)
+    assert approved.status_code == 200 and approved.json()["review_status"] == "approved"
+    assert [a["action"] for a in world.db.audit] == ["knowledge.curriculum_approved"]
 
 
-def test_knowledge_endpoints_are_tenant_scoped_over_http() -> None:
-    client.post(
-        "/v1/preview/sources",
-        headers={**BASE, "Idempotency-Key": "m2-http-a"},
-        json={"title": "Synthetic A", "kind": "note", "content": CHEST},
-    )
-    other = {
-        "x-user-id": "10000000-0000-0000-0000-00000000000b",
-        "x-tenant-id": "30000000-0000-0000-0000-00000000000b",
-    }
-    client.get("/v1/preview/concepts", headers=BASE)
-    a_concepts = {c["id"] for c in client.get("/v1/preview/concepts", headers=BASE).json()}
-    b_concepts = {c["id"] for c in client.get("/v1/preview/concepts", headers=other).json()}
+@pytest.mark.parametrize("role", ["learner", "admin", "EDITOR", "super_admin", "root", "", None])
+def test_only_declared_roles_are_accepted_and_none_is_unprivileged(role: str | None) -> None:
+    if role:  # an unknown role is rejected outright (400), never coerced to a default
+        with pytest.raises(HTTPException, match="400: invalid local role"):
+            local_principal(str(USER_A), str(TENANT_A), role)
+    else:  # an absent or blank role never becomes a privilege grant
+        assert local_principal(str(USER_A), str(TENANT_A), role) == Principal(USER_A, TENANT_A)
 
-    assert a_concepts and b_concepts
-    assert a_concepts.isdisjoint(b_concepts)
-    # The head-only material in tenant B must not surface in tenant A.
-    assert HEAD.splitlines()[1] not in {
-        c["name"] for c in client.get("/v1/preview/concepts", headers=BASE).json()
-    }
+
+def test_concept_reads_are_tenant_and_owner_scoped(http: Any) -> None:
+    client, _, who = http
+    a = {c["name"]: c for c in client.get("/v1/knowledge/concepts").json()}
+    assert a["Usual interstitial pneumonia"]["open_conflicts"] == 1
+    who["p"] = Principal(USER_B, TENANT_B)
+    b = {c["name"]: c for c in client.get("/v1/knowledge/concepts").json()}
+    assert "Subarachnoid haemorrhage" in b and "Subarachnoid haemorrhage" not in a and UIP not in b
+    assert {c["id"] for c in a.values()}.isdisjoint(c["id"] for c in b.values())
+    who["p"] = Principal(USER_A2, TENANT_A)
+    assert client.get("/v1/knowledge/concepts").json() == []

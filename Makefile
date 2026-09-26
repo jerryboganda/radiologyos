@@ -11,8 +11,8 @@ down:
 
 check:
 	python -m ruff check apps packages evals scripts
-	python -m mypy apps/api/app apps/worker/app
-	python -m pytest -q apps/api/tests evals/checks/test_scaffolding.py evals/checks/test_preview_determinism.py
+	python -m mypy apps/api/app apps/worker/app packages
+	python -m pytest -q apps/api/tests evals/checks
 	npm --prefix apps/web run check
 	npm --prefix apps/web test
 
@@ -20,7 +20,7 @@ test:
 	python -m pytest -q
 
 typecheck:
-	python -m mypy apps/api/app apps/worker/app
+	python -m mypy apps/api/app apps/worker/app packages
 	npm --prefix apps/web run check
 
 lint:

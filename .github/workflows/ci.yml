@@ -32,12 +32,12 @@ jobs:
       - name: Ruff
         run: python -m ruff check apps packages evals scripts infra/embedder
       - name: Mypy
-        run: python -m mypy apps/api/app apps/worker/app
+        run: python -m mypy apps/api/app apps/worker/app packages
       - name: Pytest
         run: >-
           python -m pytest -q apps/api/tests infra/embedder
           evals/checks/test_scaffolding.py
-          evals/checks/test_preview_determinism.py
+          evals/checks/test_determinism.py
           evals/checks/test_m1_library.py
           evals/checks/test_m2_knowledge.py
           evals/checks/test_m3_tutor.py
@@ -115,7 +115,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e '.[dev]' pip-audit
       - name: Bandit
-        run: python -m bandit -r apps/api/app apps/worker/app -ll
+        run: python -m bandit -r apps/api/app apps/worker/app packages -ll
       - name: Export auditable requirements
         run: |
           python -m pip list --format=freeze | grep -v '^radbrain==' > "$RUNNER_TEMP/radbrain-requirements.txt"

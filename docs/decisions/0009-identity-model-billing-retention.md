@@ -50,6 +50,9 @@ the environment; the repository never contains one.
 
 ## Preview surface
 
+> Superseded: ADR 0011 turned the preview off in production and ADR 0031
+> removed it. The paragraph below is kept as history.
+
 **Enabled behind authentication.** The non-release preview workspace is
 reachable only to authenticated users with a privileged role. It remains
 labelled non-release in the interface and in the API responses. This is a

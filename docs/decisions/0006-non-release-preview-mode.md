@@ -1,6 +1,7 @@
 # ADR 0006: Non-release preview implementation mode
 
-Status: **Accepted for local development; staging and release gates remain unchanged**
+Status: **Accepted for local development; staging and release gates remain unchanged.
+Superseded by ADR 0031 for the runtime surface: the in-memory preview was removed.**
 Date: 2026-09-25
 Decision owners: product and engineering
 Scope: implementation sequencing for M1–M7 preview work
@@ -42,6 +43,13 @@ following conditions hold:
 Preview mode is a development sequencing aid, not a waiver of privacy, security,
 provenance, or evidence requirements. It must be removed or disabled before a release
 candidate is created.
+
+### Amendment by ADR 0031
+
+The in-memory preview surface this ADR permitted (and ADR 0009 shipped behind
+authentication) is removed: package, routers, `PREVIEW_ENABLED`, web page, and
+runbooks. Former `/v1/preview/*` paths answer 404. The rules above remain as the
+history of how M1–M7 were sequenced; they no longer describe any running code.
 
 ### Amendment by ADR 0009
 

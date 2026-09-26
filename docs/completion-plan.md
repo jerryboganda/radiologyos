@@ -68,12 +68,16 @@ It is complete when both of these hold:
 ### Hardening gaps
 
 - G18. **Preview surface:** turn it off in production, then remove about 1,800 lines of
-  in-memory code. Re-point the M1 eval gate at the real library.
+  in-memory code. Re-point the M1 eval gate at the real library. *Implemented (WP-I,
+  ADR 0031): removed; M1–M7 gates re-pointed at durable code; durable vault export.*
 - G19. **Tests:**
   - No HTTP tests for `/v1/library/*`, notifications or alert ack.
   - No tests for `security/context.py`, web `auth.ts` or `hooks.server.ts`, or the worker beat
     jobs.
   - No E2E flows in Actions.
+  - *Implemented (WP-I): HTTP, security-context, worker, and web helper tests; the
+    `E2E` workflow runs the browser flow on the Compose stack. The E2E run in Actions
+    is still to be observed green.*
 - G20. **Model usage ledger:** an `llm_calls` table with a per-route usage view, caps and alerts.
   Subscription limits are opaque today.
 - G21. **Observability:** trace IDs, metrics and error tracking. Today there is only a JSON
@@ -89,7 +93,11 @@ It is complete when both of these hold:
   - Functions over 60 lines: `test_rls_live` 333, `verify-oidc` 241.
   - Empty `infra/helm` and `infra/api` directories.
   - Bandit and mypy do not cover `packages/`.
+  - *WP-I: CI mypy and Bandit now cover `packages/` (clean). The helm/api directories
+    are gone; the two long functions were split earlier. Remaining over 60 lines:
+    `apps/api/migrations/sql.py::split_sql_statements` and released migrations.*
 - G27. **Real account data:** `/v1/me` and `/v1/tenants/switch` return stub data.
+  *Implemented (WP-I): both answer from the membership row; a foreign switch is 403.*
 
 ### Release-evidence gaps
 
