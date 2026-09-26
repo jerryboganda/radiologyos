@@ -17,7 +17,7 @@ from uuid import UUID
 from apps.api.app.assessment import exams, store
 from apps.api.app.core.time import now_utc
 from apps.api.app.study import weakness_sql
-from apps.api.app.study.depth_sql import QUESTION_SYSTEMS
+from apps.api.app.assessment.question_systems import QUESTION_SYSTEMS
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 

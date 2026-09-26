@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "fixture_set_id": "knowledge_v2",
+  "status": "review_required",
+  "data_class": "synthetic",
+  "cases": [
+    {
+      "case_id": "paper-topics-tree-imm-page",
+      "prompt": "paper_topics/v3.yaml",
+      "route": "classify",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "source_title": "Synthetic IMM paper",
+        "page_text": "IMM Radiology November 2019 Paper I\nQ1. Write a short note on imaging of developmental dysplasia of the hip.\nQ2. Describe the CT features of acute pancreatitis and its complications."
+      },
+      "expected": {
+        "is_exam_paper": true,
+        "exam_target": "imm",
+        "year": 2019,
+        "question_node_ids": ["PAEDIATRICS.MSK.DDH", "HEPATOBILIARY_PANCREAS.PANCREAS.ACUTE"]
+      },
+      "assertions": ["schema_valid", "node_ids_from_supplied_list", "year_only_if_printed"]
+    },
+    {
+      "case_id": "paper-topics-tree-frcr-question",
+      "prompt": "paper_topics/v3.yaml",
+      "route": "classify",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "source_title": "Synthetic FRCR 2A mock",
+        "page_text": "FRCR 2A mock\nQ7. A 40-year-old has an intraluminal filling defect with a polo-mint sign on CT pulmonary angiography. What is the diagnosis?"
+      },
+      "expected": {
+        "is_exam_paper": true,
+        "exam_target": "frcr",
+        "year": null,
+        "question_node_ids_in": [["CHEST.PULM_VASC.PE", "CHEST.PULM_VASC"]]
+      },
+      "assertions": ["schema_valid", "node_ids_from_supplied_list", "year_only_if_printed"]
+    },
+    {
+      "case_id": "paper-topics-tree-answer-key-page",
+      "prompt": "paper_topics/v3.yaml",
+      "route": "classify",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "source_title": "Synthetic IMM paper",
+        "page_text": "Answer key\n1 B  2 D  3 A  4 C"
+      },
+      "expected": {"is_exam_paper": false, "questions": []},
+      "assertions": ["schema_valid", "no_invented_content"]
+    }
+  ]
+}

@@ -1,11 +1,16 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { itemsText } from '$lib/blueprints';
 import { parseExamForm } from '$lib/questions';
-import { createExam, listExams } from '$lib/server/assessment';
+import { createExam, listBlueprints, listExams } from '$lib/server/assessment';
 import { failureMessage } from '$lib/server/client';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
-  const result = await listExams(event);
+  const [result, blueprintResult] = await Promise.all([listExams(event), listBlueprints(event)]);
+  const blueprints =
+    blueprintResult.state === 'ok'
+      ? blueprintResult.data.map((b) => ({ id: b.id, title: b.title, approved: b.approved, summary: itemsText(b) }))
+      : [];
   const exams =
     result.state === 'ok'
       ? result.data.map((exam) => ({
@@ -18,7 +23,7 @@ export const load: PageServerLoad = async (event) => {
           pending: exam.pending_grading ?? 0
         }))
       : [];
-  return { exams };
+  return { exams, blueprints };
 };
 
 export const actions: Actions = {

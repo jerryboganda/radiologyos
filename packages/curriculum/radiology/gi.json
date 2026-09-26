@@ -1,0 +1,15 @@
+{
+  "code": "GI",
+  "title": "Gastrointestinal",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "OESOPHAGUS", "title": "Oesophagus", "subtopics": {"MOTILITY": "Motility disorders", "OESOPHAGEAL_CANCER": "Oesophageal cancer", "STRICTURE": "Strictures, rings and webs"}},
+    {"code": "STOMACH_DUODENUM", "title": "Stomach and duodenum", "subtopics": {"GASTRIC_TUMOURS": "Gastric tumours and GIST", "ULCER": "Peptic ulcer disease", "POSTOP_STOMACH": "Post-operative stomach"}},
+    {"code": "SMALL_BOWEL", "title": "Small bowel", "subtopics": {"CROHNS": "Crohn's disease", "OBSTRUCTION": "Small bowel obstruction", "SB_TUMOURS": "Small bowel tumours", "MALABSORPTION": "Coeliac and malabsorption", "ABDOMINAL_TB": "Abdominal tuberculosis"}},
+    {"code": "COLON", "title": "Colon and rectum", "subtopics": {"COLORECTAL_CANCER": "Colorectal cancer and staging", "COLITIS": "Colitis", "DIVERTICULAR": "Diverticular disease", "RECTAL_MRI": "Rectal cancer MRI", "ANAL_FISTULA": "Perianal fistula"}},
+    {"code": "APPENDIX", "title": "Appendix", "subtopics": {"APPENDICITIS": "Appendicitis", "APPENDICEAL_TUMOURS": "Appendiceal tumours"}},
+    {"code": "PERITONEUM", "title": "Peritoneum, mesentery and abdominal wall", "subtopics": {"PERITONEAL_DISEASE": "Peritoneal carcinomatosis and infection", "HERNIA": "Hernias", "MESENTERY": "Mesenteric lesions"}},
+    {"code": "ACUTE", "title": "Acute abdomen", "subtopics": {"PERFORATION": "Perforation and free gas", "ISCHAEMIA": "Bowel ischaemia", "GI_BLEED": "GI bleeding"}},
+    {"code": "TECHNIQUES", "title": "GI techniques", "subtopics": {"FLUOROSCOPY": "Barium and water-soluble studies", "CT_MR_ENTEROGRAPHY": "CT and MR enterography", "CT_COLONOGRAPHY": "CT colonography"}}
+  ]
+}

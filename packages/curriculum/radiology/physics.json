@@ -1,0 +1,14 @@
+{
+  "code": "PHYSICS",
+  "title": "Physics",
+  "exams": ["fcps2_theory", "imm"],
+  "topics": [
+    {"code": "BASIC", "title": "Basic radiation physics", "subtopics": {"ATOMIC": "Atomic structure and radiation", "INTERACTIONS": "X-ray interactions with matter"}},
+    {"code": "XRAY", "title": "X-ray production and radiography", "subtopics": {"TUBE": "X-ray tube and spectrum", "IMAGE_QUALITY": "Image quality, contrast and scatter", "DIGITAL": "Digital radiography"}},
+    {"code": "FLUORO_MAMMO", "title": "Fluoroscopy and mammography", "subtopics": {"FLUORO": "Fluoroscopy", "MAMMO": "Mammography physics"}},
+    {"code": "CT", "title": "CT physics", "subtopics": {"PRINCIPLES": "CT principles and reconstruction", "DOSE": "CT dose (CTDI, DLP)", "ARTEFACTS": "CT artefacts"}},
+    {"code": "US", "title": "Ultrasound physics", "subtopics": {"PRINCIPLES": "Ultrasound principles", "DOPPLER": "Doppler", "ARTEFACTS": "Ultrasound artefacts"}},
+    {"code": "MRI", "title": "MRI physics", "subtopics": {"PRINCIPLES": "MR signal and relaxation", "SEQUENCES": "Pulse sequences", "ARTEFACTS": "MR artefacts", "SAFETY": "MR safety"}},
+    {"code": "NUCLEAR", "title": "Nuclear medicine physics", "subtopics": {"DECAY": "Radioactive decay", "DETECTORS": "Detectors and PET physics"}}
+  ]
+}

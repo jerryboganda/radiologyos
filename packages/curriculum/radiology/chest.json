@@ -1,0 +1,16 @@
+{
+  "code": "CHEST",
+  "title": "Chest",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "CXR", "title": "Chest radiograph interpretation", "subtopics": {"SIGNS": "Radiographic signs", "LOBAR_COLLAPSE": "Lobar collapse", "LINES_TUBES": "Lines, tubes and devices", "NODULE_MASS": "Solitary nodule and mass"}},
+    {"code": "INFECTION", "title": "Pulmonary infection", "subtopics": {"PNEUMONIA": "Community and hospital pneumonia", "TB": "Pulmonary tuberculosis", "FUNGAL": "Fungal infection and aspergillosis", "IMMUNOCOMPROMISED": "Infection in the immunocompromised"}},
+    {"code": "NEOPLASM", "title": "Lung neoplasms", "subtopics": {"LUNG_CANCER": "Lung cancer staging (TNM)", "NODULE_MGMT": "Pulmonary nodule management", "METASTASES": "Pulmonary metastases", "LYMPHOMA": "Thoracic lymphoma", "OTHER_TUMOURS": "Carcinoid and benign tumours"}},
+    {"code": "ILD", "title": "Interstitial lung disease", "subtopics": {"HRCT_PATTERNS": "HRCT patterns", "UIP_NSIP": "UIP and NSIP", "SARCOID": "Sarcoidosis", "HP": "Hypersensitivity pneumonitis", "OCCUPATIONAL": "Pneumoconioses and asbestos"}},
+    {"code": "AIRWAYS", "title": "Airways disease", "subtopics": {"BRONCHIECTASIS": "Bronchiectasis", "COPD": "Emphysema and COPD", "SMALL_AIRWAYS": "Small airways disease", "TRACHEA": "Tracheal disease"}},
+    {"code": "PULM_VASC", "title": "Pulmonary vasculature", "subtopics": {"PE": "Pulmonary embolism", "PAH": "Pulmonary hypertension", "OEDEMA": "Pulmonary oedema", "VASCULITIS": "Pulmonary vasculitis and haemorrhage"}},
+    {"code": "PLEURA", "title": "Pleura and chest wall", "subtopics": {"EFFUSION": "Pleural effusion and empyema", "PNEUMOTHORAX": "Pneumothorax", "PLEURAL_TUMOURS": "Mesothelioma and pleural tumours", "CHEST_WALL": "Chest wall lesions"}},
+    {"code": "MEDIASTINUM", "title": "Mediastinum", "subtopics": {"ANTERIOR": "Anterior mediastinal masses", "MIDDLE": "Middle mediastinal masses", "POSTERIOR": "Posterior mediastinal masses", "DIAPHRAGM": "Diaphragm"}},
+    {"code": "ICU_POSTOP", "title": "ICU and postoperative chest", "subtopics": {"ARDS": "ARDS", "POSTOP": "Post-surgical chest", "TRANSPLANT": "Lung transplantation"}}
+  ]
+}

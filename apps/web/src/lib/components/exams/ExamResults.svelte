@@ -23,6 +23,9 @@
       <p class="font-display text-5xl font-semibold text-ink tabular-nums">{result.percent}<span class="text-xl text-muted">%</span></p>
     </div>
     <p class="text-sm text-ink-2">{result.score} of {total} marks · {result.answered} answered</p>
+    {#if result.negative_marking?.enabled}
+      <p class="text-sm text-ink-2">Negative marking: {result.raw_score} marks − {result.penalty} deducted for wrong answers</p>
+    {/if}
   </section>
   {#if pending}
     <Notice tone="info">

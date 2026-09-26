@@ -257,7 +257,9 @@ def test_insights_show_heatmap_projection_and_calibration(
     body = response.json()
     assert not _probability_keys(body)
     chest = next(r for r in body["heatmap"] if r["code"] == "CHEST")
-    assert chest["cells"][0]["coverage"] == 1.0 and len(body["heatmap"]) >= 16
+    # System-level mappings land in the system's "General" cell once it has topics.
+    general = next(c for c in chest["cells"] if c["code"] == "CHEST")
+    assert general["coverage"] == 1.0 and len(body["heatmap"]) >= 16
     assert body["projection"]["status"] == "insufficient_history"
     assert body["calibration"]["verdict"] == "overconfident"
     assert body["calibration"]["confident_wrong"] == 8

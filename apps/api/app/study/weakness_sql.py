@@ -43,7 +43,7 @@ async def _scalar(session: AsyncSession, sql: str, params: dict[str, Any]) -> An
 
 async def question_code(session: AsyncSession, user_id: UUID, question_id: UUID) -> str | None:
     """The question's curriculum node, resolved from the chunks it cites."""
-    from apps.api.app.study.depth_sql import QUESTION_SYSTEMS
+    from apps.api.app.assessment.question_systems import QUESTION_SYSTEMS
 
     value = await _scalar(session, QUESTION_SYSTEMS + (
         "SELECT curriculum_code FROM qsys WHERE question_id = :q"),  # nosec B608 - constant SQL

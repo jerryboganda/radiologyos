@@ -1,0 +1,16 @@
+{
+  "code": "CARDIOVASCULAR",
+  "title": "Cardiac and vascular",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "CARDIAC_TECH", "title": "Cardiac imaging techniques", "subtopics": {"CCTA": "Coronary CT angiography and calcium score", "CMR": "Cardiac MRI", "ECHO_NUCLEAR": "Echocardiography and nuclear cardiology"}},
+    {"code": "ISCHAEMIC", "title": "Ischaemic heart disease", "subtopics": {"CAD": "Coronary artery disease", "INFARCT": "Myocardial infarction and viability"}},
+    {"code": "CARDIOMYOPATHY", "title": "Cardiomyopathies and myocarditis", "subtopics": {"HCM_DCM": "Hypertrophic and dilated cardiomyopathy", "INFILTRATIVE": "Infiltrative cardiomyopathy", "MYOCARDITIS": "Myocarditis"}},
+    {"code": "VALVES_PERICARDIUM", "title": "Valves, pericardium and masses", "subtopics": {"VALVES": "Valvular disease", "PERICARDIUM": "Pericardial disease", "CARDIAC_MASS": "Cardiac masses"}},
+    {"code": "CONGENITAL", "title": "Congenital heart disease", "subtopics": {"SHUNTS": "Left-to-right shunts", "CYANOTIC": "Cyanotic congenital heart disease", "ADULT_CHD": "Adult congenital heart disease"}},
+    {"code": "AORTA", "title": "Aorta", "subtopics": {"AAS": "Acute aortic syndromes", "ANEURYSM": "Aortic aneurysm", "AORTITIS": "Aortitis", "COARCTATION": "Coarctation and arch anomalies"}},
+    {"code": "PERIPHERAL", "title": "Peripheral and visceral arteries", "subtopics": {"PAD": "Peripheral arterial disease", "MESENTERIC": "Mesenteric ischaemia", "RENAL_ARTERY": "Renal artery stenosis", "CAROTID": "Carotid disease"}},
+    {"code": "VENOUS", "title": "Venous disease", "subtopics": {"DVT": "Deep vein thrombosis", "SVC_IVC": "Central venous obstruction", "VARICES": "Varicose veins and venous malformations"}},
+    {"code": "VASCULITIS", "title": "Vasculitis and vascular malformations", "subtopics": {"LARGE_VESSEL": "Large-vessel vasculitis", "MALFORMATIONS": "Vascular malformations (ISSVA)"}}
+  ]
+}

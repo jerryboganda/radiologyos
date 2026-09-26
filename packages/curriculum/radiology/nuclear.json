@@ -1,0 +1,13 @@
+{
+  "code": "NUCLEAR_MEDICINE",
+  "title": "Nuclear medicine and PET",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "PRINCIPLES", "title": "Radiopharmaceuticals and principles", "subtopics": {"RADIOPHARMACEUTICALS": "Radiopharmaceuticals", "GAMMA_CAMERA": "Gamma camera and SPECT"}},
+    {"code": "PET", "title": "PET-CT", "subtopics": {"FDG": "FDG PET-CT in oncology", "NON_FDG": "PSMA, DOTATATE and other tracers"}},
+    {"code": "BONE", "title": "Bone scintigraphy", "subtopics": {"BONE_SCAN": "Bone scan patterns"}},
+    {"code": "LUNG_CARDIAC", "title": "Lung and cardiac nuclear medicine", "subtopics": {"VQ": "V/Q scintigraphy", "MPI": "Myocardial perfusion imaging"}},
+    {"code": "RENAL_ENDOCRINE", "title": "Renal and endocrine nuclear medicine", "subtopics": {"RENOGRAPHY": "Renography (MAG3, DMSA)", "THYROID": "Thyroid scintigraphy", "PARATHYROID": "Parathyroid scintigraphy"}},
+    {"code": "GI_INFECTION", "title": "GI, hepatobiliary and infection imaging", "subtopics": {"HIDA": "Hepatobiliary scintigraphy", "GI_BLEED_MECKEL": "GI bleeding and Meckel scan", "WBC": "Labelled white cell imaging"}}
+  ]
+}

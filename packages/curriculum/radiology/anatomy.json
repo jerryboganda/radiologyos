@@ -1,0 +1,12 @@
+{
+  "code": "ANATOMY",
+  "title": "Radiological anatomy",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a"],
+  "topics": [
+    {"code": "NEURO", "title": "Neuroanatomy", "subtopics": {"BRAIN": "Brain and ventricles", "VESSELS": "Intracranial vessels", "SPINE": "Spine and cord"}},
+    {"code": "HEAD_NECK", "title": "Head and neck anatomy", "subtopics": {"SKULL_BASE": "Skull base foramina", "NECK": "Neck spaces and larynx", "TEMPORAL_BONE": "Temporal bone and orbit"}},
+    {"code": "THORAX", "title": "Thoracic anatomy", "subtopics": {"LUNG": "Lobes, segments and fissures", "MEDIASTINUM": "Mediastinum and hila", "HEART": "Heart and great vessels"}},
+    {"code": "ABDOMEN_PELVIS", "title": "Abdominal and pelvic anatomy", "subtopics": {"LIVER": "Liver segments and vessels", "PERITONEUM": "Peritoneal spaces", "PELVIS": "Pelvic organs", "VESSELS": "Abdominal vessels"}},
+    {"code": "MSK", "title": "Musculoskeletal anatomy", "subtopics": {"UPPER_LIMB": "Upper limb", "LOWER_LIMB": "Lower limb", "OSSIFICATION": "Ossification centres and variants"}}
+  ]
+}

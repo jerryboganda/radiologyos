@@ -6,6 +6,8 @@ from uuid import UUID, uuid4
 from apps.api.app.api.admin_usage import router as admin_usage_router
 from apps.api.app.api.assessment import router as assessment_router
 from apps.api.app.api.billing import router as billing_router
+from apps.api.app.api.blueprints import router as blueprints_router
+from apps.api.app.api.curriculum import router as curriculum_router
 from apps.api.app.api.data_rights import router as data_rights_router
 from apps.api.app.api.exams import router as exams_router
 from apps.api.app.api.knowledge import router as knowledge_router
@@ -72,6 +74,8 @@ app.include_router(preview_learning_router)
 app.include_router(preview_assessment_router)
 app.include_router(preview_operations_router)
 app.include_router(preview_admin_router)
+app.include_router(blueprints_router)
+app.include_router(curriculum_router)
 
 
 @app.middleware("http")

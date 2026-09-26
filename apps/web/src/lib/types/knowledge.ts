@@ -94,6 +94,8 @@ export interface TopicWeightOut {
   exam_target: string;
   curriculum_code: string;
   topic: string;
+  /** Curriculum title when the topic is a coded tree node (ADR 0023). */
+  topic_title?: string | null;
   weight: number;
   basis: WeightBasis;
   approved: boolean;
@@ -133,6 +135,8 @@ export interface MappingOut {
   page_from: number;
   page_to: number;
   curriculum_code: string;
+  /** Most specific curriculum node (system, topic, or subtopic); null = system level. */
+  curriculum_node_id?: string | null;
   topic: string;
   confidence: number;
   status: MappingStatus;
@@ -146,10 +150,62 @@ export type MappingDecisionKind = 'accept' | 'reject' | 'code';
 
 export interface MappingDecision {
   decision: MappingDecisionKind;
+  /** A curriculum node id at any depth when re-coding. */
   curriculum_code?: string | null;
 }
 
 export interface CurriculumSystem {
   code: string;
   title: string;
+}
+
+// Curriculum tree and owner approval (apps/api/app/api/curriculum.py, ADR 0023).
+export type CurriculumLevel = 'system' | 'topic' | 'subtopic';
+export type CurriculumFilter = 'fcps2_theory' | 'fcps2_toacs' | 'imm' | 'frcr' | 'frcr_2a' | 'frcr_2b';
+export const CURRICULUM_FILTERS: { value: CurriculumFilter; label: string }[] = [
+  { value: 'fcps2_theory', label: 'FCPS-II theory' },
+  { value: 'fcps2_toacs', label: 'FCPS-II TOACS' },
+  { value: 'imm', label: 'IMM' },
+  { value: 'frcr_2a', label: 'FRCR 2A' },
+  { value: 'frcr_2b', label: 'FRCR 2B' }
+];
+
+export interface CurriculumTreeNode {
+  code: string;
+  title: string;
+  level: CurriculumLevel;
+  exams: string[];
+  children: CurriculumTreeNode[];
+}
+
+export type CurriculumReviewStatus = 'pending' | 'approved' | 'rejected';
+
+export interface CurriculumStatus {
+  pack_id: string;
+  version: string;
+  pack_status: string;
+  content_hash: string;
+  source: string;
+  sources: string[];
+  counts: Record<string, number>;
+  review_status: CurriculumReviewStatus;
+  decided_at: string | null;
+  notes: string;
+}
+
+export interface CurriculumOut extends CurriculumStatus {
+  systems: CurriculumTreeNode[];
+}
+
+export interface CurriculumDecision {
+  decision: 'approved' | 'rejected';
+  content_hash: string;
+  notes?: string;
+}
+
+export interface NodeCandidate {
+  id: string;
+  path: string;
+  label: string;
+  level: CurriculumLevel;
 }

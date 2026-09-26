@@ -78,13 +78,14 @@ def _paper(prompt: str) -> dict[str, Any]:
     if "Page: 2" in prompt:
         return {"is_exam_paper": False, "exam_target": "unknown", "year": None,
                 "paper_label": "", "questions": []}
-    question = {"question_no": "1", "curriculum_code": "CHEST", "topic": "pulmonary embolism",
-                "confidence": 0.9}
+    question = {"question_no": "1", "curriculum_node_id": "CHEST.PULM_VASC.PE",
+                "topic": "pulmonary embolism", "confidence": 0.9}
     return {"is_exam_paper": True, "exam_target": "imm", "year": 2019,
             "paper_label": "IMM 2019 Paper I",
             "questions": [question, {**question, "question_no": "2"},
-                          {**question, "question_no": "3", "curriculum_code": "GI",
-                           "topic": "intussusception"}]}
+                          {**question, "question_no": "3", "curriculum_node_id": "GI",
+                           "topic": "intussusception"},
+                          {**question, "question_no": "4", "curriculum_node_id": "CHEST.MADE_UP"}]}
 
 
 async def _seed_content(runtime: Any, ids: dict[str, UUID]) -> None:
@@ -124,6 +125,9 @@ async def _notes_proof(deps: Any, runtime: Any, ids: dict[str, UUID]) -> None:
     statuses = {r["status"] for r in await as_tenant(
         runtime, ta, "SELECT status FROM curriculum_mappings")}
     assert statuses == {"accepted", "review"}
+    nodes = await as_tenant(runtime, ta, "SELECT curriculum_code, curriculum_node_id "
+                            "FROM curriculum_mappings")
+    assert all(r["curriculum_node_id"] == r["curriculum_code"] for r in nodes)  # system level
     for table in ("concepts", "claims", "knowledge_conflicts", "curriculum_mappings"):
         assert await as_tenant(runtime, ids["tb"], f"SELECT 1 FROM {table}") == [], table
 
@@ -139,6 +143,8 @@ async def _paper_proof(deps: Any, runtime: Any, ids: dict[str, UUID]) -> None:
                            "FROM topic_frequencies ORDER BY curriculum_code")
     assert [(r["curriculum_code"], r["count"], r["exam_target"], r["year"]) for r in freq] == [
         ("CHEST", 2, "imm", 2019), ("GI", 1, "imm", 2019)]
+    # v3: a node below system level is the topic key; an invented id is dropped.
+    assert [r["topic"] for r in freq] == ["CHEST.PULM_VASC.PE", "intussusception"]
     weights = await as_tenant(runtime, ta, "SELECT exam_target, approved FROM topic_weights")
     assert {r["exam_target"] for r in weights} == {"imm", "all"}
     assert not any(r["approved"] for r in weights)

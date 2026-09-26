@@ -12,6 +12,7 @@ from uuid import UUID
 
 from apps.worker.app.ingest.db import as_json
 from packages.knowledge.conflicts import compare_claims
+from packages.knowledge.curriculum import NodeMapping
 from packages.knowledge.models import ExtractedClaim, ExtractedConcept, TopicMapping
 from packages.knowledge.resolution import Candidate, decide, merged_aliases
 from packages.knowledge.text import CANDIDATE, alias_keys
@@ -159,29 +160,45 @@ async def store_mapping(
     session: AsyncSession, tenant_id: UUID, mapping: TopicMapping, status: str,
     concept_ids: list[UUID], meta: dict[str, Any],
 ) -> None:
+    """System-level classifier output (topic_classify v1/v2)."""
+    node = NodeMapping(mapping.curriculum_code, mapping.curriculum_code, status)
+    await store_node_mapping(session, tenant_id, node, mapping.topic, mapping.confidence,
+                             concept_ids, meta)
+
+
+async def store_node_mapping(
+    session: AsyncSession, tenant_id: UUID, node: NodeMapping, topic: str, confidence: float,
+    concept_ids: list[UUID], meta: dict[str, Any],
+) -> None:
+    """Store a mapping to a curriculum node at any depth (ADR 0023).
+
+    ``node`` comes from ``packages.knowledge.curriculum.node_mapping``: its
+    system goes to ``curriculum_code`` (what system-level readers use) and the
+    node itself to ``curriculum_node_id``; status follows the < 0.7 review rule.
+    """
     await session.execute(
         text(
             """
             INSERT INTO curriculum_mappings (tenant_id, source_id, unit_hash, chunk_id,
-                page_from, page_to, curriculum_code, topic, confidence, status, agent_version)
-            VALUES (:t, :s, :u, :chunk, :pf, :pt, :code, :topic, :conf, :status, :agent)
+                page_from, page_to, curriculum_code, curriculum_node_id, topic, confidence,
+                status, agent_version)
+            VALUES (:t, :s, :u, :chunk, :pf, :pt, :code, :node, :topic, :conf, :status, :agent)
             ON CONFLICT (tenant_id, source_id, unit_hash, curriculum_code, topic)
             DO UPDATE SET confidence = EXCLUDED.confidence, status = EXCLUDED.status,
-                chunk_id = EXCLUDED.chunk_id
+                chunk_id = EXCLUDED.chunk_id, curriculum_node_id = EXCLUDED.curriculum_node_id
             """
         ),
         {"t": tenant_id, "s": meta["source_id"], "u": meta["unit"], "chunk": meta["chunk_id"],
-         "pf": meta["page_from"], "pt": meta["page_to"], "code": mapping.curriculum_code,
-         "topic": mapping.topic.strip()[:200], "conf": mapping.confidence, "status": status,
-         "agent": meta["agent"]},
+         "pf": meta["page_from"], "pt": meta["page_to"], "code": node.system,
+         "node": node.node_id, "topic": topic.strip()[:200], "conf": confidence,
+         "status": node.status, "agent": meta["agent"]},
     )
-    if status == "accepted" and concept_ids:
+    if node.status == "accepted" and concept_ids:
         await session.execute(
             text(
                 "UPDATE concepts SET curriculum_code = :code, curriculum_confidence = :conf "
                 "WHERE id = ANY(CAST(:ids AS uuid[])) AND (curriculum_code IS NULL "
                 "OR coalesce(curriculum_confidence, 0) < :conf)"
             ),
-            {"code": mapping.curriculum_code, "conf": mapping.confidence,
-             "ids": list(concept_ids)},
+            {"code": node.system, "conf": confidence, "ids": list(concept_ids)},
         )

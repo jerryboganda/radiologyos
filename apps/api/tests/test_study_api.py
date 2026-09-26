@@ -148,7 +148,7 @@ def test_progress_reports_mastery_without_pass_probability(
     chest = next(t for t in body["topics"] if t["code"] == "CHEST")
     assert chest["coverage"] == 1.0 and chest["accuracy"] == 1.0
     assert chest["mastery"] > next(t for t in body["topics"] if t["code"] == "GI")["mastery"]
-    assert len(body["topics"]) == 16
+    assert len(body["topics"]) == 17  # 16 original systems + ANATOMY (ADR 0023)
     assert "pass_prob" not in response.text and "No pass probability" in body["notice"]
 
 

@@ -1,0 +1,16 @@
+{
+  "code": "HEAD_NECK",
+  "title": "Head and neck",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "TEMPORAL_BONE", "title": "Temporal bone", "subtopics": {"CHOLESTEATOMA": "Cholesteatoma and otomastoiditis", "INNER_EAR": "Inner ear malformations", "IAC_CPA": "IAC and cerebellopontine angle masses"}},
+    {"code": "SINONASAL", "title": "Sinonasal", "subtopics": {"SINUSITIS": "Sinusitis and complications", "SINONASAL_TUMOURS": "Sinonasal tumours", "FUNGAL": "Fungal sinus disease"}},
+    {"code": "ORBIT", "title": "Orbit", "subtopics": {"ORBITAL_INFECTION": "Orbital cellulitis", "ORBITAL_MASSES": "Orbital masses", "GLOBE": "Globe lesions", "THYROID_EYE": "Thyroid eye disease"}},
+    {"code": "PHARYNX_LARYNX", "title": "Pharynx, larynx and oral cavity", "subtopics": {"NASOPHARYNX": "Nasopharyngeal carcinoma", "OROPHARYNX_ORAL": "Oropharyngeal and oral cavity cancer", "LARYNX": "Laryngeal cancer and staging"}},
+    {"code": "NECK_SPACES", "title": "Deep neck spaces and nodes", "subtopics": {"SPACES": "Deep neck space anatomy and lesions", "NODES": "Cervical lymph nodes", "CYSTS": "Congenital neck cysts", "NECK_INFECTION": "Neck infection and abscess"}},
+    {"code": "SALIVARY", "title": "Salivary glands", "subtopics": {"SALIVARY_TUMOURS": "Salivary tumours", "SIALADENITIS": "Sialadenitis and sialolithiasis"}},
+    {"code": "THYROID_PARATHYROID", "title": "Thyroid and parathyroid", "subtopics": {"THYROID_NODULE": "Thyroid nodules (TI-RADS)", "THYROID_DIFFUSE": "Diffuse thyroid disease", "PARATHYROID": "Parathyroid adenoma localisation"}},
+    {"code": "DENTAL_JAW", "title": "Jaw and dental", "subtopics": {"ODONTOGENIC": "Odontogenic cysts and tumours", "TMJ": "Temporomandibular joint"}},
+    {"code": "SKULL_BASE", "title": "Skull base", "subtopics": {"SKULL_BASE_LESIONS": "Skull base lesions", "PERINEURAL": "Perineural tumour spread"}}
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "code": "GU",
+  "title": "Genitourinary and adrenal",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "KIDNEY_MASS", "title": "Renal masses", "subtopics": {"RCC": "Renal cell carcinoma", "CYSTS": "Renal cysts (Bosniak)", "AML": "Angiomyolipoma and benign masses"}},
+    {"code": "KIDNEY_OTHER", "title": "Renal infection, calculi and vascular", "subtopics": {"CALCULI": "Urolithiasis", "INFECTION": "Pyelonephritis and renal TB", "RENAL_VASCULAR": "Renal vascular disease", "TRANSPLANT": "Renal transplant"}},
+    {"code": "COLLECTING_SYSTEM", "title": "Collecting system, ureter and bladder", "subtopics": {"UROTHELIAL": "Urothelial carcinoma", "BLADDER": "Bladder lesions", "OBSTRUCTION": "Obstructive uropathy"}},
+    {"code": "ADRENAL", "title": "Adrenal", "subtopics": {"INCIDENTALOMA": "Adrenal incidentaloma and adenoma", "ADRENAL_TUMOURS": "Phaeochromocytoma and adrenal carcinoma"}},
+    {"code": "PROSTATE", "title": "Prostate", "subtopics": {"CANCER": "Prostate cancer and PI-RADS", "BPH": "Benign prostatic hyperplasia"}},
+    {"code": "SCROTUM", "title": "Scrotum and testis", "subtopics": {"TESTICULAR_TUMOURS": "Testicular tumours", "ACUTE_SCROTUM": "Torsion and epididymo-orchitis"}},
+    {"code": "URETHRA_TECH", "title": "Urethra and GU techniques", "subtopics": {"URETHRA": "Urethral stricture and trauma", "IVU_CTU": "IVU, CT urography and MR urography"}},
+    {"code": "RETROPERITONEUM", "title": "Retroperitoneum", "subtopics": {"MASSES": "Retroperitoneal masses", "FIBROSIS": "Retroperitoneal fibrosis"}}
+  ]
+}

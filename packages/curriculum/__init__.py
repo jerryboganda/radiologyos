@@ -1,1 +1,1 @@
-"""Curriculum package scaffold; no editor-approved ontology is bundled."""
+"""Curriculum packs: the draft radiology topic tree awaiting owner approval (ADR 0023)."""

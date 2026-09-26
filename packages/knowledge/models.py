@@ -101,3 +101,27 @@ class PaperTopics(BaseModel):
     year: int | None = Field(ge=1990, le=2100, description="Sitting year if printed, else null.")
     paper_label: str = Field(max_length=120, description="Paper/sitting label if printed, or ''.")
     questions: list[PaperQuestion] = Field(max_length=60)
+
+
+# paper_topics v3 (ADR 0023): each question names one curriculum node at any
+# depth (system, topic, or subtopic) by its id, e.g. "CHEST.PULM_VASC.PE".
+NODE_ID_HELP = "One curriculum node id from the supplied list (system, topic, or subtopic)."
+
+
+class PaperQuestionTree(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question_no: str = Field(max_length=20, description="Question number as printed, or ''.")
+    curriculum_node_id: str = Field(min_length=1, max_length=120, description=NODE_ID_HELP)
+    topic: str = Field(min_length=1, max_length=200)
+    confidence: float = Field(ge=0, le=1)
+
+
+class PaperTopicsTree(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    is_exam_paper: bool = Field(description="True only if the page shows exam questions.")
+    exam_target: ExamTarget
+    year: int | None = Field(ge=1990, le=2100, description="Sitting year if printed, else null.")
+    paper_label: str = Field(max_length=120, description="Paper/sitting label if printed, or ''.")
+    questions: list[PaperQuestionTree] = Field(max_length=60)

@@ -1,0 +1,16 @@
+{
+  "code": "NEURO",
+  "title": "Neuroradiology",
+  "exams": ["fcps2_theory", "fcps2_toacs", "imm", "frcr_2a", "frcr_2b"],
+  "topics": [
+    {"code": "VASCULAR", "title": "Cerebrovascular disease", "subtopics": {"ISCHAEMIC_STROKE": "Ischaemic stroke and perfusion", "ICH": "Intracranial haemorrhage", "SAH_ANEURYSM": "Subarachnoid haemorrhage and aneurysms", "AVM_FISTULA": "Vascular malformations and dural fistulae", "VENOUS": "Cerebral venous thrombosis", "VASCULOPATHY": "Vasculitis, moyamoya and dissection"}},
+    {"code": "TRAUMA", "title": "Head trauma", "subtopics": {"EXTRA_AXIAL": "Extradural and subdural haematoma", "DAI": "Diffuse axonal injury and contusion", "SKULL_FRACTURE": "Skull and skull base fractures"}},
+    {"code": "TUMOURS", "title": "Brain tumours", "subtopics": {"GLIOMA": "Gliomas (WHO CNS classification)", "METASTASES": "Metastases", "EXTRA_AXIAL": "Meningioma and extra-axial tumours", "SELLAR": "Sellar and parasellar masses", "PINEAL_VENTRICULAR": "Pineal and intraventricular tumours", "POSTERIOR_FOSSA": "Posterior fossa tumours", "LYMPHOMA": "Primary CNS lymphoma"}},
+    {"code": "INFECTION", "title": "Infection and inflammation", "subtopics": {"ABSCESS": "Cerebral abscess and empyema", "MENINGITIS": "Meningitis and complications", "TB": "Tuberculosis of the CNS", "ENCEPHALITIS": "Viral encephalitis", "PARASITIC": "Neurocysticercosis and hydatid"}},
+    {"code": "WHITE_MATTER", "title": "White matter and demyelination", "subtopics": {"MS": "Multiple sclerosis and NMOSD", "ADEM": "ADEM and other demyelination", "TOXIC_METABOLIC": "Toxic, metabolic and PRES", "LEUKODYSTROPHY": "Leukodystrophies"}},
+    {"code": "DEGENERATIVE", "title": "Degenerative and dementia", "subtopics": {"DEMENTIA": "Dementias", "MOVEMENT": "Movement disorders", "HYDROCEPHALUS": "Hydrocephalus and CSF disorders"}},
+    {"code": "CONGENITAL", "title": "Congenital malformations", "subtopics": {"CORTICAL": "Malformations of cortical development", "POSTERIOR_FOSSA": "Chiari and posterior fossa malformations", "PHAKOMATOSES": "Phakomatoses"}},
+    {"code": "SPINE", "title": "Spine and spinal cord", "subtopics": {"DEGENERATIVE": "Degenerative disc and canal disease", "CORD_LESIONS": "Intramedullary lesions", "INTRADURAL": "Intradural extramedullary lesions", "SPINAL_INFECTION": "Spondylodiscitis and epidural abscess", "SPINAL_TRAUMA": "Spinal trauma", "SPINAL_DYSRAPHISM": "Spinal dysraphism"}},
+    {"code": "TECHNIQUES", "title": "Neuro techniques", "subtopics": {"CT_MR": "CT and MR protocols", "ADVANCED_MR": "DWI, perfusion and MR spectroscopy", "ANGIO": "CTA, MRA and catheter angiography", "MYELOGRAPHY": "Myelography"}}
+  ]
+}

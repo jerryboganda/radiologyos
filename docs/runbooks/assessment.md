@@ -102,3 +102,29 @@ Decision record: [ADR 0015](../decisions/0015-assessment-engine.md). Migration
   stay in the debrief (`weak_turns`, `weak_areas`).
 - Live proof: `evals/checks/test_viva_live.py` (CI `RLS proof` job). Eval cases:
   `evals/fixtures/viva_v1.json` (synthetic, `review_required`).
+
+## Exam blueprints (ADR 0023)
+
+- The defaults are in `packages/assessment/blueprints.json`: FCPS-II MCQ and SAQ
+  papers, TOACS, viva, IMM theory and TOACS, FRCR 2A, and FRCR 2B short cases,
+  long cases, and oral. Facts no public source confirmed are listed in
+  `unverified` and shown as such at `/exams/blueprints`.
+- To adjust (owner or admin only): on `/exams/blueprints` open "Sources and
+  changes" and set the minutes, the penalty per wrong SBA (0 turns negative
+  marking off), or the pass mark. The API is
+  `PUT /v1/blueprints/{id}/overrides {"overrides": {...}}`, which also accepts
+  `items`, `mix_mode`, and `mix`. An empty object restores the default. Saving
+  clears the approval.
+- To approve: use "Approve this format", or
+  `POST /v1/blueprints/{id}/approve {"content_hash": ...}`. Approval is bound to
+  the effective blueprint's hash; a stale hash returns 409. Each change is
+  audited (`assessment.blueprint_overridden|approved`).
+- To take a paper: on `/exams` pick a blueprint and, optionally, "Scale to
+  items". The server allocates items to the mix groups, prefers questions
+  generated for that exam, and fills gaps from other systems. It records
+  `config.blueprint`, `config.scoring`, and `config.mix_report` (a `shortfall`
+  above 0 means the bank is too small). With negative marking the result shows
+  `raw_score`, `penalty`, and the net `score`.
+- Unapproved (draft) blueprints can still be used; the exam config records
+  `blueprint.approved = false`.
+- Live proof: `evals/checks/test_curriculum_blueprints_live.py`.

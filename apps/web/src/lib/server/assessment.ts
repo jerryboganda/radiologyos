@@ -5,6 +5,8 @@ import type {
   AttemptOut,
   AutosaveIn,
   AutosaveOut,
+  BlueprintOut,
+  BlueprintOverrideIn,
   ExamCreate,
   ExamView,
   GenerateQuestionsIn,
@@ -82,3 +84,16 @@ export type ExamSummary = {
 export function listExams(event: RequestEvent) {
   return getJson<ExamSummary[]>(event, '/v1/exams');
 }
+
+/** Exam blueprints with the tenant's overrides and approval state (ADR 0023). */
+export const listBlueprints = (event: RequestEvent) => getJson<BlueprintOut[]>(event, '/v1/blueprints');
+
+/** Owner/admin: replace the override (clears approval). */
+export const overrideBlueprint = (event: RequestEvent, id: string, body: BlueprintOverrideIn) =>
+  sendJson<BlueprintOut>(event, `/v1/blueprints/${encodeURIComponent(id)}/overrides`, 'PUT', body);
+
+/** Owner/admin: approve the effective blueprint with this hash. */
+export const approveBlueprint = (event: RequestEvent, id: string, contentHash: string) =>
+  sendJson<BlueprintOut>(event, `/v1/blueprints/${encodeURIComponent(id)}/approve`, 'POST', {
+    content_hash: contentHash
+  });

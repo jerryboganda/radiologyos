@@ -22,7 +22,9 @@
 <li class="rounded-xl border border-line bg-surface p-4">
   <div class="flex flex-wrap items-baseline justify-between gap-2">
     <p class="font-medium text-ink">
-      <span class="font-mono text-sm">{mapping.curriculum_code}</span> · {title}{mapping.topic ? ` · ${mapping.topic}` : ''}
+      <span class="font-mono text-sm">{mapping.curriculum_node_id ?? mapping.curriculum_code}</span> · {title}{mapping.topic
+        ? ` · ${mapping.topic}`
+        : ''}
     </p>
     <span class="label">confidence {percent(mapping.confidence)}</span>
   </div>
@@ -38,13 +40,16 @@
     <input type="hidden" name="mapping_id" value={mapping.id} />
     <button class="btn btn-primary min-h-9 py-1.5" type="submit" name="decision" value="accept" disabled={busy}>Accept</button>
     <button class="btn btn-ghost min-h-9 py-1.5" type="submit" name="decision" value="reject" disabled={busy}>Reject</button>
-    <label class="sr-only" for="{uid}-code">Different curriculum code</label>
-    <select id="{uid}-code" name="curriculum_code" bind:value={code} class="field min-h-9 w-auto py-1.5">
-      <option value="">Different code…</option>
-      {#each systems.filter((s) => s.code !== mapping.curriculum_code) as system (system.code)}
-        <option value={system.code}>{system.code} · {system.title}</option>
-      {/each}
-    </select>
+    <label class="sr-only" for="{uid}-code">Different curriculum node (system, topic, or subtopic)</label>
+    <input
+      id="{uid}-code"
+      name="curriculum_code"
+      bind:value={code}
+      list="curriculum-nodes"
+      maxlength="60"
+      placeholder="Different node, e.g. CHEST.PULM_VASC.PE"
+      class="field min-h-9 w-72 py-1.5 font-mono text-sm"
+    />
     <button class="btn btn-ghost min-h-9 py-1.5" type="submit" name="decision" value="code" disabled={busy || !code}>Re-code</button>
   </form>
 </li>

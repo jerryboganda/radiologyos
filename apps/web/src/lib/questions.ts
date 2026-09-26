@@ -46,6 +46,8 @@ export function parseExamForm(form: FormData): Parsed<ExamCreate> {
   if (minutes !== null && (!Number.isInteger(minutes) || minutes < 1 || minutes > 300)) {
     return { ok: false, error: 'The time limit must be 1–300 minutes.' };
   }
+  const blueprint = String(form.get('blueprint_id') ?? '').trim();
+  if (blueprint) return parseBlueprintExam(form, mode, blueprint, minutes);
   if (mode === 'exam' && minutes === null) return { ok: false, error: 'A timed exam needs a time limit.' };
   const target = form.get('exam_target');
   const chosen = form.getAll('types').map(String);
@@ -60,6 +62,32 @@ export function parseExamForm(form: FormData): Parsed<ExamCreate> {
       exam_target: isExamTarget(target) ? target : null,
       topic: topicOf(form.get('topic')),
       types: types.length ? types : ['sba']
+    }
+  };
+}
+
+/** A blueprint paper: the blueprint sets types, mix, time, and scoring (ADR 0023). */
+function parseBlueprintExam(
+  form: FormData,
+  mode: 'practice' | 'exam',
+  blueprint: string,
+  minutes: number | null
+): Parsed<ExamCreate> {
+  if (!/^[a-z0-9_]{1,60}$/.test(blueprint)) return { ok: false, error: 'Unknown blueprint.' };
+  const rawItems = String(form.get('blueprint_items') ?? '').trim();
+  const items = rawItems ? Number(rawItems) : null;
+  if (items !== null && (!Number.isInteger(items) || items < 1 || items > 300)) {
+    return { ok: false, error: 'A blueprint paper can be scaled to 1–300 items.' };
+  }
+  return {
+    ok: true,
+    value: {
+      mode,
+      count: Math.min(items ?? 20, 200),
+      time_limit_minutes: minutes,
+      topic: topicOf(form.get('topic')),
+      blueprint_id: blueprint,
+      blueprint_items: items
     }
   };
 }

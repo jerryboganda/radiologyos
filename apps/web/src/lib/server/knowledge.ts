@@ -6,12 +6,17 @@ import type {
   ConceptDetail,
   ConceptSummary,
   ConflictOut,
+  CurriculumDecision,
+  CurriculumFilter,
+  CurriculumOut,
+  CurriculumStatus,
   CurriculumSystem,
   ExtractRequest,
   ExtractResponse,
   MappingDecision,
   MappingOut,
   MappingStatus,
+  NodeCandidate,
   ResolveRequest,
   TopicWeightOut,
   WeightTarget
@@ -49,6 +54,18 @@ export const decideMapping = (event: RequestEvent, id: string, body: MappingDeci
 
 export const listCurriculumSystems = (event: RequestEvent) =>
   getJson<CurriculumSystem[]>(event, `${K}/curriculum/systems`);
+
+/** Draft curriculum tree with the owner's review state (ADR 0023). */
+export const getCurriculum = (event: RequestEvent, examTarget: CurriculumFilter | null) =>
+  getJson<CurriculumOut>(event, `${K}/curriculum${query({ exam_target: examTarget })}`);
+
+/** Owner/admin approval of the exact pack version shown (hash-bound, audited). */
+export const decideCurriculum = (event: RequestEvent, body: CurriculumDecision) =>
+  sendJson<CurriculumStatus>(event, `${K}/curriculum/decision`, 'POST', body);
+
+/** Valid curriculum node ids down to topic level, for re-coding mappings. */
+export const listNodeCandidates = (event: RequestEvent) =>
+  getJson<NodeCandidate[]>(event, `${K}/curriculum/candidates${query({ max_level: 'subtopic' })}`);
 
 export const extractSource =(event: RequestEvent, sourceId: string, body: ExtractRequest) =>
   sendJson<ExtractResponse>(event, `${K}/sources/${encodeURIComponent(sourceId)}/extract`, 'POST', body);
