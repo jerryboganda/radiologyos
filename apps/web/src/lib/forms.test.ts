@@ -60,7 +60,7 @@ test('question generation, filters, and exam forms', () => {
   assert.equal(parseExamForm(form([['mode', 'exam'], ['count', '10']])).ok, false, 'timed exam needs a limit');
   assert.deepEqual(parseExamForm(form([['mode', 'practice'], ['count', '10']])), {
     ok: true,
-    value: { mode: 'practice', count: 10, time_limit_minutes: null, exam_target: null, topic: null }
+    value: { mode: 'practice', count: 10, time_limit_minutes: null, exam_target: null, topic: null, types: ['sba'] }
   });
   assert.equal(optionLetter(2), 'C');
   assert.equal(optionLetter(null), '—');

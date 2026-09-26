@@ -14,7 +14,8 @@ export const load: PageServerLoad = async (event) => {
           status: exam.status,
           started_at: exam.started_at,
           questions: exam.question_count,
-          percent: exam.score_percent
+          percent: exam.score_percent,
+          pending: exam.pending_grading ?? 0
         }))
       : [];
   return { exams };

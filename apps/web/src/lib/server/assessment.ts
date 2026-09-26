@@ -9,7 +9,11 @@ import type {
   ExamView,
   GenerateQuestionsIn,
   GenerateQuestionsOut,
-  QuestionPublic
+  QuestionPublic,
+  ReviewIn,
+  ReviewItem,
+  ReviewOut,
+  StatsRecomputeOut
 } from '$lib/types/assessment';
 import { getJson, query, sendJson } from './client';
 
@@ -47,7 +51,18 @@ export const getExam = (event: RequestEvent, examId: string) =>
 export const saveAnswers = (event: RequestEvent, examId: string, body: AutosaveIn) =>
   sendJson<AutosaveOut>(event, `/v1/exams/${encodeURIComponent(examId)}/answers`, 'PUT', body);
 
-/** Idempotent: later calls return the stored result. */
+/** The owner's draft questions in full (keys, schemes, checker reasons). */
+export const reviewQueue = (event: RequestEvent, limit = 20) =>
+  getJson<ReviewItem[]>(event, `/v1/questions/review${query({ limit })}`);
+
+/** 409 `citations_stale` / `not_a_draft`; 422 with comma-joined check codes. */
+export const reviewQuestion = (event: RequestEvent, questionId: string, body: ReviewIn) =>
+  sendJson<ReviewOut>(event, `/v1/questions/${encodeURIComponent(questionId)}/review`, 'POST', body);
+
+export const recomputeStats = (event: RequestEvent) =>
+  sendJson<StatsRecomputeOut>(event, '/v1/questions/stats/recompute', 'POST');
+
+/** Idempotent: later calls return the stored result; written items may stay pending. */
 export const submitExam = (event: RequestEvent, examId: string) =>
   sendJson<ExamView>(event, `/v1/exams/${encodeURIComponent(examId)}/submit`, 'POST');
 
@@ -61,6 +76,7 @@ export type ExamSummary = {
   question_count: number;
   answered: number;
   score_percent: number | null;
+  pending_grading?: number;
 };
 
 export function listExams(event: RequestEvent) {

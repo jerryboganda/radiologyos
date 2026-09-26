@@ -52,12 +52,15 @@ class QuestionPublic(BaseModel):
 class RejectedItem(BaseModel):
     index: int
     reasons: list[str]
+    duplicate_of: UUID | None = None
+    similarity: float | None = None
 
 
 class GenerateResponse(BaseModel):
     created: list[QuestionPublic]
     rejected: list[RejectedItem]
     excerpt_count: int
+    duplicate_method: Literal["embedding", "trigram"] = "trigram"
 
 
 class AttemptRequest(BaseModel):
@@ -83,6 +86,10 @@ class AttemptResponse(BaseModel):
     citations: list[dict[str, Any]]
 
 
+def _sba_only() -> list[ItemType]:
+    return ["sba"]
+
+
 class ExamCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     mode: Literal["practice", "exam"] = "exam"
@@ -90,18 +97,21 @@ class ExamCreate(BaseModel):
     topic: str | None = Field(default=None, min_length=2, max_length=200)
     count: int = Field(default=20, ge=1, le=200)
     time_limit_minutes: int | None = Field(default=None, ge=1, le=300)
+    types: list[ItemType] = Field(default_factory=_sba_only, min_length=1, max_length=4)
 
     @model_validator(mode="after")
     def require_limit_for_exam(self) -> ExamCreate:
         if self.mode == "exam" and self.time_limit_minutes is None:
             raise ValueError("exam mode requires time_limit_minutes")
+        self.types = list(dict.fromkeys(self.types))
         return self
 
 
 class AutosaveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     revision: int = Field(ge=0)
-    answers: dict[str, int | None] = Field(max_length=300)
+    answers: dict[str, int | None] = Field(default_factory=dict, max_length=300)
+    text_answers: dict[str, str | None] = Field(default_factory=dict, max_length=300)
 
 
 class AutosaveResponse(BaseModel):
@@ -109,6 +119,7 @@ class AutosaveResponse(BaseModel):
     revision: int
     deadline_at: datetime | None
     answers: dict[str, int]
+    text_answers: dict[str, str] = Field(default_factory=dict)
 
 
 class ExamSummary(BaseModel):
@@ -121,6 +132,7 @@ class ExamSummary(BaseModel):
     question_count: int
     answered: int
     score_percent: float | None
+    pending_grading: int = 0
 
 
 class ExamView(BaseModel):
@@ -134,6 +146,7 @@ class ExamView(BaseModel):
     server_time: datetime
     revision: int
     answers: dict[str, int]
+    text_answers: dict[str, str] = Field(default_factory=dict)
     questions: list[QuestionPublic]
     result: dict[str, Any] | None
 

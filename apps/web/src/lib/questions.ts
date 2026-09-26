@@ -48,6 +48,9 @@ export function parseExamForm(form: FormData): Parsed<ExamCreate> {
   }
   if (mode === 'exam' && minutes === null) return { ok: false, error: 'A timed exam needs a time limit.' };
   const target = form.get('exam_target');
+  const chosen = form.getAll('types').map(String);
+  const types = GENERATABLE.filter((type) => chosen.includes(type));
+  if (chosen.length > 0 && types.length === 0) return { ok: false, error: 'Choose at least one question type.' };
   return {
     ok: true,
     value: {
@@ -55,7 +58,8 @@ export function parseExamForm(form: FormData): Parsed<ExamCreate> {
       count,
       time_limit_minutes: minutes,
       exam_target: isExamTarget(target) ? target : null,
-      topic: topicOf(form.get('topic'))
+      topic: topicOf(form.get('topic')),
+      types: types.length ? types : ['sba']
     }
   };
 }

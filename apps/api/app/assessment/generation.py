@@ -29,6 +29,7 @@ MAX_PARALLEL_CHECKS = 4
 class GenerationResult:
     items: list[dict[str, Any]] = field(default_factory=list)
     rejected: list[dict[str, Any]] = field(default_factory=list)
+    indexes: list[int] = field(default_factory=list)  # generator index of each item
 
 
 def _safe_check(
@@ -88,6 +89,7 @@ def generate_items(
             outcome.rejected.append({"index": index, "reasons": problems})
         else:
             candidates.append(item)
+            outcome.indexes.append(index)
     if not candidates:
         return outcome
     workers = min(MAX_PARALLEL_CHECKS, len(candidates))

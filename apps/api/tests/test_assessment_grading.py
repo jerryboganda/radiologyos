@@ -7,6 +7,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
+from packages.assessment.exam_result import grade_exam
 from packages.assessment.grading import (
     ExamClosed,
     ExamExpired,
@@ -16,7 +17,6 @@ from packages.assessment.grading import (
     apply_seq_grade,
     autosave,
     exam_status,
-    grade_exam,
     grade_sba,
 )
 from packages.assessment.models import PointGrade, SeqGrade
@@ -110,7 +110,8 @@ def test_exam_grading_scores_topics_and_unanswered_items() -> None:
     assert (result["score"], result["max_score"], result["answered"]) == (1.0, 3.0, 2)
     assert result["percent"] == 33.3
     topics = {t["topic"]: t for t in result["by_topic"]}
-    assert topics["Chest"] == {"topic": "Chest", "correct": 1, "total": 2, "answered": 2}
+    assert topics["Chest"] == {"topic": "Chest", "correct": 1, "total": 2, "answered": 2,
+                               "score": 1.0, "max_score": 2.0}
     assert topics["Neuro"]["answered"] == 0
     assert [item["key"] for item in result["items"]] == [0, 1, 4]
 

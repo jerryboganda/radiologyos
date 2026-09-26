@@ -17,6 +17,8 @@ from uuid import UUID
 
 from packages.assessment.models import SeqGrade
 
+MAX_TEXT_CHARS = 8000
+
 
 class ExamError(Exception):
     """Base class; ``code`` is a stable, content-free identifier for the API."""
@@ -96,6 +98,8 @@ class ExamState:
     submitted_at: datetime | None
     revision: int
     answers: dict[str, int] = field(default_factory=dict)
+    text_answers: dict[str, str] = field(default_factory=dict)
+    free_text_ids: frozenset[str] = frozenset()
 
 
 def exam_status(exam: ExamState, now: datetime) -> str:
@@ -109,7 +113,7 @@ def exam_status(exam: ExamState, now: datetime) -> str:
 def autosave(
     exam: ExamState, revision: int, answers: Mapping[str, int | None], now: datetime
 ) -> dict[str, int]:
-    """Validate a compare-and-set autosave and return the merged answers."""
+    """Validate a compare-and-set autosave and return the merged option answers."""
     status = exam_status(exam, now)
     if status == "submitted":
         raise ExamClosed("exam already submitted")
@@ -117,11 +121,11 @@ def autosave(
         raise ExamExpired("exam time has expired")
     if revision != exam.revision:
         raise StaleRevision("revision does not match the saved exam")
-    allowed = {str(qid) for qid in exam.question_ids}
+    allowed = {str(qid) for qid in exam.question_ids} - exam.free_text_ids
     merged = dict(exam.answers)
     for question_id, option in answers.items():
         if question_id not in allowed:
-            raise InvalidAnswer("answer for a question outside this exam")
+            raise InvalidAnswer("option answer for a question outside this exam's SBA items")
         if option is None:
             merged.pop(question_id, None)
         elif not 0 <= option <= 4:
@@ -131,33 +135,19 @@ def autosave(
     return merged
 
 
-def grade_exam(
-    exam: ExamState, questions: Mapping[str, Mapping[str, Any]]
-) -> dict[str, Any]:
-    """Grade every exam item deterministically; unanswered items score zero."""
-    items = []
-    by_topic: dict[str, dict[str, float]] = {}
-    for question_id in (str(q) for q in exam.question_ids):
-        question = questions.get(question_id)
-        if question is None:  # deleted after the exam started: counts as unanswered
-            continue
-        item = grade_sba(question, exam.answers.get(question_id))
-        items.append(item)
-        topic = by_topic.setdefault(item["topic"] or "untagged",
-                                    {"correct": 0, "total": 0, "answered": 0})
-        topic["total"] += 1
-        topic["correct"] += 1 if item["correct"] else 0
-        topic["answered"] += 0 if item["selected_option"] is None else 1
-    score = sum(item["score"] for item in items)
-    total = len(exam.question_ids)
-    return {
-        "score": score,
-        "max_score": float(total),
-        "percent": round(100.0 * score / total, 1) if total else 0.0,
-        "answered": sum(1 for item in items if item["selected_option"] is not None),
-        "by_topic": [
-            {"topic": name, **{k: int(v) for k, v in counts.items()}}
-            for name, counts in sorted(by_topic.items())
-        ],
-        "items": items,
-    }
+def merge_text(exam: ExamState, text_answers: Mapping[str, str | None]) -> dict[str, str]:
+    """Merge free-text autosaves; call after ``autosave`` has checked status and revision.
+
+    Only the exam's free-text items accept text; blank text clears the answer.
+    """
+    merged = dict(exam.text_answers)
+    for question_id, answer in text_answers.items():
+        if question_id not in exam.free_text_ids:
+            raise InvalidAnswer("text answer for a question outside this exam's written items")
+        if answer is None or not answer.strip():
+            merged.pop(question_id, None)
+        elif len(answer) > MAX_TEXT_CHARS:
+            raise InvalidAnswer("text answer is too long")
+        else:
+            merged[question_id] = answer
+    return merged

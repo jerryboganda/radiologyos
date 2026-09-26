@@ -1,8 +1,9 @@
 // Exam-taking helpers: server-clock timer math, autosave diffs, 409 handling,
 // and the recent-exams cookie. Pure for node --test.
-import type { Answers } from './types/assessment.ts';
+import type { Answers, TextAnswers } from './types/assessment.ts';
 
-export type Changes = Record<string, number | null>;
+/** Changes to send: a new value, or null to clear. Options by default; text for written items. */
+export type Changes<V = number> = Record<string, V | null>;
 
 /** Server clock minus client clock, measured once when the exam view arrives. */
 export function clockOffset(serverTime: string, clientNow: number): number {
@@ -30,8 +31,8 @@ export function formatClock(ms: number): string {
 }
 
 /** What must be sent so the server matches `local`: changed options, null for cleared. */
-export function pendingChanges(saved: Answers, local: Answers): Changes {
-  const changes: Changes = {};
+export function pendingChanges<V>(saved: Record<string, V>, local: Record<string, V>): Changes<V> {
+  const changes: Changes<V> = {};
   for (const [id, option] of Object.entries(local)) {
     if (saved[id] !== option) changes[id] = option;
   }
@@ -45,8 +46,8 @@ export function pendingChanges(saved: Answers, local: Answers): Changes {
  * After a 409 stale revision: adopt the server's answers, then re-apply the
  * edits this tab made that were never saved (local differs from last saved).
  */
-export function rebase(server: Answers, saved: Answers, local: Answers): Answers {
-  const merged: Answers = { ...server };
+export function rebase<V>(server: Record<string, V>, saved: Record<string, V>, local: Record<string, V>): Record<string, V> {
+  const merged: Record<string, V> = { ...server };
   for (const [id, option] of Object.entries(pendingChanges(saved, local))) {
     if (option === null) delete merged[id];
     else merged[id] = option;
@@ -73,6 +74,15 @@ export function retryDelay(attempt: number): number {
   return Math.min(30_000, 1000 * 2 ** Math.max(0, attempt));
 }
 
-export function answeredCount(questionIds: string[], answers: Answers): number {
-  return questionIds.filter((id) => typeof answers[id] === 'number').length;
+export function isAnswered(id: string, answers: Answers, textAnswers: TextAnswers = {}): boolean {
+  return typeof answers[id] === 'number' || (textAnswers[id] ?? '').trim().length > 0;
+}
+
+export function answeredCount(questionIds: string[], answers: Answers, textAnswers: TextAnswers = {}): number {
+  return questionIds.filter((id) => isAnswered(id, answers, textAnswers)).length;
+}
+
+/** Written (free-text) exam items; everything else is answered by choosing an option. */
+export function isWritten(type: string): boolean {
+  return type === 'seq' || type === 'image_case' || type === 'viva';
 }

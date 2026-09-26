@@ -59,7 +59,8 @@ export const actions: Actions = {
       generated: {
         created: created.length,
         drafts: created.filter((q) => q.status !== 'active').length,
-        rejected: rejected.length,
+        rejected: rejected.filter((r) => !r.duplicate_of).length,
+        duplicates: rejected.filter((r) => r.duplicate_of).length,
         excerpts: excerpt_count
       }
     };

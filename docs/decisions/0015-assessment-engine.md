@@ -31,3 +31,45 @@ and single-question attempts are refused while the question sits in an open
 exam, which closes the preview's "attempts as answer oracle" hole. Generation
 and grading run synchronously in the request with the database transaction
 committed during the model call; bulk generation should move to a worker job.
+
+## Addendum (2026-09-26): assessment depth — migration `20260926_0011`
+
+Migration `20260926_0011` (after `20260926_0010`) is expand-only: nullable
+`questions.stem_norm`, `embedding vector(1024)` (HNSW cosine index),
+`embed_model`, `status_reason`, `status_changed_at`; `exams.text_answers`
+(jsonb, default `{}`); and two tenant tables, `item_stats` and `grading_jobs`,
+with ENABLE+FORCE RLS and a two-tenant runtime-role proof in
+`evals/checks/test_assessment_depth_live.py`. Exams now mix SBA with SEQ, image
+case, and viva items (`ExamCreate.types`, default `["sba"]`, which supersedes
+"SBA items only" above); written answers autosave in the same compare-and-set
+revision as options. On submit, SBA items and blank written items are graded at
+once, and each answered written item gets one `grading_jobs` row keyed by
+(tenant, exam, question, grading version). The API enqueues
+`radbrain.grade_exam_item` only after commit; the worker grades with
+`seq_grade` outside any transaction, then one transaction stores the outcome,
+fills the item into the stored result (per-item `status` pending/graded/failed;
+the summary counts pending as zero and reports `grading`), and appends the
+attempt. A duplicate task is a no-op while another run holds the job (a run
+untouched for 15 minutes is taken over); a usage-limit or missing-runtime pause
+re-queues after 30 minutes (failed after 48 runs), a model error retries after
+60 s (failed after 3 errors), and reading the exam re-queues jobs untouched for
+10 minutes. Item statistics follow spec section 8 step 7: facility is the mean
+score fraction, discrimination is the item-rest point-biserial correlation over
+exam attempts, and after 50 attempts an active item retires (`status_reason =
+stats:<code>`, audited) when facility leaves 0.25–0.85 or, once 20 exam
+responses exist, discrimination is below 0.20. Statistics are recomputed per
+owner inside that owner's tenant context — by the worker when an exam finishes
+grading and on demand via `POST /v1/questions/stats/recompute`; a nightly
+cross-tenant beat was rejected because it needs a cross-tenant resolver that
+widens RLS. Generation rejects near-duplicates of the owner's bank before
+insert, one item at a time so a batch also dedupes itself: stem-embedding cosine
+≥ 0.92 when Voyage is configured, otherwise (or when embedding fails) `pg_trgm`
+`similarity()` ≥ 0.9 over normalised stems; rejects return `duplicate_of` and
+`similarity`. The owner's review queue (`GET /v1/questions/review`, `POST
+/v1/questions/{id}/review`) shows drafts in full with checker reasons; approve
+activates a draft only when the deterministic checks pass and every cited
+source page and figure still exists in a live source (chunk ids are not used
+because re-chunking replaces them); reject retires it; edit changes wording
+only (citations are not editable) and re-runs the checks. Every review action
+is audited with ids and field names only. No new model agent, prompt, or
+dependency was added.
