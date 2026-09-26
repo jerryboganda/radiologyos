@@ -12,7 +12,10 @@ covered from the first night it exists. Do not add a project-local backup.
 
 ## How it works
 
-- `platform-backup` runs `bin/backup.sh` nightly at 02:30 host time.
+- `platform-backup` runs `bin/backup.sh` daily at 00:45 UTC (02:45 CEST) through
+  `bin/backup-loop.sh`, retrying six times five minutes apart while Postgres is
+  not ready. Before 2026-09-26 it ran 24 h after container start, and a host
+  reboot made it skip a night.
 - Each database is dumped with `pg_dump -Fc` into
   `/opt/platform/backups/nightly/<YYYYMMDD>/`, alongside `MANIFEST.sha256`.
 - Seven nights are retained. The job aborts if the filesystem drops below a
@@ -77,6 +80,27 @@ of the current state so the restore itself is reversible:
 docker exec platform-backup sh /backup.sh
 ```
 
+## Off-host copy (Google Drive)
+
+`/opt/radiologyos/offsite-backup-gdrive.sh` (source `infra/ops/offsite-backup-gdrive.sh`)
+runs from host cron at 03:30 local, after the platform dump. It uses the owner's
+Drive, the same `gdrive:` rclone remote as the OET backup, under
+`radiologyos-backups/` (owner decision 2026-09-26).
+
+- `db/<YYYYMMDD>/radiologyos.dump` and `keycloak.dump`: checked against the
+  platform `MANIFEST.sha256`, uploaded, and md5-verified on Drive before any
+  pruning. The newest 14 days are kept.
+- `objects/current/`: an `rclone sync` mirror of the `radiologyos` MinIO bucket
+  (originals, page images, figures). Throttled to 8 MB/s at low CPU/IO priority.
+- `objects/deleted/<YYYYMMDD>/`: objects that left the bucket that day, kept 30
+  days, so an accidental or retention delete stays recoverable for a month.
+- Log: `/var/log/radiologyos-offsite-backup.log`. Last success timestamp:
+  `/opt/radiologyos/offsite-backup.last-success`. Alert if it is over 26 h old.
+- Restore: `rclone copy gdrive:radiologyos-backups/db/<day>/radiologyos.dump .`,
+  then follow "Restoring for real". For objects, run
+  `rclone copy gdrive:radiologyos-backups/objects/current radminio:radiologyos`,
+  with the MinIO env from the script.
+
 ## Common failures
 
 | Symptom | Cause | Fix |
@@ -84,6 +108,7 @@ docker exec platform-backup sh /backup.sh
 | Drill reports no dump | the database was created after the last run | `docker exec platform-backup sh /backup.sh` |
 | Backup aborted with no output | disk fell below the 15 GB floor | free space; the guard is deliberate |
 | `pg_restore` complains about existing objects | `--clean` needs a terminated connection list | terminate backends first, as above |
+| Off-host log shows `ERROR` | Drive auth expired or dump missing | `rclone about gdrive:`; re-run the script by hand |
 | Checksum mismatch | truncated or corrupted dump | treat as a restore failure; do not retry against it |
 | Restored database is missing RLS | wrong dump, or restored to the wrong database | re-run the drill to compare |
 
@@ -96,12 +121,10 @@ must not be deleted on the reasoning that the code is in Git.
 
 ## Known limitations
 
-- **Nightly dumps are on-box only.** The platform has no off-host replication
-  configured. A disk loss loses every dump. This is recorded platform debt, not
-  something radbrain can fix for itself.
-- **MinIO objects are not in this job.** The `radiologyos` bucket is on the
-  `platform_minio_data` volume and is not covered by `bin/backup.sh`. It needs a
-  separate `mc mirror` if it ever holds data worth keeping; today it holds only
-  synthetic preview artifacts.
+- **Off-host copy relies on the shared `gdrive:` remote.** It uses rclone's
+  shared Google client id, which Google is retiring during 2026; give the
+  remote its own client id before then, or the upload starts failing.
+- **Off-host dumps are not client-side encrypted.** They sit in the owner's
+  private Drive (encrypted at rest by Google, owner-only access).
 - **Redis is not backed up.** Only durable state is expected to live there.
 - Retention is seven nights, so the recovery window for a bad write is limited.
