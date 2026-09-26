@@ -110,10 +110,33 @@ SELECT count(*) FROM app.resolve_memberships(:'sub');
 SQL
 }
 
+create_bucket() {
+  # The disposable object store starts empty; production's bucket already exists.
+  docker compose exec -T api python - <<'PY'
+import os
+
+import boto3
+from botocore.exceptions import ClientError
+
+client = boto3.client(
+    "s3", endpoint_url=os.environ["S3_ENDPOINT"], region_name=os.environ["S3_REGION"],
+    aws_access_key_id=os.environ["S3_ACCESS_KEY"],
+    aws_secret_access_key=os.environ["S3_SECRET_KEY"],
+)
+bucket = os.environ["S3_BUCKET"]
+try:
+    client.head_bucket(Bucket=bucket)
+except ClientError:
+    client.create_bucket(Bucket=bucket)
+print("bucket ready")
+PY
+}
+
 admin_login
 set_client_secret
 create_user
 provision_membership
+create_bucket
 echo "subject: $SUBJECT"
 if [ -n "${GITHUB_ENV:-}" ]; then
   echo "RADBRAIN_E2E_EXPECTED_SUBJECT=$SUBJECT" >> "$GITHUB_ENV"
