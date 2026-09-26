@@ -2655,6 +2655,864 @@
         }
       }
     },
+    "/v1/study/profile": {
+      "put": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Put Profile",
+        "operationId": "put_profile_v1_study_profile_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Get Profile",
+        "operationId": "get_profile_v1_study_profile_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/today": {
+      "get": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Today",
+        "operationId": "today_v1_study_today_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Refresh"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/cards": {
+      "post": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Create Card",
+        "operationId": "create_card_v1_study_cards_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/cards/due": {
+      "get": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Due Cards",
+        "operationId": "due_cards_v1_study_cards_due_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CardOut"
+                  },
+                  "title": "Response Due Cards V1 Study Cards Due Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/cards/generate": {
+      "post": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Generate Cards",
+        "operationId": "generate_cards_v1_study_cards_generate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/cards/{card_id}/review": {
+      "post": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Review Card",
+        "operationId": "review_card_v1_study_cards__card_id__review_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/study/progress": {
+      "get": {
+        "tags": [
+          "study"
+        ],
+        "summary": "Progress",
+        "operationId": "progress_v1_study_progress_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/preview/sources": {
       "post": {
         "tags": [
@@ -9088,6 +9946,187 @@
         ],
         "title": "Body_upload_source_v1_library_sources_post"
       },
+      "CardCitation": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Id"
+          },
+          "source_title": {
+            "type": "string",
+            "title": "Source Title"
+          },
+          "chunk_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Id"
+          },
+          "page_from": {
+            "type": "integer",
+            "title": "Page From"
+          },
+          "page_to": {
+            "type": "integer",
+            "title": "Page To"
+          },
+          "block_refs": {
+            "items": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Block Refs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_id",
+          "source_title",
+          "page_from",
+          "page_to"
+        ],
+        "title": "CardCitation"
+      },
+      "CardIn": {
+        "properties": {
+          "chunk_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Chunk Id"
+          },
+          "curriculum_code": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[A-Z0-9][A-Z0-9._-]*$",
+            "title": "Curriculum Code"
+          },
+          "topic": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Topic"
+          },
+          "front": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Front"
+          },
+          "back": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Back"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "chunk_id",
+          "curriculum_code",
+          "topic",
+          "front",
+          "back"
+        ],
+        "title": "CardIn"
+      },
+      "CardOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "curriculum_code": {
+            "type": "string",
+            "title": "Curriculum Code"
+          },
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          },
+          "front": {
+            "type": "string",
+            "title": "Front"
+          },
+          "back": {
+            "type": "string",
+            "title": "Back"
+          },
+          "origin": {
+            "type": "string",
+            "title": "Origin"
+          },
+          "citation": {
+            "$ref": "#/components/schemas/CardCitation"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "stability": {
+            "type": "number",
+            "title": "Stability"
+          },
+          "difficulty": {
+            "type": "number",
+            "title": "Difficulty"
+          },
+          "due_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Due At"
+          },
+          "last_review_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Review At"
+          },
+          "reps": {
+            "type": "integer",
+            "title": "Reps"
+          },
+          "lapses": {
+            "type": "integer",
+            "title": "Lapses"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "curriculum_code",
+          "topic",
+          "front",
+          "back",
+          "origin",
+          "citation",
+          "state",
+          "stability",
+          "difficulty",
+          "due_at",
+          "last_review_at",
+          "reps",
+          "lapses"
+        ],
+        "title": "CardOut"
+      },
       "CheckoutRequest": {
         "properties": {
           "plan": {
@@ -9400,6 +10439,67 @@
         ],
         "title": "FigureHit"
       },
+      "GenerateIn": {
+        "properties": {
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "chunk_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Chunk Ids"
+          },
+          "max_cards": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Cards",
+            "default": 8
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "GenerateIn"
+      },
+      "GenerateOut": {
+        "properties": {
+          "created": {
+            "items": {
+              "$ref": "#/components/schemas/CardOut"
+            },
+            "type": "array",
+            "title": "Created"
+          },
+          "rejected": {
+            "type": "integer",
+            "title": "Rejected"
+          },
+          "chunks_used": {
+            "type": "integer",
+            "title": "Chunks Used"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created",
+          "rejected",
+          "chunks_used"
+        ],
+        "title": "GenerateOut"
+      },
       "GenerateRequest": {
         "properties": {
           "source_ids": {
@@ -9561,6 +10661,248 @@
         ],
         "title": "ManualPaymentRequest"
       },
+      "PlanBlock": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "review",
+              "learn",
+              "test",
+              "viva"
+            ],
+            "title": "Kind"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "due_cards": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Cards"
+          },
+          "target_cards": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Cards"
+          },
+          "new_cards": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Cards"
+          },
+          "topics": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PlanTopic"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topics"
+          },
+          "questions": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Questions"
+          },
+          "from_today_topics": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Today Topics"
+          },
+          "interleaved_weak": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interleaved Weak"
+          },
+          "weak_topics": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weak Topics"
+          },
+          "mock_paper_suggested": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mock Paper Suggested"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "image_prompts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Prompts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "minutes"
+        ],
+        "title": "PlanBlock"
+      },
+      "PlanOut": {
+        "properties": {
+          "plan_version": {
+            "type": "integer",
+            "title": "Plan Version"
+          },
+          "plan_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Plan Date"
+          },
+          "exam_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Exam Date"
+          },
+          "days_remaining": {
+            "type": "integer",
+            "title": "Days Remaining"
+          },
+          "phase": {
+            "type": "string",
+            "title": "Phase"
+          },
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "retention": {
+            "type": "number",
+            "title": "Retention"
+          },
+          "exam_targets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Exam Targets"
+          },
+          "weight_policy": {
+            "type": "string",
+            "title": "Weight Policy"
+          },
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/PlanBlock"
+            },
+            "type": "array",
+            "title": "Blocks"
+          },
+          "priorities": {
+            "items": {
+              "$ref": "#/components/schemas/PriorityItem"
+            },
+            "type": "array",
+            "title": "Priorities"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan_version",
+          "plan_date",
+          "exam_date",
+          "days_remaining",
+          "phase",
+          "rule",
+          "minutes",
+          "retention",
+          "exam_targets",
+          "weight_policy",
+          "blocks",
+          "priorities",
+          "generated_at"
+        ],
+        "title": "PlanOut"
+      },
       "PlanResponse": {
         "properties": {
           "plan": {
@@ -9594,6 +10936,34 @@
           "max_sources"
         ],
         "title": "PlanResponse"
+      },
+      "PlanTopic": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "slots": {
+            "type": "integer",
+            "title": "Slots"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "minutes",
+          "slots"
+        ],
+        "title": "PlanTopic"
       },
       "PortalRequest": {
         "properties": {
@@ -10926,6 +12296,248 @@
         ],
         "title": "PreviewTutorResponse"
       },
+      "PriorityItem": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "priority": {
+            "type": "number",
+            "title": "Priority"
+          },
+          "mastery": {
+            "type": "number",
+            "title": "Mastery"
+          },
+          "band": {
+            "type": "string",
+            "title": "Band"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "priority",
+          "mastery",
+          "band"
+        ],
+        "title": "PriorityItem"
+      },
+      "ProfileIn": {
+        "properties": {
+          "exam_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Exam Date"
+          },
+          "exam_targets": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "fcps2_theory",
+                "fcps2_toacs",
+                "imm",
+                "frcr"
+              ]
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Exam Targets"
+          },
+          "daily_minutes": {
+            "type": "integer",
+            "maximum": 600.0,
+            "minimum": 15.0,
+            "title": "Daily Minutes",
+            "default": 90
+          },
+          "weekday_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 600.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekday Minutes"
+          },
+          "weekend_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 600.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekend Minutes"
+          },
+          "timezone": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Timezone",
+            "default": "UTC"
+          },
+          "reminder": {
+            "$ref": "#/components/schemas/ReminderSettings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "exam_date"
+        ],
+        "title": "ProfileIn"
+      },
+      "ProfileOut": {
+        "properties": {
+          "exam_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Exam Date"
+          },
+          "exam_targets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Exam Targets"
+          },
+          "daily_minutes": {
+            "type": "integer",
+            "title": "Daily Minutes"
+          },
+          "weekday_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekday Minutes"
+          },
+          "weekend_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekend Minutes"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "reminder": {
+            "$ref": "#/components/schemas/ReminderSettings"
+          },
+          "days_remaining": {
+            "type": "integer",
+            "title": "Days Remaining"
+          },
+          "phase": {
+            "type": "string",
+            "title": "Phase"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exam_date",
+          "exam_targets",
+          "daily_minutes",
+          "weekday_minutes",
+          "weekend_minutes",
+          "timezone",
+          "reminder",
+          "days_remaining",
+          "phase"
+        ],
+        "title": "ProfileOut"
+      },
+      "ProgressOut": {
+        "properties": {
+          "exam_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Exam Date"
+          },
+          "days_remaining": {
+            "type": "integer",
+            "title": "Days Remaining"
+          },
+          "phase": {
+            "type": "string",
+            "title": "Phase"
+          },
+          "retention": {
+            "type": "number",
+            "title": "Retention"
+          },
+          "cards": {
+            "type": "integer",
+            "title": "Cards"
+          },
+          "due_now": {
+            "type": "integer",
+            "title": "Due Now"
+          },
+          "new_cards": {
+            "type": "integer",
+            "title": "New Cards"
+          },
+          "reviews_total": {
+            "type": "integer",
+            "title": "Reviews Total"
+          },
+          "reviews_today": {
+            "type": "integer",
+            "title": "Reviews Today"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/TopicProgress"
+            },
+            "type": "array",
+            "title": "Topics"
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exam_date",
+          "days_remaining",
+          "phase",
+          "retention",
+          "cards",
+          "due_now",
+          "new_cards",
+          "reviews_total",
+          "reviews_today",
+          "topics",
+          "notice"
+        ],
+        "title": "ProgressOut"
+      },
       "QuestionPublic": {
         "properties": {
           "id": {
@@ -11044,6 +12656,69 @@
           "reasons"
         ],
         "title": "RejectedItem"
+      },
+      "ReminderSettings": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": false
+          },
+          "time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ReminderSettings"
+      },
+      "ReviewIn": {
+        "properties": {
+          "rating": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Rating",
+            "description": "1 Again, 2 Hard, 3 Good, 4 Easy"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rating"
+        ],
+        "title": "ReviewIn"
+      },
+      "ReviewOut": {
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/CardOut"
+          },
+          "scheduled_days": {
+            "type": "integer",
+            "title": "Scheduled Days"
+          },
+          "retention": {
+            "type": "number",
+            "title": "Retention"
+          }
+        },
+        "type": "object",
+        "required": [
+          "card",
+          "scheduled_days",
+          "retention"
+        ],
+        "title": "ReviewOut"
       },
       "SearchHit": {
         "properties": {
@@ -11716,6 +13391,64 @@
           "message_count"
         ],
         "title": "ThreadSummary"
+      },
+      "TopicProgress": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "mastery": {
+            "type": "number",
+            "title": "Mastery"
+          },
+          "band": {
+            "type": "string",
+            "title": "Band"
+          },
+          "accuracy": {
+            "type": "number",
+            "title": "Accuracy"
+          },
+          "retrievability": {
+            "type": "number",
+            "title": "Retrievability"
+          },
+          "coverage": {
+            "type": "number",
+            "title": "Coverage"
+          },
+          "cards": {
+            "type": "integer",
+            "title": "Cards"
+          },
+          "lapses": {
+            "type": "integer",
+            "title": "Lapses"
+          },
+          "priority": {
+            "type": "number",
+            "title": "Priority"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "mastery",
+          "band",
+          "accuracy",
+          "retrievability",
+          "coverage",
+          "cards",
+          "lapses",
+          "priority"
+        ],
+        "title": "TopicProgress"
       },
       "UploadResponse": {
         "properties": {

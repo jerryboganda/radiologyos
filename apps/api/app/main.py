@@ -13,6 +13,7 @@ from apps.api.app.api.preview_assessment import router as preview_assessment_rou
 from apps.api.app.api.preview_knowledge import router as preview_knowledge_router
 from apps.api.app.api.preview_learning import router as preview_learning_router
 from apps.api.app.api.preview_operations import router as preview_operations_router
+from apps.api.app.api.study import router as study_router
 from apps.api.app.api.tutor import router as tutor_router
 from apps.api.app.core.config import get_settings
 from apps.api.app.db.session import (
@@ -49,6 +50,7 @@ app.include_router(library_router)
 app.include_router(notifications_router)
 app.include_router(tutor_router)
 app.include_router(assessment_router)
+app.include_router(study_router)
 app.include_router(preview_router)
 app.include_router(billing_router)
 app.include_router(preview_knowledge_router)
