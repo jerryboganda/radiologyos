@@ -214,3 +214,19 @@ def test_escalation_migration_is_expand_only_with_forced_rls() -> None:
     assert "DROP COLUMN" not in upgrade and "RENAME" not in upgrade
     assert "FORCE ROW LEVEL SECURITY" in upgrade and "model_escalations_tenant_all" in upgrade
     assert 'down_revision = "20260926_0105"' in source
+
+
+def test_bulk_work_has_its_own_queues_so_interactive_work_never_waits() -> None:
+    from apps.worker.app.celery_app import celery_app
+
+    route = celery_app.amqp.router.route
+    queue = {name: route({}, name)["queue"].name
+             for name in ("radbrain.ingest_source", "radbrain.knowledge_extract",
+                          "radbrain.knowledge_depth", "radbrain.concept_note",
+                          "radbrain.viva_step", "radbrain.send_due_reminders",
+                          "radbrain.quota_alert")}
+    assert queue["radbrain.ingest_source"] == "ingest"
+    assert {queue[n] for n in ("radbrain.knowledge_extract", "radbrain.knowledge_depth",
+                               "radbrain.concept_note")} == {"knowledge"}
+    assert {queue[n] for n in ("radbrain.viva_step", "radbrain.send_due_reminders",
+                               "radbrain.quota_alert")} == {"celery"}

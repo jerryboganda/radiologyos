@@ -156,7 +156,7 @@ services:
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
-    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "--beat", "--schedule=/tmp/celerybeat-schedule", "--loglevel=INFO", "--concurrency=1"]
+    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "--beat", "--schedule=/tmp/celerybeat-schedule", "--loglevel=INFO", "--concurrency=1", "-Q", "celery,ingest,knowledge"]
     healthcheck:
       test: ["CMD-SHELL", "celery -A apps.worker.app.celery_app:celery_app inspect ping --timeout=5 | grep -q pong"]
       interval: 10s

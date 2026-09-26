@@ -89,10 +89,13 @@ services:
     cpus: "1.0"
     mem_limit: 1g
 
-  worker:
+  # Bulk worker (ADR 0037): library pages and knowledge only, six at a time,
+  # taking turns between the two queues. Interactive work runs in
+  # worker-interactive, so it never waits behind a long library run.
+  worker: &worker
     <<: *restricted
     image: ${RADBRAIN_PYTHON_IMAGE:?RADBRAIN_PYTHON_IMAGE is required}
-    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "--beat", "--schedule=/tmp/celerybeat-schedule", "--loglevel=INFO", "--concurrency=6"]
+    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "-Q", "ingest,knowledge", "-n", "bulk@%h", "--loglevel=INFO", "--concurrency=6"]
     environment:
       DATABASE_URL: ${DATABASE_URL:?required}
       APP_ENV: ${APP_ENV:-production}
@@ -134,6 +137,13 @@ services:
     # Six parallel jobs (owner, 2026-09-26): model calls mostly wait on the network.
     cpus: "3.0"
     mem_limit: 4g
+
+  # Reminders, reports, viva turns, grading, alerts, and the beat scheduler.
+  worker-interactive:
+    <<: *worker
+    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "-Q", "celery", "-n", "interactive@%h", "--beat", "--schedule=/tmp/celerybeat-schedule", "--loglevel=INFO", "--concurrency=2"]
+    cpus: "1.0"
+    mem_limit: 1536m
 
   embedder:
     # Switched off by the owner (2026-09-26): all embeddings use voyage-4-large

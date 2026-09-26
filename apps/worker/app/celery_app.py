@@ -8,6 +8,7 @@ from apps.worker.app.ops import worker_signals  # noqa: F401
 from celery import Celery
 
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+DEFAULT_QUEUE, INGEST_QUEUE, KNOWLEDGE_QUEUE = "celery", "ingest", "knowledge"
 celery_app = Celery(
     "radbrain",
     broker=redis_url,
@@ -31,6 +32,16 @@ celery_app.conf.update(
     task_track_started=True,
     timezone="UTC",
     worker_prefetch_multiplier=1,
+    # Separate queues (ADR 0037): long bulk work never holds up reminders, viva
+    # turns, or grading, and knowledge passes take turns with page reading
+    # instead of waiting behind every book's re-queued page batches.
+    task_default_queue=DEFAULT_QUEUE,
+    task_routes={
+        "radbrain.ingest_source": {"queue": INGEST_QUEUE},
+        "radbrain.knowledge_extract": {"queue": KNOWLEDGE_QUEUE},
+        "radbrain.knowledge_depth": {"queue": KNOWLEDGE_QUEUE},
+        "radbrain.concept_note": {"queue": KNOWLEDGE_QUEUE},
+    },
     beat_schedule={
         "study-reminders": {"task": "radbrain.send_due_reminders", "schedule": 300.0},
         # Resolvers pick users by local time (Monday 06:00+, 22:00+) and skip done work.
