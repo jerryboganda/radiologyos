@@ -1,8 +1,18 @@
-import { fail } from '@sveltejs/kit';
-import { dataOr, loadProblem } from '$lib/api-state';
+import { fail, type RequestEvent } from '@sveltejs/kit';
+import { dataOr, isKind, loadProblem, type ApiResult } from '$lib/api-state';
+import { isAdminRole } from '$lib/admin-usage';
 import { parseDeleteForm } from '$lib/data-rights';
+import { confirmsQuota } from '$lib/pipeline-control';
 import { parseReminderForm } from '$lib/push';
-import { loadModelUsageCard, loadUsageCard } from '$lib/server/admin';
+import {
+  approvePipeline,
+  dismissPipeline,
+  loadModelUsageCard,
+  loadPipelineCard,
+  loadUsageCard,
+  pausePipeline,
+  resumePipeline
+} from '$lib/server/admin';
 import { failureMessage } from '$lib/server/client';
 import { deleteAccount, listExports, requestExport } from '$lib/server/data-rights';
 import { getSettings, getVapidKey, saveSettings } from '$lib/server/notifications';
@@ -12,13 +22,14 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
   event.depends('app:exports');
-  const [profile, settings, vapid, exports, usageCard, modelUsageCard] = await Promise.all([
+  const [profile, settings, vapid, exports, usageCard, modelUsageCard, pipelineCard] = await Promise.all([
     getProfile(event),
     getSettings(event),
     getVapidKey(event),
     listExports(event),
     loadUsageCard(event),
-    loadModelUsageCard(event)
+    loadModelUsageCard(event),
+    loadPipelineCard(event)
   ]);
   return {
     profile: dataOr(profile, null),
@@ -29,11 +40,32 @@ export const load: PageServerLoad = async (event) => {
     exports: dataOr(exports, []),
     exportsProblem: loadProblem(exports),
     usageCard,
-    modelUsageCard
+    modelUsageCard,
+    pipelineCard
   };
 };
 
+const PIPELINE = 'pipeline';
+
+/** Run an admin-only pipeline call; the API also enforces the role (403). */
+async function pipelineAction<T>(event: RequestEvent, call: (event: RequestEvent) => Promise<ApiResult<T>>, message: (data: T) => string) {
+  if (!isAdminRole(event.locals.user?.tenantRole)) return fail(403, { section: PIPELINE, error: 'Only an admin can control library processing.' });
+  const result = await call(event);
+  if (result.state !== 'ok') return fail(isKind(result, 'forbidden') ? 403 : 400, { section: PIPELINE, error: failureMessage(result) });
+  return { section: PIPELINE, message: message(result.data) };
+}
+
 export const actions: Actions = {
+  pausePipeline: (event) => pipelineAction(event, pausePipeline, () => 'Paused. Work stops after the item in progress is saved.'),
+  resumePipeline: (event) => pipelineAction(event, resumePipeline, () => 'Resumed. Processing continues where it stopped.'),
+  approvePipeline: async (event) => {
+    if (!confirmsQuota(await event.request.formData())) {
+      return fail(400, { section: PIPELINE, error: 'Tick the box to confirm this uses your Claude quota.' });
+    }
+    return pipelineAction(event, approvePipeline, () => 'Approved. Claude Opus will work through the waiting items.');
+  },
+  dismissPipeline: (event) =>
+    pipelineAction(event, dismissPipeline, (data) => `Dismissed ${data.dismissed} item${data.dismissed === 1 ? '' : 's'} without using Claude.`),
   profile: async (event) => {
     const form = await event.request.formData();
     const existing = await getProfile(event);

@@ -1,9 +1,11 @@
-// Admin API client: embedding budget usage and its alerts (org_admin / superadmin).
+// Admin API client: embedding budget usage and its alerts, model usage, and
+// library pipeline controls (org_admin / superadmin).
 import type { RequestEvent } from '@sveltejs/kit';
 import { isKind, loadProblem, type LoadProblem } from '$lib/api-state';
 import { isAdminRole, isEmbeddingUsage, selectBanner } from '$lib/admin-usage';
 import { isModelUsage } from '$lib/model-usage';
-import type { AdminBanner, EmbeddingUsage, ModelUsage } from '$lib/types/admin';
+import { isPipelineStatus } from '$lib/pipeline-control';
+import type { AdminBanner, EmbeddingUsage, ModelUsage, PipelineStatus } from '$lib/types/admin';
 import { getJson, sendJson, type CallOptions } from './client';
 
 /** The shell check must never hold a page back for long. */
@@ -48,6 +50,32 @@ export async function loadModelUsageCard(event: RequestEvent): Promise<ModelUsag
     return { usage: null, problem: { offline: false, message: 'The model usage report had an unexpected format.' } };
   }
   return { usage: result.data, problem: null };
+}
+
+export const getPipelineStatus = (event: RequestEvent, options?: CallOptions) =>
+  getJson<PipelineStatus>(event, '/v1/admin/pipeline', options);
+
+/** 204 on success. */
+export const pausePipeline = (event: RequestEvent) => sendJson<void>(event, '/v1/admin/pipeline/pause', 'POST');
+/** 204 on success. */
+export const resumePipeline = (event: RequestEvent) => sendJson<void>(event, '/v1/admin/pipeline/resume', 'POST');
+/** 202: the worker redoes the waiting items on Claude Opus (spends the owner's Claude quota). */
+export const approvePipeline = (event: RequestEvent) => sendJson<{ status: string }>(event, '/v1/admin/pipeline/approve', 'POST');
+/** Closes the waiting items without using Claude. */
+export const dismissPipeline = (event: RequestEvent) => sendJson<{ dismissed: number }>(event, '/v1/admin/pipeline/dismiss', 'POST');
+
+export type PipelineCard = { status: PipelineStatus; problem: null } | { status: null; problem: LoadProblem };
+
+/** Settings card for library processing (ADR 0037); null hides it (not an admin, or 403). */
+export async function loadPipelineCard(event: RequestEvent): Promise<PipelineCard | null> {
+  if (!isAdminRole(event.locals.user?.tenantRole)) return null;
+  const result = await getPipelineStatus(event);
+  if (isKind(result, 'forbidden')) return null;
+  if (result.state !== 'ok') return { status: null, problem: loadProblem(result) ?? { offline: true, message: '' } };
+  if (!isPipelineStatus(result.data)) {
+    return { status: null, problem: { offline: false, message: 'The processing report had an unexpected format.' } };
+  }
+  return { status: result.data, problem: null };
 }
 
 /**

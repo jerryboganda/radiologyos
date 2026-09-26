@@ -97,3 +97,30 @@ export interface AgentUsage {
   tokens: number;
   costUsd: number;
 }
+
+// Library pipeline controls (GET /v1/admin/pipeline, ADR 0037). Counts and names only.
+export interface PipelineStatus {
+  /** null = running; "manual" = paused by the owner; "quota" = a provider's usage window ran out. */
+  paused: string | null;
+  /** Epoch seconds when a quota pause is expected to lift. */
+  resume_at: number | null;
+  /** Provider whose quota ran out, e.g. "chatgpt". */
+  provider: string | null;
+  /** vision_status -> count ("pending", "done", "failed", ...). */
+  pages: Record<string, number>;
+  /** Ingest job status -> count ("queued", "running", "succeeded", "failed", "cancelled"). */
+  jobs: Record<string, number>;
+  /** Knowledge run status -> count ("succeeded", "failed", "skipped"). */
+  knowledge_units: Record<string, number>;
+  /** Agent -> items waiting for the owner's OK to use Claude Opus. */
+  awaiting_owner: Record<string, number>;
+}
+
+export type PipelineTone = 'ok' | 'warn' | 'idle';
+
+/** One line of the awaiting-approval breakdown ("12 pages"). */
+export interface AwaitingPart {
+  agent: string;
+  count: number;
+  text: string;
+}

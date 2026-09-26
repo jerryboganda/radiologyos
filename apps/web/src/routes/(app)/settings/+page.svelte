@@ -7,6 +7,7 @@
   import DeleteAccount from '$lib/components/settings/DeleteAccount.svelte';
   import EmbeddingUsage from '$lib/components/settings/EmbeddingUsage.svelte';
   import ModelUsage from '$lib/components/settings/ModelUsage.svelte';
+  import PipelineControl from '$lib/components/settings/PipelineControl.svelte';
   import InstallApp from '$lib/components/settings/InstallApp.svelte';
   import ReminderForm from '$lib/components/settings/ReminderForm.svelte';
   import ThemeToggle from '$lib/components/shell/ThemeToggle.svelte';
@@ -54,6 +55,14 @@
     <section id="model-usage" class="panel scroll-mt-20 p-5 sm:p-6" aria-labelledby="model-usage-heading">
       <h2 id="model-usage-heading" class="text-xl font-semibold text-ink">Model calls</h2>
       <ModelUsage usage={data.modelUsageCard.usage} problem={data.modelUsageCard.problem} />
+    </section>
+  {/if}
+
+  {#if data.pipelineCard}
+    <section id="library-processing" class="panel scroll-mt-20 p-5 sm:p-6" aria-labelledby="library-processing-heading">
+      <h2 id="library-processing-heading" class="text-xl font-semibold text-ink">Library processing</h2>
+      <PipelineControl status={data.pipelineCard.status} problem={data.pipelineCard.problem} />
+      {@render feedback('pipeline')}
     </section>
   {/if}
 
