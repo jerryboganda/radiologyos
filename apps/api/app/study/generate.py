@@ -113,7 +113,10 @@ async def generate_cards(
     chunks = await _select_chunks(repo, user_id, source_id, chunk_ids)
     codes = curriculum_codes()
     prompt = build_prompt(chunks, sorted(codes), max_cards)
+    # Close the read transaction while the model works (it can take minutes).
+    await repo.release()
     batch = await asyncio.to_thread(_call_agent, transport, prompt)
+    await repo.rebind()
     by_id = {c["id"]: c for c in chunks}
     accepted, rejected = accept_cards(batch, by_id, codes, max_cards)
     created = []

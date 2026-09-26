@@ -29,6 +29,12 @@ class MemoryStudyRepo:
     async def commit(self) -> None:
         self.commits += 1
 
+    async def release(self) -> None:
+        self.commits += 1
+
+    async def rebind(self) -> None:
+        return None
+
     async def get_profile(self, user_id: UUID) -> dict[str, Any] | None:
         return self.profiles.get(user_id)
 

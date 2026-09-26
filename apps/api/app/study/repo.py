@@ -52,6 +52,16 @@ class SqlStudyRepo:
     async def commit(self) -> None:
         await self.session.commit()
 
+    async def release(self) -> None:
+        """End the current transaction before a long model call."""
+        await self.session.commit()
+
+    async def rebind(self) -> None:
+        """Re-apply the transaction-local tenant setting after ``release``."""
+        await self.session.execute(
+            text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(self.tenant_id)}
+        )
+
     async def get_profile(self, user_id: UUID) -> dict[str, Any] | None:
         return await self._one(
             f"SELECT {PROFILE_COLUMNS} FROM study_profiles WHERE user_id = :u", {"u": user_id})  # nosec B608 - constant column list; all values are bound parameters
