@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "fixture_set_id": "assessment_v1",
+  "status": "review_required",
+  "data_class": "synthetic",
+  "cases": [
+    {
+      "case_id": "generate-sba-crazy-paving",
+      "prompt": "question_generate/v1.yaml",
+      "route": "reason",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "item_type": "sba",
+        "exam_target": "fcps2_theory",
+        "count": 1,
+        "excerpts": [
+          {"ref": "E1", "text": "Pulmonary alveolar proteinosis shows crazy paving on HRCT: ground-glass opacity with superimposed smooth interlobular septal thickening, geographic distribution."},
+          {"ref": "E2", "text": "Differentials for crazy paving include pulmonary oedema, pneumocystis pneumonia, and acute respiratory distress syndrome."}
+        ]
+      },
+      "expected": {"type": "sba", "options": 5, "cited_subset_of": ["E1", "E2"]},
+      "assertions": ["schema_valid", "deterministic_checks_pass", "citations_supplied_only", "one_best_answer"]
+    },
+    {
+      "case_id": "generate-refuses-unsupported-count",
+      "prompt": "question_generate/v1.yaml",
+      "route": "reason",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "item_type": "seq",
+        "exam_target": "frcr",
+        "count": 5,
+        "excerpts": [{"ref": "E1", "text": "Sarcoidosis: perilymphatic nodules along bronchovascular bundles."}]
+      },
+      "expected": {"max_items": 2},
+      "assertions": ["schema_valid", "no_invented_content", "marking_scheme_cited"]
+    },
+    {
+      "case_id": "generate-image-case-uses-figure",
+      "prompt": "question_generate/v1.yaml",
+      "route": "reason",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "item_type": "image_case",
+        "exam_target": "fcps2_toacs",
+        "count": 1,
+        "excerpts": [
+          {"ref": "F1", "text": "Axial HRCT, lung window: bilateral geographic ground-glass with septal thickening."},
+          {"ref": "E1", "text": "Crazy paving is classic for pulmonary alveolar proteinosis."}
+        ]
+      },
+      "expected": {"cites": "F1", "key_findings_min": 1},
+      "assertions": ["schema_valid", "visible_evidence_only", "marking_scheme_cited"]
+    },
+    {
+      "case_id": "check-fails-two-correct-options",
+      "prompt": "question_check/v1.yaml",
+      "route": "classify",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "item": {"type": "sba", "stem": "Which condition causes crazy paving on HRCT?", "options": ["Pulmonary alveolar proteinosis", "Pulmonary oedema", "Sarcoidosis", "Silicosis", "Asbestosis"], "key_index": 0},
+        "excerpts": [{"ref": "E1", "text": "Crazy paving is seen in pulmonary alveolar proteinosis and pulmonary oedema."}]
+      },
+      "expected": {"verdict": "fail", "single_best_answer": false},
+      "assertions": ["schema_valid", "reason_names_failed_check"]
+    },
+    {
+      "case_id": "check-passes-supported-item",
+      "prompt": "question_check/v1.yaml",
+      "route": "classify",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "item": {"type": "sba", "stem": "A 40-year-old with progressive dyspnoea has geographic ground-glass with smooth septal thickening on HRCT. Most likely diagnosis?", "options": ["Pulmonary alveolar proteinosis", "Usual interstitial pneumonia", "Sarcoidosis", "Silicosis", "Lymphangioleiomyomatosis"], "key_index": 0},
+        "excerpts": [{"ref": "E1", "text": "Pulmonary alveolar proteinosis shows geographic crazy paving; UIP shows basal honeycombing."}]
+      },
+      "expected": {"verdict": "pass"},
+      "assertions": ["schema_valid", "no_false_fail"]
+    },
+    {
+      "case_id": "grade-seq-against-scheme",
+      "prompt": "seq_grade/v1.yaml",
+      "route": "reason",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "marking_scheme": [
+          {"scheme_index": 0, "point": "Crazy paving pattern", "marks": 4},
+          {"scheme_index": 1, "point": "Pulmonary alveolar proteinosis as most likely diagnosis", "marks": 4},
+          {"scheme_index": 2, "point": "Whole-lung lavage as treatment", "marks": 2}
+        ],
+        "candidate_answer": "Crazy paving. Likely pulmonary oedema."
+      },
+      "expected": {"points": [{"scheme_index": 0, "status": "matched"}, {"scheme_index": 1, "status": "missed"}, {"scheme_index": 2, "status": "missed"}]},
+      "assertions": ["schema_valid", "one_grade_per_scheme_point", "no_credit_outside_scheme"]
+    }
+  ]
+}

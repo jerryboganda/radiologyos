@@ -1,0 +1,182 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "sba",
+              "seq",
+              "image_case",
+              "viva"
+            ],
+            "type": "string"
+          },
+          "topic": {
+            "description": "Specific radiology topic, most specific form.",
+            "type": "string"
+          },
+          "stem": {
+            "description": "Clinical/imaging stem or scenario.",
+            "type": "string"
+          },
+          "options": {
+            "description": "SBA only: exactly 5 options; [] otherwise.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "text": {
+                  "description": "Option text, short and homogeneous with its siblings.",
+                  "type": "string"
+                },
+                "explanation": {
+                  "description": "Why this option is right or wrong, from the excerpts.",
+                  "type": "string"
+                },
+                "citations": {
+                  "description": "Excerpt ids supporting the explanation.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "text",
+                "explanation",
+                "citations"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "key_index": {
+            "description": "SBA: 0-based best answer; -1 otherwise.",
+            "maximum": 4,
+            "minimum": -1,
+            "type": "integer"
+          },
+          "model_answer": {
+            "description": "SEQ, image case, viva: model answer; '' for SBA.",
+            "type": "string"
+          },
+          "marking_scheme": {
+            "description": "SEQ, image case, viva: weighted, cited points; [] for SBA.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "point": {
+                  "description": "One markable point an examiner would credit.",
+                  "type": "string"
+                },
+                "marks": {
+                  "exclusiveMinimum": 0,
+                  "maximum": 10,
+                  "type": "number"
+                },
+                "citations": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "point",
+                "marks",
+                "citations"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "key_findings": {
+            "description": "Image case: findings expected; [] otherwise.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "viva_turns": {
+            "description": "Viva: escalating question chain; [] otherwise.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "question": {
+                  "description": "Examiner question; each turn probes one level deeper.",
+                  "type": "string"
+                },
+                "expected_answer": {
+                  "type": "string"
+                },
+                "citations": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "question",
+                "expected_answer",
+                "citations"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "explanation": {
+            "description": "Teaching explanation of the key/model answer.",
+            "type": "string"
+          },
+          "citations": {
+            "description": "Excerpt ids supporting the key.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "difficulty": {
+            "maximum": 5,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "cognitive_level": {
+            "enum": [
+              "recall",
+              "application",
+              "analysis"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "topic",
+          "stem",
+          "options",
+          "key_index",
+          "model_answer",
+          "marking_scheme",
+          "key_findings",
+          "viva_turns",
+          "explanation",
+          "citations",
+          "difficulty",
+          "cognitive_level"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "type": "object"
+}

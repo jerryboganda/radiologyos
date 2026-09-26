@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
-
 from apps.api.app.api.notifications import Settings, SubscriptionIn
 from packages.notifications.push import generate_vapid_keys, reminder_payload
+from pydantic import ValidationError
 
 
 def test_reminder_payload_carries_counts_only() -> None:

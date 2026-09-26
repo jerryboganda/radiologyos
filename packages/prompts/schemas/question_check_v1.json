@@ -1,0 +1,48 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "single_best_answer": {
+      "description": "SBA: exactly one option is defensibly best. True for other types.",
+      "type": "boolean"
+    },
+    "key_supported": {
+      "description": "The key or every marking-scheme point is entailed by its cited excerpt.",
+      "type": "boolean"
+    },
+    "no_cueing": {
+      "description": "No grammatical, length, or wording cue to the key.",
+      "type": "boolean"
+    },
+    "distractors_plausible": {
+      "description": "SBA: every distractor is plausible yet wrong. True for other types.",
+      "type": "boolean"
+    },
+    "difficulty_agrees": {
+      "type": "boolean"
+    },
+    "verdict": {
+      "enum": [
+        "pass",
+        "fail"
+      ],
+      "type": "string"
+    },
+    "reasons": {
+      "description": "One short reason per failed check; [] on pass.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "single_best_answer",
+    "key_supported",
+    "no_cueing",
+    "distractors_plausible",
+    "difficulty_agrees",
+    "verdict",
+    "reasons"
+  ],
+  "type": "object"
+}
