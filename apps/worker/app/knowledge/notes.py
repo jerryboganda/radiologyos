@@ -19,11 +19,13 @@ from packages.knowledge.evidence import FilteredExtraction, filter_extraction, l
 from packages.knowledge.models import KnowledgeExtraction, TopicClassification
 from packages.knowledge.text import normalize_name, word_count
 from packages.library.quality import extraction_problem
-from packages.models.gateway import user_prompt
+from packages.models.gateway import load_agent, user_prompt
 
 log = logging.getLogger("radbrain.knowledge")
-EXTRACT = "knowledge_extract/v1"
-CLASSIFY = "topic_classify/v1"
+# The run labels are the versions ``call_agent`` actually loads, so a prompt bump
+# makes every chunk a new unit and re-extracts it (knowledge_runs is keyed on it).
+EXTRACT = load_agent("knowledge_extract").key
+CLASSIFY = load_agent("topic_classify").key
 MIN_WORDS = 30  # spec: chunks under ~40 tokens are skipped
 
 

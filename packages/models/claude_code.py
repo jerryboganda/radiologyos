@@ -74,7 +74,12 @@ class ClaudeCodeTransport:
     backends: tuple[str, ...] = ("claude_code",)
 
     def available(self) -> bool:
-        return shutil.which(self.binary) is not None
+        """The CLI is installed and has a credential (token env or a local login)."""
+        if shutil.which(self.binary) is None:
+            return False
+        if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY"):
+            return True
+        return (Path.home() / ".claude" / ".credentials.json").exists()
 
     def run(self, call: ModelCall) -> ModelResult:
         binary = self._binary()

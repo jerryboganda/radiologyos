@@ -157,8 +157,8 @@ async def _cards_flow(engine: Any, runtime: Any, ids: dict[str, UUID]) -> None:
             runtime, ids["tb"],
             "INSERT INTO cards (tenant_id, user_id, source_id, curriculum_code, topic, front, "
             "back, citation, claim_id) SELECT $1, $2, $3, 'CHEST', 't', 'f', 'b', "
-            "jsonb_build_object('source_id', $3::text, 'page_from', 1, 'page_to', 1), $4",
-            ids["tb"], ids["ub"], ids["sb"], ids["claim"])
+            "jsonb_build_object('source_id', $5::text, 'page_from', 1, 'page_to', 1), $4",
+            ids["tb"], ids["ub"], ids["sb"], ids["claim"], str(ids["sb"]))
 
 
 async def _review_flow(engine: Any, admin: Any, ids: dict[str, UUID]) -> None:

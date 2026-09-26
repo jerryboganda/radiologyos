@@ -20,7 +20,8 @@ class Focus(BaseModel):
 
 
 class AskRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    # Stripped before the length check, so a blank question never reaches a model.
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     question: str = Field(min_length=3, max_length=2000)
     thread_id: UUID | None = None
     allow_web: bool = True
