@@ -27,6 +27,7 @@ from apps.worker.app.datarights.delete import run_delete  # noqa: E402
 from apps.worker.app.datarights.export import run_export  # noqa: E402
 from apps.worker.app.datarights.jobs import DataDeps  # noqa: E402
 from apps.worker.app.datarights.tasks import expire  # noqa: E402
+from apps.worker.app.datarights.vault_links import read_vault  # noqa: E402
 from evals.checks._data_rights_support import (  # noqa: E402
     as_tenant,
     cleanup,
@@ -98,9 +99,20 @@ async def _export(deps: DataDeps, runtime: Any, store: MemoryObjectStore,
         cards_md = zf.read("notes/cards.md").decode()
         assert "Synthetic front?" in cards_md and "Synthetic chest notes, p. 1" in cards_md
         assert "Synthetic claim 1" in zf.read("notes/claims.md").decode()
+        _vault_proof(zf, names)
         blob = b"".join(zf.read(name) for name in names)
         for other in (ids["tb"], ids["ub"], ids["sb"]):
             assert str(other).encode() not in blob  # nothing of the other tenant
+
+
+def _vault_proof(zf: zipfile.ZipFile, names: set[str]) -> None:
+    """ADR 0031: the Obsidian vault is built from the live rows and reads back cleanly."""
+    vault = {n: zf.read(n).decode() for n in names if n.startswith("vault/")}
+    assert "vault/index.md" in vault
+    index = read_vault(vault)
+    assert index.broken == [] and index.citations
+    assert any("Synthetic claim 1" in body for body in vault.values())
+    assert json.loads(zf.read("manifest.json"))["vault_files"] == len(vault)
 
 
 async def _expiry(deps: DataDeps, runtime: Any, store: MemoryObjectStore,

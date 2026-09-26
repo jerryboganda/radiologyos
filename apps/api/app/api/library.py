@@ -216,7 +216,10 @@ def _figure_hit(f: dict[str, Any]) -> FigureHit:
 def _image(principal: Principal, key: str | None) -> Response:
     if key is None:
         raise HTTPException(status_code=404, detail="image not found")
-    data = reader.fetch_image(get_store(), principal.tenant_id, key)
+    try:
+        data = reader.fetch_image(get_store(), principal.tenant_id, key)
+    except PermissionError as exc:  # a key outside the caller's tenant is never served
+        raise HTTPException(status_code=404, detail="image not found") from exc
     return Response(content=data, media_type="image/png",
                     headers={"Cache-Control": "private, max-age=300"})
 

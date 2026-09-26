@@ -166,8 +166,15 @@ A retention change requires human approval and an ADR.
 - The ZIP holds `data/<table>.json` for every table in
   `apps/worker/app/datarights/registry.py` (the user's own rows, embeddings
   included), `notes/cards.md` and `notes/claims.md` with source and page
-  citations, `files/<source>/` originals, `figures/<source>/` crops,
-  `manifest.json`, and `README.md`. Nothing of another user or tenant is read:
+  citations, `vault/` (an Obsidian-compatible Markdown vault, ADR 0031: one file
+  per concept, source, and card deck under `vault/concepts|sources|cards/`, YAML
+  front matter with the row id, `[[wikilinks]]` between concepts and to sources,
+  every claim and card citing its source and page, claims also their evidence
+  blocks as `(blocks p3-b4)`), `files/<source>/` originals, `figures/<source>/`
+  crops, `manifest.json` (includes `vault_files`), and `README.md`. Open the
+  `vault/` folder in Obsidian, or read it as plain Markdown; user text is escaped
+  so it cannot forge links or HTML. `apps/worker/app/datarights/vault_links.py`
+  reads a vault back to row ids, links, and citations. Nothing of another user or tenant is read:
   every query runs under the tenant's RLS context and is filtered to the user.
 - Download goes browser → `/settings/exports/{id}` → `GET /v1/me/exports/{id}/download`,
   streamed by the API to the owner only, `Cache-Control: no-store`, audited as

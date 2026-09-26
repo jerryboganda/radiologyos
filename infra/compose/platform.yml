@@ -39,8 +39,6 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?required}
       APP_ENV: ${APP_ENV:-production}
-      # Non-release preview surface stays off on a production host (ADR 0006).
-      PREVIEW_ENABLED: ${PREVIEW_ENABLED:-false}
       REDIS_URL: ${REDIS_URL:?required}
       S3_ENDPOINT: ${S3_ENDPOINT:?required}
       S3_BUCKET: ${S3_BUCKET:?required}
@@ -87,7 +85,6 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?required}
       APP_ENV: ${APP_ENV:-production}
-      PREVIEW_ENABLED: ${PREVIEW_ENABLED:-false}
       REDIS_URL: ${REDIS_URL:?required}
       S3_ENDPOINT: ${S3_ENDPOINT:?required}
       S3_BUCKET: ${S3_BUCKET:?required}
@@ -139,7 +136,6 @@ services:
     image: ${RADBRAIN_WEB_IMAGE:?RADBRAIN_WEB_IMAGE is required}
     environment:
       APP_ENV: ${APP_ENV:-production}
-      PREVIEW_ENABLED: ${PREVIEW_ENABLED:-false}
       AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?required}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-https://radiologyos.polytronx.com}
       # adapter-node derives url.origin (CSRF check, cookie Secure flag) from ORIGIN.

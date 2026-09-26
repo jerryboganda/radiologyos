@@ -27,6 +27,10 @@ function audienceValues(value: unknown): string[] {
 }
 
 test.describe('M0 staging acceptance', () => {
+  // Opt-in: without a staging host this suite is skipped, not failed. Once the
+  // host is set, every other variable is still required (beforeEach below).
+  test.skip(!webBaseUrl, 'RADBRAIN_STAGING_WEB_URL is not set');
+
   test.beforeEach(() => {
     required('RADBRAIN_STAGING_WEB_URL', webBaseUrl);
     required('RADBRAIN_STAGING_API_URL', apiBaseUrl);

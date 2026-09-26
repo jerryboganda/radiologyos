@@ -3,7 +3,7 @@
 - Status: current
 - Scope: deploying radbrain to `185.252.233.186` on the shared platform stack
 - Related: [ADR 0007](../decisions/0007-production-on-shared-platform.md),
-  [ADR 0006](../decisions/0006-non-release-preview-mode.md),
+  [ADR 0031](../decisions/0031-retire-in-memory-preview.md),
   [ADR 0008](../decisions/0008-evidence-based-m0-acceptance.md)
 
 Production deployment is **not** M0 acceptance by itself. Acceptance requires the
@@ -132,8 +132,9 @@ forward fix.
   token exchange stay on `http://radbrain-keycloak-keycloak-1:8080/realms/radbrain`. `app.env` must
   set `OIDC_ISSUER` to the public issuer and `OIDC_JWKS_URL` /
   `OIDC_INTERNAL_ISSUER` to the internal one (`infra/ops/wire-oidc.sh`).
-- **Preview is off in production** (`PREVIEW_ENABLED=false` since 2026-09-26, ADR
-  0006/0011). `infra/ops/wire-oidc.sh` sets it to `false`; never turn it back on.
+- **The preview surface is gone** (ADR 0031). Former `/v1/preview/*` paths answer
+  404; `infra/ops/check-preview-gated.py` (identity verification workflow) asserts
+  it. A leftover `PREVIEW_ENABLED` line in `app.env` is ignored and can be deleted.
 - **Backups.** The platform's `bin/backup.sh` dumps databases nightly, on the box
   only. `infra/ops/offsite-backup-gdrive.sh` (host cron) copies the `radiologyos`
   and `keycloak` dumps and mirrors the MinIO bucket to the owner's Google Drive.

@@ -20,11 +20,17 @@ make up
 make check
 ```
 
-The API can be exercised without Docker using development adapters:
+The API can be started without Docker; development header identity works only when
+`APP_ENV` is `dev`/`test`, and every route needs PostgreSQL for real data:
 
 ```powershell
 python -m apps.api.app.main
 ```
+
+`make check` runs the lightweight local checks (ruff, strict mypy, unit tests and the
+M1–M7 eval gates, web check and unit tests). Compose, migrations, live RLS proofs, and
+the Playwright end-to-end flow (`.github/workflows/e2e.yml`) run only in GitHub
+Actions. The in-memory preview surface was removed (ADR 0031).
 
 The local study material under `Radiology Exam Material/` and `Radiology Images/`
 is intentionally ignored by Git. It must not be committed or uploaded to public

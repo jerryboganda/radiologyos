@@ -7,8 +7,8 @@ per route:
 * a bearer token is verified against the configured issuer, and the subject is
   resolved to a membership row in the database. Tenant and role always come from
   that row, never from a claim;
-* header-based identity is honoured **only** outside production, so a preview
-  or local header can never become a production authentication path;
+* header-based identity is honoured **only** in local development and tests, so
+  a development header can never become a production authentication path;
 * every request runs inside its tenant context, so tenant-scoped queries fail
   closed when the context is missing.
 """

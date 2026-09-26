@@ -25,18 +25,6 @@ def test_me_requires_development_identity() -> None:
     assert response.status_code == 401
 
 
-def test_me_returns_active_tenant() -> None:
-    user_id = "10000000-0000-0000-0000-000000000001"
-    tenant_id = "20000000-0000-0000-0000-000000000002"
-    response = client.get(
-        "/v1/me",
-        headers={"x-user-id": user_id, "x-tenant-id": tenant_id},
-    )
-    assert response.status_code == 200
-    assert response.json()["id"] == tenant_id
-    assert response.json()["role"] == "student"
-
-
 def test_student_cannot_access_admin_endpoint() -> None:
     response = client.get(
         "/v1/admin/ping",

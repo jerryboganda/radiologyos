@@ -113,9 +113,6 @@
     {/if}
     <div class="mt-4 flex flex-wrap gap-2">
       <form method="POST" action="/auth/logout"><button class="btn btn-ghost" type="submit">Sign out</button></form>
-      {#if data.previewEnabled}
-        <a class="btn btn-ghost" href="/preview" data-sveltekit-reload>Open non-release preview</a>
-      {/if}
     </div>
   </section>
 

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Assert that the preview surface is only reachable behind authentication.
+"""Assert that the retired preview surface is absent and billing stays gated.
 
-Runs from inside the platform network. The point is the negative case: with no
-credential at all, every preview route must refuse. A 200 here would mean the
-non-release surface is open to the internet, which ADR 0009 does not permit.
+Runs from inside the platform network. ADR 0031 removed the in-memory preview
+surface, so every former ``/v1/preview/*`` route must answer 404 whatever the
+credential, including spoofed development identity headers. A 200 would mean
+the surface came back; a 401/403 would mean a router is still mounted.
 
-Development header identity is also probed, because it must not become a
-production authentication path.
+Parked billing (ADR 0011) must refuse an anonymous caller: 401/403 when it is
+enabled, 404 when it is off.
 """
 
 from __future__ import annotations
@@ -17,31 +18,24 @@ import urllib.request
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://radbrain-api:8000"
 
-# Any of 401/403 proves the route is gated. 404 means the surface is absent,
-# which is stricter still and is production's state since 2026-09-26
-# (PREVIEW_ENABLED=false).
-GATING = {401, 403}
 ABSENT = {404}
+GATED = {401, 403, 404}
+SPOOF = {
+    "x-user-id": "10000000-0000-0000-0000-000000000001",
+    "x-tenant-id": "20000000-0000-0000-0000-000000000002",
+    "x-role": "superadmin",
+}
 
-PROBES: list[tuple[str, str, dict[str, str]]] = [
-    ("GET", "/v1/preview/sources", {}),
-    ("GET", "/v1/preview/capabilities", {}),
-    ("POST", "/v1/preview/search", {}),
-    ("POST", "/v1/preview/tutor/ask", {}),
-    ("GET", "/v1/preview/export/markdown", {}),
-    ("GET", "/v1/billing/subscription", {}),
-    (
-        "GET",
-        "/v1/preview/sources",
-        {
-            "x-user-id": "10000000-0000-0000-0000-000000000001",
-            "x-tenant-id": "20000000-0000-0000-0000-000000000002",
-            "x-role": "superadmin",
-        },
-    ),
+PROBES: list[tuple[str, str, dict[str, str], set[int]]] = [
+    ("GET", "/v1/preview/sources", {}, ABSENT),
+    ("GET", "/v1/preview/capabilities", {}, ABSENT),
+    ("POST", "/v1/preview/search", {}, ABSENT),
+    ("POST", "/v1/preview/tutor/ask", {}, ABSENT),
+    ("GET", "/v1/preview/export/markdown", {}, ABSENT),
+    ("GET", "/v1/preview/sources", SPOOF, ABSENT),
+    ("GET", "/v1/billing/subscription", {}, GATED),
+    ("GET", "/v1/me", {}, {401}),
 ]
-
-ALLOWED = GATING | ABSENT
 
 
 def probe(method: str, path: str, headers: dict[str, str]) -> int:
@@ -53,7 +47,7 @@ def probe(method: str, path: str, headers: dict[str, str]) -> int:
     )
     try:
         with urllib.request.urlopen(request, timeout=15) as resp:  # nosec B310 - http(s) only
-            return resp.status
+            return int(resp.status)
     except urllib.error.HTTPError as exc:
         return exc.code
     except Exception as exc:  # noqa: BLE001
@@ -63,20 +57,21 @@ def probe(method: str, path: str, headers: dict[str, str]) -> int:
 
 def main() -> int:
     failures = 0
-    print("=== unauthenticated and header-identity probes ===")
-    for method, path, headers in PROBES:
+    print("=== retired preview and parked billing probes ===")
+    for method, path, headers, allowed in PROBES:
         label = "with dev headers" if headers else "no credential"
         code = probe(method, path, headers)
-        verdict = "PASS" if code in ALLOWED else "FAIL"
-        if code not in ALLOWED:
+        verdict = "PASS" if code in allowed else "FAIL"
+        if code not in allowed:
             failures += 1
-        print(f"  [{verdict}] {method:<5} {path:<34} {label:<16} -> HTTP {code}")
+        wanted = "/".join(str(c) for c in sorted(allowed))
+        print(f"  [{verdict}] {method:<5} {path:<30} {label:<16} -> HTTP {code} (want {wanted})")
 
     print()
     if failures:
-        print(f"RESULT: {failures} probe(s) were not gated")
+        print(f"RESULT: {failures} probe(s) failed")
         return 1
-    print("RESULT: every preview and billing route is gated behind authentication")
+    print("RESULT: the preview surface is absent and billing is gated")
     return 0
 
 

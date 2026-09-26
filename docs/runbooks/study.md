@@ -7,7 +7,7 @@
   `test_study_depth_live.py` and `test_study_sessions_live.py` (GitHub Actions
   `migrations` job, runtime role)
 - Related: [ADR 0014](../decisions/0014-study-planner-fsrs.md),
-  [ADR 0024](../decisions/0024-daily-study-loop.md), [M4 preview](m4-preview.md),
+  [ADR 0024](../decisions/0024-daily-study-loop.md), M4 gate `evals/checks/test_m4_planner.py`,
   [five-minute demo](../demos/m4-study-loop.md)
 
 ## Onboarding
