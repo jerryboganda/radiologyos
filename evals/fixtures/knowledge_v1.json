@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "fixture_set_id": "knowledge_v1",
+  "status": "review_required",
+  "data_class": "synthetic",
+  "cases": [
+    {
+      "case_id": "extract-uip-verbatim-spans",
+      "prompt": "knowledge_extract/v1.yaml",
+      "route": "extract",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "heading_path": "Chest > Interstitial lung disease",
+        "source_title": "Synthetic chest notes",
+        "chunk_text": "Usual interstitial pneumonia (UIP) shows basal, subpleural reticulation with honeycombing and traction bronchiectasis on HRCT. Ground-glass opacity is not a dominant feature of UIP."
+      },
+      "expected": {
+        "concept_names_include": ["Usual interstitial pneumonia"],
+        "aliases_include": ["UIP"],
+        "min_claims": 2,
+        "negation_preserved": "Ground-glass opacity is not a dominant feature of UIP"
+      },
+      "assertions": ["schema_valid", "evidence_span_is_substring", "no_prior_knowledge_claims"]
+    },
+    {
+      "case_id": "extract-index-page-empty",
+      "prompt": "knowledge_extract/v1.yaml",
+      "route": "extract",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "heading_path": "Contents",
+        "source_title": "Synthetic chest notes",
+        "chunk_text": "Contents 1 Chest radiograph basics 3 2 Interstitial lung disease 17 3 Pulmonary vasculature 41 4 Mediastinum 55 5 Pleura 70"
+      },
+      "expected": {"concepts": [], "claims": [], "relations": []},
+      "assertions": ["schema_valid", "no_invented_content"]
+    },
+    {
+      "case_id": "classify-pe-chest",
+      "prompt": "topic_classify/v1.yaml",
+      "route": "classify",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "heading_path": "Chest > Pulmonary vasculature",
+        "chunk_text": "CT pulmonary angiography shows an intraluminal filling defect in the right lower lobe pulmonary artery with a polo-mint sign.",
+        "concepts": ["Pulmonary embolism", "Polo mint sign"]
+      },
+      "expected": {"top_code_in": ["CHEST", "CARDIOVASCULAR"], "min_confidence": 0.7},
+      "assertions": ["schema_valid", "codes_from_supplied_list", "calibrated_confidence"]
+    },
+    {
+      "case_id": "paper-topics-imm-page",
+      "prompt": "paper_topics/v1.yaml",
+      "route": "classify",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "source_title": "Synthetic IMM paper",
+        "page_text": "IMM Radiology November 2019 Paper I\nQ1. Write a short note on imaging of developmental dysplasia of the hip.\nQ2. Describe the CT features of acute pancreatitis and its complications."
+      },
+      "expected": {
+        "is_exam_paper": true,
+        "exam_target": "imm",
+        "year": 2019,
+        "question_codes": ["MUSCULOSKELETAL", "HEPATOBILIARY_PANCREAS"]
+      },
+      "assertions": ["schema_valid", "codes_from_supplied_list", "year_only_if_printed"]
+    },
+    {
+      "case_id": "paper-topics-answer-key-not-paper",
+      "prompt": "paper_topics/v1.yaml",
+      "route": "classify",
+      "tenant_id": "20000000-0000-0000-4000-800000000002",
+      "input": {
+        "source_title": "Synthetic cover page",
+        "page_text": "Instructions to candidates: attempt all questions. Use black ink."
+      },
+      "expected": {"is_exam_paper": false, "questions": [], "year": null},
+      "assertions": ["schema_valid", "no_invented_content"]
+    }
+  ]
+}

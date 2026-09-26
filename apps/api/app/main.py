@@ -4,6 +4,7 @@ from typing import Annotated, Any, cast
 from uuid import UUID, uuid4
 
 from apps.api.app.api.billing import router as billing_router
+from apps.api.app.api.knowledge import router as knowledge_router
 from apps.api.app.api.library import router as library_router
 from apps.api.app.api.preview import router as preview_router
 from apps.api.app.api.preview_admin import router as preview_admin_router
@@ -43,6 +44,7 @@ settings = get_settings()
 bearer_scheme = HTTPBearer(auto_error=False)
 oidc_verifier = OIDCVerifier(settings)
 app.include_router(library_router)
+app.include_router(knowledge_router)
 app.include_router(preview_router)
 app.include_router(billing_router)
 app.include_router(preview_knowledge_router)

@@ -1,0 +1,41 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "topics": {
+      "description": "Most confident first.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "curriculum_code": {
+            "description": "One code from the supplied curriculum list.",
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "topic": {
+            "description": "Specific topic, e.g. 'pulmonary embolism'.",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "confidence": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "curriculum_code",
+          "topic",
+          "confidence"
+        ],
+        "type": "object"
+      },
+      "maxItems": 5,
+      "type": "array"
+    }
+  },
+  "required": [
+    "topics"
+  ],
+  "type": "object"
+}

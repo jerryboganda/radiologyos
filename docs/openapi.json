@@ -869,6 +869,845 @@
         }
       }
     },
+    "/v1/knowledge/concepts": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "List Concepts",
+        "operationId": "list_concepts_v1_knowledge_concepts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConceptSummary"
+                  },
+                  "title": "Response List Concepts V1 Knowledge Concepts Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/knowledge/concepts/{concept_id}": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Get Concept",
+        "operationId": "get_concept_v1_knowledge_concepts__concept_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "concept_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Concept Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConceptDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/knowledge/conflicts": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "List Conflicts",
+        "operationId": "list_conflicts_v1_knowledge_conflicts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "open",
+                    "resolved"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "open",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConflictOut"
+                  },
+                  "title": "Response List Conflicts V1 Knowledge Conflicts Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/knowledge/conflicts/{conflict_id}/resolve": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Resolve Conflict",
+        "operationId": "resolve_conflict_v1_knowledge_conflicts__conflict_id__resolve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conflict_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conflict Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/knowledge/topic-weights": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "List Topic Weights",
+        "operationId": "list_topic_weights_v1_knowledge_topic_weights_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "exam_target",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "imm",
+                    "fcps2_theory",
+                    "fcps2_toacs",
+                    "frcr",
+                    "unknown",
+                    "all"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exam Target"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TopicWeightOut"
+                  },
+                  "title": "Response List Topic Weights V1 Knowledge Topic Weights Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/knowledge/topic-weights/approve": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Approve Topic Weights",
+        "operationId": "approve_topic_weights_v1_knowledge_topic_weights_approve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApproveResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/knowledge/sources/{source_id}/extract": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Extract Source",
+        "operationId": "extract_source_v1_knowledge_sources__source_id__extract_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ExtractRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/preview/sources": {
       "post": {
         "tags": [
@@ -6917,6 +7756,62 @@
   },
   "components": {
     "schemas": {
+      "ApproveRequest": {
+        "properties": {
+          "exam_target": {
+            "type": "string",
+            "enum": [
+              "imm",
+              "fcps2_theory",
+              "fcps2_toacs",
+              "frcr",
+              "unknown",
+              "all"
+            ],
+            "title": "Exam Target"
+          },
+          "weight_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array",
+                "maxItems": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "exam_target"
+        ],
+        "title": "ApproveRequest"
+      },
+      "ApproveResponse": {
+        "properties": {
+          "exam_target": {
+            "type": "string",
+            "title": "Exam Target"
+          },
+          "approved": {
+            "type": "integer",
+            "title": "Approved"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exam_target",
+          "approved"
+        ],
+        "title": "ApproveResponse"
+      },
       "BillingResultResponse": {
         "properties": {
           "status": {
@@ -7012,6 +7907,336 @@
         ],
         "title": "CheckoutRequest"
       },
+      "ClaimOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "claim_type": {
+            "type": "string",
+            "title": "Claim Type"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "evidence_span": {
+            "type": "string",
+            "title": "Evidence Span"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "verification": {
+            "type": "string",
+            "title": "Verification"
+          },
+          "importance": {
+            "type": "integer",
+            "title": "Importance"
+          },
+          "modality": {
+            "type": "string",
+            "title": "Modality"
+          },
+          "citation": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Citation"
+          },
+          "supporting": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Supporting"
+          },
+          "agent_version": {
+            "type": "string",
+            "title": "Agent Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "claim_type",
+          "statement",
+          "evidence_span",
+          "status",
+          "verification",
+          "importance",
+          "modality",
+          "citation",
+          "supporting",
+          "agent_version"
+        ],
+        "title": "ClaimOut"
+      },
+      "ConceptDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Aliases"
+          },
+          "concept_type": {
+            "type": "string",
+            "title": "Concept Type"
+          },
+          "curriculum_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curriculum Code"
+          },
+          "curriculum_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curriculum Confidence"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimOut"
+            },
+            "type": "array",
+            "title": "Claims"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/EdgeOut"
+            },
+            "type": "array",
+            "title": "Edges"
+          },
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/ConflictOut"
+            },
+            "type": "array",
+            "title": "Conflicts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "aliases",
+          "concept_type",
+          "curriculum_code",
+          "curriculum_confidence",
+          "summary",
+          "claims",
+          "edges",
+          "conflicts"
+        ],
+        "title": "ConceptDetail"
+      },
+      "ConceptSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Aliases"
+          },
+          "concept_type": {
+            "type": "string",
+            "title": "Concept Type"
+          },
+          "curriculum_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curriculum Code"
+          },
+          "claim_count": {
+            "type": "integer",
+            "title": "Claim Count"
+          },
+          "open_conflicts": {
+            "type": "integer",
+            "title": "Open Conflicts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "aliases",
+          "concept_type",
+          "curriculum_code",
+          "claim_count",
+          "open_conflicts"
+        ],
+        "title": "ConceptSummary"
+      },
+      "ConflictOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "concept_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Concept Id"
+          },
+          "concept_name": {
+            "type": "string",
+            "title": "Concept Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "preferred_claim": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Claim"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "claim_a": {
+            "$ref": "#/components/schemas/ConflictSide"
+          },
+          "claim_b": {
+            "$ref": "#/components/schemas/ConflictSide"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "concept_id",
+          "concept_name",
+          "kind",
+          "description",
+          "status",
+          "resolution",
+          "preferred_claim",
+          "resolved_at",
+          "created_at",
+          "claim_a",
+          "claim_b"
+        ],
+        "title": "ConflictOut"
+      },
+      "ConflictSide": {
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Claim Id"
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "evidence_span": {
+            "type": "string",
+            "title": "Evidence Span"
+          },
+          "citation": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Citation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "claim_id",
+          "statement",
+          "evidence_span",
+          "citation"
+        ],
+        "title": "ConflictSide"
+      },
       "DegradationResponse": {
         "properties": {
           "provider": {
@@ -7046,6 +8271,51 @@
         ],
         "title": "DegradationResponse"
       },
+      "EdgeOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "relation": {
+            "type": "string",
+            "title": "Relation"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out"
+            ],
+            "title": "Direction"
+          },
+          "other_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Other Id"
+          },
+          "other_name": {
+            "type": "string",
+            "title": "Other Name"
+          },
+          "citation": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Citation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "relation",
+          "direction",
+          "other_id",
+          "other_name",
+          "citation"
+        ],
+        "title": "EdgeOut"
+      },
       "ErrorResponse": {
         "properties": {
           "detail": {
@@ -7069,6 +8339,78 @@
           "detail"
         ],
         "title": "ErrorResponse"
+      },
+      "ExtractRequest": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "notes",
+              "past_paper"
+            ],
+            "title": "Mode",
+            "default": "notes"
+          },
+          "exam_target": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "imm",
+                  "fcps2_theory",
+                  "fcps2_toacs",
+                  "frcr",
+                  "unknown"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Target"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 2100.0,
+                "minimum": 1990.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ExtractRequest"
+      },
+      "ExtractResponse": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Id"
+          },
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Job Id"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_id",
+          "job_id",
+          "mode"
+        ],
+        "title": "ExtractResponse"
       },
       "FigureHit": {
         "properties": {
@@ -8569,6 +9911,34 @@
         ],
         "title": "PreviewTutorResponse"
       },
+      "ResolveRequest": {
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Resolution"
+          },
+          "preferred_claim_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Claim Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "resolution"
+        ],
+        "title": "ResolveRequest"
+      },
       "SearchHit": {
         "properties": {
           "chunk_id": {
@@ -8968,6 +10338,70 @@
           "role"
         ],
         "title": "TenantResponse"
+      },
+      "TopicWeightOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "exam_target": {
+            "type": "string",
+            "title": "Exam Target"
+          },
+          "curriculum_code": {
+            "type": "string",
+            "title": "Curriculum Code"
+          },
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight"
+          },
+          "basis": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Basis"
+          },
+          "approved": {
+            "type": "boolean",
+            "title": "Approved"
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "computed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Computed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "exam_target",
+          "curriculum_code",
+          "topic",
+          "weight",
+          "basis",
+          "approved",
+          "approved_at",
+          "computed_at"
+        ],
+        "title": "TopicWeightOut"
       },
       "UploadResponse": {
         "properties": {

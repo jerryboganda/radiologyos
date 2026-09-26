@@ -169,6 +169,10 @@ async def _vision_pass(deps: Deps, job: dict[str, Any], source: dict[str, Any]) 
     await _chunk_and_embed(deps, job)
     async with db.tenant_tx(deps.engine, tenant_id) as session:
         await db.mark_step(session, job, "knowledge_extraction", "pending")
+    # Knowledge slice (ADR 0016): hand the parsed source to radbrain.knowledge_extract.
+    from apps.worker.app.knowledge.enqueue import enqueue_knowledge
+
+    enqueue_knowledge(tenant_id, source_id)
 
 
 async def _parse_page(
