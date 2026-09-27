@@ -107,9 +107,9 @@ async def _chunk(
             return {}
     # Items the owner approved go straight to Opus; the rest follow Luna -> Sol.
     with owner_approved(*([AGENT] if unit in approved else [])):
-        extraction, waiting = call_agent_result(
-            deps, AGENT, _extract_prompt(source, chunk),
-            accept=lambda e: _evidence_problem(e, chunk["text"]))
+        outcome = call_agent_result(deps, AGENT, _extract_prompt(source, chunk),
+                                    accept=lambda e: _evidence_problem(e, chunk["text"]))
+    extraction, waiting = outcome.parsed, outcome.waiting
     if waiting:
         # Collect & ask (ADR 0037): neither GPT model answered well enough, so the
         # chunk is held (nothing stored) until the owner approves Opus for it.
@@ -118,6 +118,11 @@ async def _chunk(
             await db.record_run(session, tenant_id, source["id"], unit, EXTRACT, version,
                                 "failed", "awaiting_owner")
         return {"held": 1}
+    if extraction is None or outcome.shortfall:
+        # The owner's red list (ADR 0038): every model failed the chunk, or its kept
+        # extraction fell short of the quality bar. Verified claims are still stored.
+        await escalations.flag_review(deps.engine, tenant_id, source["id"], AGENT, unit,
+                                      outcome.shortfall or escalations.ALL_FAILED)
     if extraction is None:
         async with tenant_tx(deps.engine, tenant_id) as session:
             await db.record_run(session, tenant_id, source["id"], unit, EXTRACT, version,

@@ -149,6 +149,7 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
 
     monkeypatch.setattr(notes, "tenant_tx", tenant_tx)
     monkeypatch.setattr(notes.escalations, "escalate", escalate)
+    monkeypatch.setattr(notes.escalations, "flag_review", escalate)
     return built
 
 

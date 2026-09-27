@@ -20,6 +20,7 @@ from apps.api.app.api.library import router as library_router
 from apps.api.app.api.notifications import router as notifications_router
 from apps.api.app.api.ops import router as ops_router
 from apps.api.app.api.question_review import router as question_review_router
+from apps.api.app.api.red_list import router as red_list_router
 from apps.api.app.api.study import router as study_router
 from apps.api.app.api.study_cards import router as study_cards_router
 from apps.api.app.api.study_sessions import router as study_sessions_router
@@ -65,6 +66,7 @@ app.include_router(library_router)
 app.include_router(admin_usage_router)
 app.include_router(admin_model_usage_router)
 app.include_router(admin_pipeline_router)
+app.include_router(red_list_router)
 app.include_router(notifications_router)
 app.include_router(tutor_router)
 app.include_router(tutor_images_router)

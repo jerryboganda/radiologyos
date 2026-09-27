@@ -35,6 +35,11 @@ test pass is never release evidence (ADR 0008/0022).
   explicit human decision and ADR.
 - Stop on ambiguity that can change privacy, isolation, legal, clinical, billing,
   or provider commitments.
+- Owner's red review list (ADR 0038, standing rule): any model output kept although
+  it fell short of its quality bar, and any item all models failed, must be
+  recorded on the red review list (`model_escalations` status `review`) and shown
+  to the owner in red with a danger sign until reviewed. Every new AI step or
+  quality gate must feed it; never keep a below-bar answer silently.
 
 ## Architecture invariants
 

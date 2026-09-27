@@ -297,6 +297,8 @@ def _run_targets(
             log.warning("quality gate agent=%s backend=%s reason=%s action=kept_last",
                         agent.key, call.backend, reason)
             _record(agent, call, started, "ok", result, "gate_kept_last")
+            if n == len(calls) - 1:
+                result.shortfall = reason  # the red review list (owner rule, ADR 0038)
             return parsed, result
         log.warning("quality gate agent=%s backend=%s reason=%s action=fallback",
                     agent.key, call.backend, reason)

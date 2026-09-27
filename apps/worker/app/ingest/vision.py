@@ -70,10 +70,15 @@ async def _model(
         return None
     except ModelCallError:
         log.warning("%s failed source=%s unit=%s", agent, job["entity_id"], unit)
+        await escalations.flag_review(deps.engine, job["tenant_id"], job["entity_id"], agent,
+                                      unit, escalations.ALL_FAILED)
         return None
     if result.escalation:
         await escalations.escalate(deps.engine, job["tenant_id"], job["entity_id"], agent,
                                    unit, result.escalation)
+    if result.shortfall:  # kept although short of the bar: the owner's red list
+        await escalations.flag_review(deps.engine, job["tenant_id"], job["entity_id"], agent,
+                                      unit, result.shortfall)
     return parsed
 
 

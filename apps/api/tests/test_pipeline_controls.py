@@ -127,7 +127,8 @@ def test_knowledge_calls_stop_on_a_pause_and_report_items_for_the_owner(
         runtime.call_agent_result(limited, "topic_classify", "p")
     assert [h.provider for h in hits] == ["chatgpt"]
     monkeypatch.setattr(runtime, "run_agent", _raise(OwnerApprovalRequired("x")))
-    assert runtime.call_agent_result(deps, "topic_classify", "p") == (None, runtime.NO_ANSWER)
+    outcome = runtime.call_agent_result(deps, "topic_classify", "p")
+    assert (outcome.parsed, outcome.waiting) == (None, runtime.NO_ANSWER)
 
 
 def _raise(exc: Exception) -> Any:

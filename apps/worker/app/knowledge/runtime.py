@@ -36,20 +36,28 @@ def call_agent(
 
     Only the agent name is logged, never the prompt (hard rule 4).
     """
-    return call_agent_result(deps, name, prompt, files, accept)[0]
+    return call_agent_result(deps, name, prompt, files, accept).parsed
+
+
+@dataclass(frozen=True, slots=True)
+class AgentOutcome:
+    parsed: BaseModel | None
+    waiting: str | None = None  # saved for the owner's approval of the gated target
+    shortfall: str | None = None  # kept although short of the bar: the red list
 
 
 def call_agent_result(
     deps: KnowledgeDeps, name: str, prompt: str, files: Sequence[tuple[str, bytes]] = (),
     accept: Accept | None = None,
-) -> tuple[BaseModel | None, str | None]:
-    """Like ``call_agent``, plus why the item waits for the owner's approval (ADR 0037).
+) -> AgentOutcome:
+    """Like ``call_agent``, plus why the item waits for the owner (ADR 0037) and
+    whether its kept answer fell short of the quality bar (ADR 0038).
 
     The owner's pause or a quota pause raises Deferred before any call; a quota
     hit pauses every worker until the provider's reset and alerts the owner.
     """
     if deps.transport is None:
-        return None, None
+        return AgentOutcome(None)
     if pausing.paused():
         raise Deferred
     try:
@@ -59,11 +67,11 @@ def call_agent_result(
         raise Deferred from exc
     except OwnerApprovalRequired:
         log.warning("knowledge agent awaits owner agent=%s", name)
-        return None, NO_ANSWER
+        return AgentOutcome(None, NO_ANSWER)
     except ModelCallError:
         log.warning("knowledge agent failed agent=%s", name)
-        return None, None
-    return parsed, result.escalation
+        return AgentOutcome(None)
+    return AgentOutcome(parsed, result.escalation, result.shortfall)
 
 
 def build_knowledge_deps() -> KnowledgeDeps:

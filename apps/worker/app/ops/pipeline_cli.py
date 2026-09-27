@@ -15,7 +15,8 @@ from the saved state (safe to run any time: finished work is skipped).
 described before diagnoses were checked against the source (ADR 0036), and
 ``--redo-old-knowledge`` replaces claims an older extraction prompt wrote.
 ``approve`` sends the items GPT-6 Luna and Sol could not answer to Claude Opus
-5.5 high; ``dismiss`` closes them without using Claude. Counts only.
+5.5 high; ``dismiss`` closes them without using Claude. ``red-list`` puts earlier work that
+fell short of the quality bar on the owner's red review list (ADR 0038). Counts only.
 """
 
 from __future__ import annotations
@@ -60,6 +61,9 @@ async def main(args: argparse.Namespace) -> None:
             state.clear_quota()
         elif args.command == "approve":
             print(json.dumps(await control.approve(engine, tenant, user)), flush=True)
+        elif args.command == "red-list":
+            print(f"items on the red review list: "
+                  f"{await control.backfill_red_list(engine, tenant, user)}", flush=True)
         elif args.command == "dismiss":
             print(json.dumps({"dismissed": await control.dismiss(engine, tenant, user)}))
         elif args.command == "relaunch":
@@ -87,7 +91,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--subject", required=True)
     parser.add_argument("command", choices=["status", "pause", "resume", "relaunch", "approve",
-                                            "dismiss", "clear-quota"])
+                                            "dismiss", "clear-quota", "red-list"])
     parser.add_argument("--redo-unchecked-figures", action="store_true")
     parser.add_argument("--redo-old-knowledge", action="store_true")
     asyncio.run(main(parser.parse_args()))

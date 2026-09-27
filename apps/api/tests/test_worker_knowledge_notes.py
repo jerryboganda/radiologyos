@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from apps.worker.app.knowledge import db, notes
+from apps.worker.app.knowledge.runtime import AgentOutcome as runtime_outcome
 from apps.worker.app.knowledge.runtime import Deferred, KnowledgeDeps
 from packages.knowledge.curriculum import prompt_listing
 from packages.knowledge.models import KnowledgeExtraction, TopicClassification
@@ -71,6 +72,7 @@ class World:
     approved: set[str] = field(default_factory=set)
     escalated: list[tuple[str, str]] = field(default_factory=list)
     waiting: str | None = None
+    shortfall: str | None = None
 
 
 @dataclass
@@ -116,7 +118,7 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
         return w.replies[name]()
 
     def call_agent_result(deps: Any, name: str, prompt: str, accept: Any = None) -> Any:
-        return call_agent(deps, name, prompt, accept), w.waiting
+        return runtime_outcome(call_agent(deps, name, prompt, accept), w.waiting, w.shortfall)
 
     async def approved_units(session: Tx, source_id: UUID, agent: str) -> set[str]:
         return w.approved
@@ -128,11 +130,15 @@ def world(monkeypatch: pytest.MonkeyPatch) -> World:
     async def mark_done(session: Tx, source_id: UUID, agent: str, unit: str) -> None:
         w.escalated.append((unit, "done"))
 
+    async def flag_review(engine: Any, tenant: UUID, source_id: UUID, agent: str, unit: str,
+                          reason: str) -> None:
+        w.escalated.append((unit, f"red:{reason}"))
+
     monkeypatch.setattr(notes, "tenant_tx", fake_tx)
     monkeypatch.setattr(notes, "call_agent", call_agent)
     monkeypatch.setattr(notes, "call_agent_result", call_agent_result)
     for name, fn in (("approved_units", approved_units), ("escalate", escalate),
-                     ("mark_done", mark_done)):
+                     ("mark_done", mark_done), ("flag_review", flag_review)):
         monkeypatch.setattr(notes.escalations, name, fn)
     for name, fn in (("chunks", chunks), ("run_done", run_done), ("record_run", record_run),
                      ("blocks_for_pages", blocks)):

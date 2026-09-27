@@ -99,3 +99,34 @@ async def requeue_knowledge(engine: AsyncEngine, tenant_id: UUID, user_id: UUID)
     for (source_id,) in sources:
         enqueue_knowledge(tenant_id, UUID(str(source_id)))
     return len(sources)
+
+
+# The owner's red list (ADR 0038), filled once for work done before it existed:
+# items Opus already redid (their "kept although short" flag was not stored per
+# item, so all are listed), pages every model failed, and knowledge units every
+# model failed. Idempotent: rows already on the list keep their state.
+BACKFILL = (
+    f"UPDATE model_escalations SET status = 'review', resolved_at = NULL "
+    f"WHERE status = 'done' AND source_id IN ({MINE})",  # nosec B608 - constant SQL
+    f"INSERT INTO model_escalations (tenant_id, source_id, agent, unit, reason, status) "
+    f"SELECT p.tenant_id, p.source_id, 'page_parse', 'page:' || p.page_no, "
+    f"'all_models_failed', 'review' FROM source_pages p "
+    f"WHERE p.vision_status = 'failed' AND p.source_id IN ({MINE}) "  # nosec B608
+    f"ON CONFLICT (tenant_id, source_id, agent, unit) DO NOTHING",
+    f"INSERT INTO model_escalations (tenant_id, source_id, agent, unit, reason, status) "
+    f"SELECT DISTINCT r.tenant_id, r.source_id, 'knowledge_extract', r.unit, "
+    f"'all_models_failed', 'review' FROM knowledge_runs r "
+    f"WHERE r.status = 'failed' AND r.output_ref = 'model_error' "
+    f"AND r.source_id IN ({MINE}) "  # nosec B608 - constant SQL
+    f"ON CONFLICT (tenant_id, source_id, agent, unit) DO NOTHING",
+)
+
+
+async def backfill_red_list(engine: AsyncEngine, tenant_id: UUID, user_id: UUID) -> int:
+    async with tenant_tx(engine, tenant_id) as session:
+        for sql in BACKFILL:
+            await session.execute(text(sql), {"u": user_id})
+        count = await session.execute(text(
+            f"SELECT count(*) FROM model_escalations WHERE status = 'review' "
+            f"AND source_id IN ({MINE})"), {"u": user_id})  # nosec B608 - constant SQL
+        return int(count.scalar_one())

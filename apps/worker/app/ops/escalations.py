@@ -119,3 +119,29 @@ async def _upsert_alert(
         {"t": tenant_id, "k": kind, "l": level, "d": json.dumps(detail)},
     )).scalar_one_or_none()
     return created is not None
+
+
+ALL_FAILED = "all_models_failed"
+
+
+async def flag_review(
+    engine: AsyncEngine, tenant_id: UUID, source_id: UUID, agent: str, unit: str,
+    reason: str,
+) -> None:
+    """Put an item on the owner's red review list (owner rule, ADR 0038).
+
+    Its final answer fell short of the quality bar with no stronger model left,
+    or every model failed it. It stays in red until the owner marks it reviewed.
+    """
+    async with tenant_tx(engine, tenant_id) as session:
+        await session.execute(
+            text(
+                "INSERT INTO model_escalations (tenant_id, source_id, agent, unit, reason, "
+                "status) VALUES (:t, :s, :a, :u, :r, 'review') "
+                "ON CONFLICT (tenant_id, source_id, agent, unit) DO UPDATE SET "
+                "status = 'review', reason = EXCLUDED.reason, created_at = now(), "
+                "resolved_at = NULL"
+            ),
+            {"t": tenant_id, "s": source_id, "a": agent[:80], "u": unit[:120], "r": reason[:80]},
+        )
+    log.info("red_list agent=%s reason=%s source=%s", agent, reason, source_id)

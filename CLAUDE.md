@@ -63,6 +63,15 @@ rule for tests, and a test pass is still never release evidence (ADR 0008/0022).
 10. Use Conventional Commits, `feature/<milestone>-<slug>` branches, and one
     feature per pull request.
 
+11. **Owner's red review list (ADR 0038, standing rule; never needs a reminder).**
+    Every model output kept although it fell short of its quality bar (no stronger
+    model left), and every item that all models failed, MUST be recorded on the red
+    review list (`model_escalations` status `review`) and shown to the owner in red
+    with a danger sign until they mark it reviewed. Facts flagged as contradicting
+    standard teaching (`claims.status = 'flagged'`) appear there too. Any new
+    AI step, quality gate, or pipeline must feed this list; never keep a
+    below-bar answer silently.
+
 Additional non-negotiables: provenance resolves to source/page/block/bounding box;
 figures are first-class; source conflicts are explicit; long operations are
 resumable; and personal uploads are never redistributed.

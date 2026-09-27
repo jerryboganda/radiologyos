@@ -90,6 +90,9 @@ class ModelResult:
     # quality gate still rejects it: the item waits for the owner's approval of
     # the approval-gated target (a fixed reason string, never content).
     escalation: str | None = None
+    # Set when this answer is kept although the quality gate still rejects it (no
+    # stronger target was left): the item goes on the owner's red review list.
+    shortfall: str | None = None
 
 
 @dataclass(slots=True)
