@@ -16,6 +16,7 @@ from packages.observability import trace
 from packages.pipeline import state
 
 log = logging.getLogger("radbrain.pausing")
+QUIET_PAUSE_S = 300
 
 
 def paused() -> bool:
@@ -30,8 +31,9 @@ def quota_hit(exc: UsageLimitError) -> None:
         log.warning("quota_pause_record_failed error=%s", type(err).__name__)
         return
     tenant = trace.current().tenant_id
-    if until is None or tenant is None:
-        return
+    brief = exc.retry_after_s is not None and exc.retry_after_s <= QUIET_PAUSE_S
+    if until is None or tenant is None or brief:
+        return  # a brief throttle pauses quietly; only a real quota tells the owner
     from apps.worker.app.tasks import quota_alert
 
     try:

@@ -89,14 +89,14 @@ services:
     cpus: "1.0"
     mem_limit: 1g
 
-  # Library workers (ADR 0037): six model calls at a time in all (owner), split
-  # three for page reading and three for knowledge. A shared pool let the long
+  # Library workers (ADR 0037): twelve model calls at a time (owner: full speed,
+  # 2026-09-27), six for page reading and six for knowledge. A shared pool let the long
   # page batches (about 20 minutes each) hold every slot while knowledge waited.
   # Interactive work runs in worker-interactive and never waits behind either.
   worker: &worker
     <<: *restricted
     image: ${RADBRAIN_PYTHON_IMAGE:?RADBRAIN_PYTHON_IMAGE is required}
-    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "-Q", "ingest", "-n", "ingest@%h", "--loglevel=INFO", "--concurrency=3"]
+    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "-Q", "ingest", "-n", "ingest@%h", "--loglevel=INFO", "--concurrency=6"]
     environment:
       DATABASE_URL: ${DATABASE_URL:?required}
       APP_ENV: ${APP_ENV:-production}
@@ -135,15 +135,16 @@ services:
       retries: 10
       start_period: 30s
     networks: [default, platform]
-    # Three page-reading jobs (renders, crops, model calls that wait on the network).
-    cpus: "2.0"
-    mem_limit: 3g
+    # Six page-reading jobs (renders, crops, model calls that wait on the network).
+    # CPU is capped so other projects on the shared VPS are never starved.
+    cpus: "2.5"
+    mem_limit: 4g
 
   worker-knowledge:
     <<: *worker
-    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "-Q", "knowledge", "-n", "knowledge@%h", "--loglevel=INFO", "--concurrency=3"]
-    cpus: "1.5"
-    mem_limit: 2g
+    command: ["celery", "-A", "apps.worker.app.celery_app:celery_app", "worker", "-Q", "knowledge", "-n", "knowledge@%h", "--loglevel=INFO", "--concurrency=6"]
+    cpus: "2.0"
+    mem_limit: 3g
 
   # Reminders, reports, viva turns, grading, alerts, and the beat scheduler.
   worker-interactive:

@@ -30,6 +30,7 @@ from packages.models.claude_code import ModelCall, ModelCallError, ModelResult, 
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 LIMIT_MARKERS = ("usage limit", "rate limit", "quota", "too many requests", "429")
+THROTTLE_PAUSE_S = 120  # a brief "too many requests" while the account still has quota
 
 
 @dataclass(slots=True)
@@ -61,8 +62,14 @@ class CodexTransport:
             elapsed = int((time.monotonic() - started) * 1000)
             try:
                 return _result(done, Path(work) / "last.json", elapsed)
-            except UsageLimitError:
-                raise
+            except UsageLimitError as exc:
+                # A quota message may be a brief throttle (many calls at once):
+                # when the account still has quota, pause only briefly.
+                reached, retry = limit_reached(rate_limits(binary))
+                if reached:
+                    raise UsageLimitError(str(exc), retry or exc.retry_after_s,
+                                          "chatgpt") from None
+                raise UsageLimitError("codex throttled", THROTTLE_PAUSE_S, "chatgpt") from None
             except ModelCallError:
                 # An unexplained failure may still be the quota with an unfamiliar
                 # message: ask the account, so a spent quota pauses the run instead

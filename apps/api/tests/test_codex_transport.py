@@ -142,3 +142,22 @@ def test_the_claude_step_waits_for_the_owner_and_sends_nothing(
     with pytest.raises(ModelCallError):
         gateway.run_agent(chain, "page_parse", "p")
     assert chain.models == ["luna", "sol", "opus"]
+
+
+def test_a_throttle_with_quota_left_is_only_a_short_pause(
+    cli: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(codex, "rate_limits", lambda _b: LIMITS)
+    monkeypatch.setattr(codex.subprocess, "run", _fake_run({}, None, 1, b"429 Too Many Requests"))
+    with pytest.raises(UsageLimitError) as paused:
+        CodexTransport().run(_call())
+    assert paused.value.retry_after_s == codex.THROTTLE_PAUSE_S
+
+
+def test_every_chatgpt_call_uses_the_fast_tier() -> None:
+    from packages.models.gateway import build_calls, load_agent
+
+    for name in ("page_parse", "image_case", "knowledge_extract", "topic_classify",
+                 "concept_synthesis", "claim_conflict"):
+        codex_calls = [c for c in build_calls(load_agent(name), "p") if c.backend == "codex"]
+        assert codex_calls and all(c.speed == "fast" for c in codex_calls), name
