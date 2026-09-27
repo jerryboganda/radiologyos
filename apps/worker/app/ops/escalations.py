@@ -87,7 +87,7 @@ async def quota_paused(
     engine: AsyncEngine, tenant_id: UUID, provider: str, until: float
 ) -> None:
     """Red alert and push: the pipeline is paused until the provider's reset."""
-    resume = datetime.fromtimestamp(until, UTC).strftime("%H:%M UTC")
+    resume = datetime.fromtimestamp(until, UTC).strftime("%a %d %b, %H:%M UTC")
     async with tenant_tx(engine, tenant_id) as session:
         alerted = await _upsert_alert(session, tenant_id, "chatgpt_quota", "red",
                                       {"provider": provider, "resume_at": int(until)},
@@ -96,8 +96,8 @@ async def quota_paused(
     log.warning("quota_pause provider=%s until=%s", provider, int(until))
     notify(subs, {
         "title": f"radbrain — {'ChatGPT' if provider == 'chatgpt' else provider} quota reached",
-        "body": f"Library processing is paused and resumes by itself at about {resume}. "
-                "Nothing is lost; it continues where it stopped.",
+        "body": f"Library processing is paused; nothing is lost. It resumes by itself "
+                f"about {resume}, or press Resume in Settings after you reset your limit.",
         "url": "/settings", "tag": "chatgpt-quota"})
 
 

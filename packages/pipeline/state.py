@@ -27,6 +27,10 @@ QUOTA_KEY = "radbrain:pipeline:quota"
 DEFAULT_QUOTA_WAIT_S = 30 * 60
 QUOTA_MARGIN_S = 120  # resume a little after the provider's reset time
 MANUAL_RECHECK_S = 5 * 60
+# A deferred task never sleeps longer than this, even for a weekly quota: the
+# Redis broker re-delivers tasks scheduled past its one-hour visibility timeout,
+# which would run the same book twice after the owner resets the quota.
+MAX_RECHECK_S = 20 * 60
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,7 +46,7 @@ class PauseState:
     def recheck_in(self, now: float | None = None) -> int:
         """Seconds a deferred task should wait before trying again."""
         if self.reason == "quota" and self.until is not None:
-            return max(60, int(self.until - (now or time.time())))
+            return min(MAX_RECHECK_S, max(60, int(self.until - (now or time.time()))))
         return MANUAL_RECHECK_S
 
 

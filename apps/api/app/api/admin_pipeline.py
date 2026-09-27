@@ -82,7 +82,9 @@ async def pause(principal: PrincipalDep) -> Response:
 @router.post("/resume", status_code=204)
 async def resume(principal: PrincipalDep) -> Response:
     _admin(principal)
+    # The owner resumes after resetting a spent quota too: lift both pauses.
     state.set_manual(False)
+    state.clear_quota()
     return Response(status_code=204)
 
 

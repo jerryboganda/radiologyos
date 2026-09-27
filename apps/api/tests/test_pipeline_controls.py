@@ -61,7 +61,10 @@ def test_manual_and_quota_pauses_are_shared_and_the_owner_is_told_once() -> None
     assert state.quota_hit("chatgpt", 3600, r) is None  # second hit: no second alert
     paused = state.current(r)
     assert (paused.reason, paused.provider) == ("quota", "chatgpt")
-    assert 3600 <= paused.recheck_in() <= 3600 + state.QUOTA_MARGIN_S
+    # Even a long (weekly) pause re-checks every 20 minutes: never past the
+    # broker's visibility timeout, so a paused book is never delivered twice.
+    assert paused.recheck_in() == state.MAX_RECHECK_S
+    assert paused.recheck_in(now=paused.until - 300) == 300
     state.clear_quota(r)
     assert not state.current(r).paused
 
@@ -230,3 +233,20 @@ def test_bulk_work_has_its_own_queues_so_interactive_work_never_waits() -> None:
                                "radbrain.concept_note")} == {"knowledge"}
     assert {queue[n] for n in ("radbrain.viva_step", "radbrain.send_due_reminders",
                                "radbrain.quota_alert")} == {"celery"}
+
+
+def test_resume_also_lifts_a_quota_pause_after_the_owner_resets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.api.app.api import admin_pipeline
+
+    r = FakeRedis()
+    monkeypatch.setattr(state, "_client", lambda: r)
+    state.quota_hit("chatgpt", 5 * 86400, r)
+    app.dependency_overrides[admin_pipeline.tenant_db_session] = lambda: object()
+    try:
+        response = TestClient(app).post("/v1/admin/pipeline/resume",
+                                        headers={**HEADERS, "x-role": "org_admin"})
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 204 and not state.current(r).paused

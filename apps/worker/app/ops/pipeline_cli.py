@@ -55,6 +55,7 @@ async def main(args: argparse.Namespace) -> None:
             state.set_manual(True)
         elif args.command == "resume":
             state.set_manual(False)
+            state.clear_quota()  # also after the owner resets a spent quota
         elif args.command == "clear-quota":
             state.clear_quota()
         elif args.command == "approve":

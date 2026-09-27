@@ -71,9 +71,37 @@ def test_usage_limits_pause_and_other_failures_fall_through(
                         _fake_run({}, None, 1, b"You've hit your usage limit"))
     with pytest.raises(UsageLimitError):
         CodexTransport().run(_call())
+    monkeypatch.setattr(codex, "rate_limits", lambda _b: LIMITS)
     monkeypatch.setattr(codex.subprocess, "run", _fake_run({}, "not json"))
-    with pytest.raises(ModelCallError):
+    with pytest.raises(ModelCallError) as failed:
         CodexTransport().run(_call())
+    assert not isinstance(failed.value, UsageLimitError)  # quota fine: a real failure
+
+
+LIMITS = {"ordinaryUsageAllowed": True, "rateLimits": {
+    "primary": {"usedPercent": 40, "windowDurationMins": 300, "resetsAt": 2_000},
+    "secondary": {"usedPercent": 60, "windowDurationMins": 10080, "resetsAt": 90_000},
+    "rateLimitReachedType": None}}
+
+
+def test_an_unfamiliar_quota_message_still_pauses_the_run(
+    cli: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spent = {"rateLimits": {**LIMITS["rateLimits"],
+                            "secondary": {"usedPercent": 100, "resetsAt": 90_000}}}
+    monkeypatch.setattr(codex, "rate_limits", lambda _b: spent)
+    monkeypatch.setattr(codex.time, "time", lambda: 1_000.0)
+    monkeypatch.setattr(codex.subprocess, "run", _fake_run({}, None, 1, b"something odd"))
+    with pytest.raises(UsageLimitError) as paused:
+        CodexTransport().run(_call())
+    assert (paused.value.provider, paused.value.retry_after_s) == ("chatgpt", 89_000)
+
+
+def test_limit_reading() -> None:
+    assert codex.limit_reached(None) == (False, None)
+    assert codex.limit_reached(LIMITS, now=1_000) == (False, None)
+    blocked = {"ordinaryUsageAllowed": False, "rateLimits": {}}
+    assert codex.limit_reached(blocked, now=1_000) == (True, None)
 
 
 def test_available_needs_the_cli_and_a_stored_sign_in(

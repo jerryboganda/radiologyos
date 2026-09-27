@@ -56,7 +56,10 @@
     {/if}
   </div>
   {#if status.paused === 'quota'}
-    <p class="mt-2 text-xs text-muted">It carries on by itself when the quota resets. Pause now to keep it stopped after that.</p>
+    <p class="mt-2 text-xs text-muted">It carries on by itself when the quota resets. Nothing is lost. Reset your limit early? Resume now:</p>
+    <form class="mt-2" method="POST" action="?/resumePipeline" use:enhance={submitting('resume')}>
+      <button class="btn btn-primary" type="submit" disabled={busy !== ''}>{busy === 'resume' ? 'Resuming…' : "I've reset my limit — resume now"}</button>
+    </form>
   {/if}
 
   <dl class="mt-5 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
