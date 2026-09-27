@@ -281,6 +281,10 @@ def _run_targets(
         except ModelCallError as exc:
             _record(agent, call, started, _failure(exc), None, type(exc).__name__)
             last = exc
+            if isinstance(exc, UsageLimitError) and call.requires_approval:
+                # A spent Claude window never pauses the ChatGPT pipeline: the
+                # item goes back on the owner's list with the best free answer.
+                return _awaiting_owner(agent, call, best, None, "claude_quota")
             if isinstance(exc, UsageLimitError):
                 limited.add(call.backend)
             continue
@@ -314,15 +318,18 @@ def _keep(calls: list[ModelCall], n: int, reason: str, forced: bool) -> bool:
 
 def _awaiting_owner(
     agent: Agent, call: ModelCall, best: tuple[BaseModel, ModelResult, str] | None,
-    last: ModelCallError | None,
+    last: ModelCallError | None, why: str | None = None,
 ) -> tuple[BaseModel, ModelResult]:
     """Collect & ask: never call the gated target; hand back the best free answer
-    marked for the owner's approval, or pause on a quota, or report the item."""
+    marked for the owner's approval, or pause on a quota, or report the item.
+
+    ``why`` overrides the reason (e.g. ``claude_quota`` when the approved target's
+    own window is spent)."""
     log.warning("owner approval required agent=%s backend=%s model=%s",
                 agent.key, call.backend, call.model)
     if best is not None:
         parsed, result, reason = best
-        result.escalation = reason
+        result.escalation = why or reason
         return parsed, result
     if isinstance(last, UsageLimitError):
         raise last  # a quota pause, not a reason to spend the owner's Claude quota

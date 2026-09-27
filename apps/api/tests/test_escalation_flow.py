@@ -85,3 +85,28 @@ def test_approved_items_go_straight_to_opus() -> None:
     assert transport.models == ["claude-opus-5-5"] and result.escalation is None
     run_agent(transport, "page_parse", "p")  # the approval ends with the block
     assert transport.models[-1] == "gpt-6-luna"
+
+
+def test_a_spent_claude_window_never_pauses_the_chatgpt_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BULK_CLAUDE_FALLBACK_APPROVED", "true")  # the owner's standing OK
+    transport = _every(claude_opus_5_5=UsageLimitError("claude window", 3600, "claude"))
+    _, result = run_agent(transport, "page_parse", "p", accept=lambda _: "low_coverage")
+    assert transport.models == ["gpt-6-luna", "gpt-6-sol", "claude-opus-5-5"]
+    assert result.escalation == "claude_quota"  # saved for later, not a pipeline pause
+    nothing = _every(gpt_6_luna=ModelCallError("x"), gpt_6_sol=ModelCallError("y"),
+                     claude_opus_5_5=UsageLimitError("claude window", 3600, "claude"))
+    with pytest.raises(OwnerApprovalRequired):
+        run_agent(nothing, "page_parse", "p")
+
+
+def test_with_the_standing_ok_a_weak_answer_goes_straight_on_to_opus(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BULK_CLAUDE_FALLBACK_APPROVED", "true")
+    transport = _every()
+    answers = iter(["low_coverage", "low_coverage", None])
+    _, result = run_agent(transport, "page_parse", "p", accept=lambda _: next(answers))
+    assert transport.models == ["gpt-6-luna", "gpt-6-sol", "claude-opus-5-5"]
+    assert result.escalation is None
