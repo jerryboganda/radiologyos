@@ -41,15 +41,15 @@ def knowledge_extract(
     log.info("knowledge source=%s mode=%s outcome=%s", source_id, mode, outcome)
     if outcome == "continue":
         knowledge_extract.apply_async(
-            args=[tenant_id, source_id, mode, exam_target, year], countdown=1
-        )
+            args=[tenant_id, source_id, mode, exam_target, year]
+        )  # no countdown: see ingest_source (a held task spins the main process)
     if outcome == "deferred":
         delay = defer_delay(int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS)))
         knowledge_extract.apply_async(
             args=[tenant_id, source_id, mode, exam_target, year], countdown=delay
         )
     if outcome == "succeeded" and mode == "notes" and depth_enabled():
-        knowledge_depth.apply_async(args=[tenant_id, source_id, True], countdown=1)
+        knowledge_depth.apply_async(args=[tenant_id, source_id, True])
     return outcome
 
 
@@ -80,7 +80,7 @@ def knowledge_depth(self: object, tenant_id: str, source_id: str, fresh: bool = 
     outcome = asyncio.run(run())
     log.info("knowledge_depth source=%s outcome=%s", source_id, outcome)
     if outcome == "continue":
-        knowledge_depth.apply_async(args=[tenant_id, source_id, False], countdown=1)
+        knowledge_depth.apply_async(args=[tenant_id, source_id, False])
     if outcome == "deferred":
         delay = defer_delay(int(os.environ.get("INGEST_DEFER_SECONDS", DEFER_SECONDS)))
         knowledge_depth.apply_async(args=[tenant_id, source_id, False], countdown=delay)
