@@ -15,7 +15,8 @@ same-commit OIDC, RLS, backup, security, and compliance evidence described by AD
 |---|---|---|
 | `radiologyos-web-1` | `ghcr.io/jerryboganda/radiologyos-web:<sha>` | joins `platform` + `nginx-proxy-manager_default`, alias `radbrain-web` |
 | `radiologyos-api-1` | `ghcr.io/jerryboganda/radiologyos-python:<sha>` | FastAPI/uvicorn, 768m / 1.0 cpu |
-| `radiologyos-worker-1` | same python image | Celery bulk (queues `ingest`, `knowledge`), concurrency 6, 4g / 3 cpu |
+| `radiologyos-worker-1` | same python image | Celery `ingest` queue (page reading), concurrency 3, 3g / 2 cpu |
+| `radiologyos-worker-knowledge-1` | same python image | Celery `knowledge` queue, concurrency 3, 2g / 1.5 cpu |
 | `radiologyos-worker-interactive-1` | same python image | Celery `celery` queue + beat (reminders, viva, grading, alerts), concurrency 2, 1.5g / 1 cpu |
 | `radiologyos-migrate-1` | same python image | one-shot `alembic upgrade head` as `radbrain_migrator` |
 | `radiologyos-embedder-1` | `ghcr.io/jerryboganda/radiologyos-embedder:<sha>` | voyage-4-nano on CPU (ADR 0019), 3g / 2.0 cpu, project network only, alias `radbrain-embedder`; optional (search degrades to lexical) |
