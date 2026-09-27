@@ -10,6 +10,8 @@ import type {
   SourceRow,
   SourceSummary
 } from '$lib/types/library';
+import { isRedList } from '$lib/red-list';
+import type { FactDecision, RedList } from '$lib/types/red-list';
 import { apiFetch } from './api';
 import { getJson, sendJson } from './client';
 
@@ -56,6 +58,22 @@ export function deleteSource(event: RequestEvent, id: string) {
 
 export function searchLibrary(event: RequestEvent, query: string, limit = 12) {
   return sendJson<SearchResponse>(event, `${LIB}/search`, 'POST', { query, limit }, { timeoutMs: 30_000 });
+}
+
+/** The owner's red review list (ADR 0038), shape-checked. */
+export async function getRedList(event: RequestEvent, timeoutMs?: number): Promise<ApiResult<RedList>> {
+  const result = await getJson<unknown>(event, `${LIB}/red-list`, { timeoutMs });
+  if (result.state !== 'ok') return result;
+  if (isRedList(result.data)) return { state: 'ok', data: result.data };
+  return { state: 'error', status: 502, detail: 'The review list came back in an unexpected shape.', kind: 'error' };
+}
+
+export function markRedReviewed(event: RequestEvent, id: string) {
+  return sendJson<void>(event, `${LIB}/red-list/${id}/reviewed`, 'POST');
+}
+
+export function decideFlaggedFact(event: RequestEvent, id: string, decision: FactDecision) {
+  return sendJson<void>(event, `${LIB}/red-list/claims/${id}`, 'POST', { decision });
 }
 
 /**

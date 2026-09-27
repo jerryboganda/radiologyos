@@ -4,7 +4,9 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import SourceRow from '$lib/components/library/SourceRow.svelte';
   import Uploader from '$lib/components/library/Uploader.svelte';
+  import Icon from '$lib/components/Icon.svelte';
   import { isProcessing } from '$lib/pipeline';
+  import { onMount } from 'svelte';
   import { pollWhile } from '$lib/poll.svelte';
   import type { ActionData, PageData } from './$types';
 
@@ -15,6 +17,20 @@
   let totalFigures = $derived(data.sources.reduce((sum, s) => sum + s.figure_count, 0));
 
   pollWhile(() => processing > 0, 'app:library');
+
+  // Red review list count (ADR 0038): fetched once, outside the polling load,
+  // and never allowed to break this page.
+  let needsReview = $state(0);
+  onMount(async () => {
+    try {
+      const response = await fetch('/library/review/count');
+      const body: unknown = response.ok ? await response.json() : null;
+      const count = (body as { count?: unknown } | null)?.count;
+      needsReview = typeof count === 'number' && count > 0 ? count : 0;
+    } catch {
+      needsReview = 0;
+    }
+  });
 </script>
 
 <svelte:head><title>Library · radbrain</title></svelte:head>
@@ -23,7 +39,18 @@
   eyebrow="Library"
   title="Your sources"
   description="Textbooks, notes, slides, and key images. Each page is rendered, indexed, and parsed so every answer can cite it back to the block."
-/>
+>
+  {#snippet actions()}
+    {#if needsReview > 0}
+      <a
+        href="/library/review"
+        class="inline-flex items-center gap-1.5 rounded-full border border-danger bg-danger px-3 py-1.5 text-sm font-semibold text-surface hover:opacity-90"
+      >
+        <Icon name="alert" size={16} /> {needsReview} need{needsReview === 1 ? 's' : ''} review
+      </a>
+    {/if}
+  {/snippet}
+</PageHeader>
 
 <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
   <div class="order-2 min-w-0 lg:order-1">
