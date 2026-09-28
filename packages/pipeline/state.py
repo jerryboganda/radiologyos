@@ -24,6 +24,7 @@ from typing import Any
 
 MANUAL_KEY = "radbrain:pipeline:paused"
 QUOTA_KEY = "radbrain:pipeline:quota"
+CLAUDE_ONLY_KEY = "radbrain:pipeline:claude_only"
 DEFAULT_QUOTA_WAIT_S = 30 * 60
 QUOTA_MARGIN_S = 120  # resume a little after the provider's reset time
 MANUAL_RECHECK_S = 5 * 60
@@ -108,3 +109,30 @@ def clear_quota(client: Any | None = None) -> None:
     r = client if client is not None else _client()
     if r is not None:
         r.delete(QUOTA_KEY, f"{QUOTA_KEY}:lock")
+
+
+def claude_only(client: Any | None = None) -> bool:
+    """The owner's temporary switch (ADR 0039): bulk work runs on Claude Opus 5.5
+    high instead of ChatGPT, e.g. while the ChatGPT window is spent."""
+    r = client if client is not None else _client()
+    if r is None:
+        return False
+    try:
+        return bool(r.get(CLAUDE_ONLY_KEY))
+    except Exception:  # an unreachable Redis falls back to the normal flow
+        return False
+
+
+def set_claude_only(seconds: int | None, client: Any | None = None) -> None:
+    """Turn the switch on for ``seconds`` (it ends by itself), or off with None.
+
+    Turning it on lifts a ChatGPT quota pause: ChatGPT is not called meanwhile.
+    """
+    r = client if client is not None else _client()
+    if r is None:
+        return
+    if seconds:
+        r.set(CLAUDE_ONLY_KEY, str(int(time.time()) + seconds), ex=seconds)
+        clear_quota(r)
+    else:
+        r.delete(CLAUDE_ONLY_KEY)

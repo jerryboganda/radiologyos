@@ -7,6 +7,7 @@
     python -m apps.worker.app.ops.pipeline_cli --subject <oidc-subject> approve
     python -m apps.worker.app.ops.pipeline_cli --subject <oidc-subject> dismiss
     python -m apps.worker.app.ops.pipeline_cli --subject <oidc-subject> clear-quota
+    python -m apps.worker.app.ops.pipeline_cli --subject <oidc-subject> claude-only --hours 4
 
 ``pause`` stops model work between saved units on every worker; ``resume``
 lifts it and ``relaunch`` re-queues every unfinished job and knowledge pass
@@ -16,7 +17,9 @@ described before diagnoses were checked against the source (ADR 0036), and
 ``--redo-old-knowledge`` replaces claims an older extraction prompt wrote.
 ``approve`` sends the items GPT-6 Luna and Sol could not answer to Claude Opus
 5.5 high; ``dismiss`` closes them without using Claude. ``red-list`` puts earlier work that
-fell short of the quality bar on the owner's red review list (ADR 0038). Counts only.
+fell short of the quality bar on the owner's red review list (ADR 0038). ``claude-only``
+runs all bulk work on Claude Opus 5.5 high instead of ChatGPT for ``--hours`` (the
+owner's switch, ADR 0039; ``--hours 0`` turns it off). Counts only.
 """
 
 from __future__ import annotations
@@ -59,6 +62,9 @@ async def main(args: argparse.Namespace) -> None:
             state.clear_quota()  # also after the owner resets a spent quota
         elif args.command == "clear-quota":
             state.clear_quota()
+        elif args.command == "claude-only":
+            state.set_claude_only(int(args.hours * 3600) or None)
+            print(f"claude-only: {state.claude_only()}", flush=True)
         elif args.command == "approve":
             print(json.dumps(await control.approve(engine, tenant, user)), flush=True)
         elif args.command == "red-list":
@@ -91,7 +97,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--subject", required=True)
     parser.add_argument("command", choices=["status", "pause", "resume", "relaunch", "approve",
-                                            "dismiss", "clear-quota", "red-list"])
+                                            "dismiss", "clear-quota", "red-list",
+                                            "claude-only"])
     parser.add_argument("--redo-unchecked-figures", action="store_true")
     parser.add_argument("--redo-old-knowledge", action="store_true")
+    parser.add_argument("--hours", type=float, default=0.0)
     asyncio.run(main(parser.parse_args()))

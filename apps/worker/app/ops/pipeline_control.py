@@ -51,7 +51,7 @@ LATEST_JOBS = """
 async def status(engine: AsyncEngine, tenant_id: UUID, user_id: UUID) -> dict[str, Any]:
     current = state.current()
     out: dict[str, Any] = {"paused": current.reason, "resume_at": current.until,
-                           "provider": current.provider}
+                           "provider": current.provider, "claude_only": state.claude_only()}
     async with tenant_tx(engine, tenant_id) as session:
         for name, sql in STATUS_SQL.items():
             rows = await session.execute(text(sql), {"u": user_id})

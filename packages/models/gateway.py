@@ -32,6 +32,7 @@ from packages.models.claude_code import (
 )
 from packages.models.claude_stream import DeltaCallback, StreamOutputInvalid, StreamUnsupported
 from packages.models.routing import ModelRoutingConfig, load_model_routing_config
+from packages.pipeline import state
 from packages.prompts.contracts import PromptFile, load_prompt
 from packages.prompts.templating import render
 
@@ -251,12 +252,11 @@ def _run_targets(
     transport: Transport, agent: Agent, calls: list[ModelCall], accept: Accept | None
 ) -> tuple[BaseModel, ModelResult]:
     """Owner flow (ADR 0035/0037): first target, then the next free one on a failure
-    or a gate rejection; the approval-gated target only with the owner's OK.
-
-    A usage limit skips that backend's other targets (same quota) and never falls
-    through to an approval-gated target: the caller pauses instead.
-    """
-    forced = agent.prompt.agent in _approved.get()
+    or a gate rejection; the approval-gated target only with the owner's OK. A usage
+    limit skips that backend's other targets (same quota) and never falls through
+    to an approval-gated target: the caller pauses instead."""
+    claude_only = _claude_only(calls)
+    forced = agent.prompt.agent in _approved.get() or claude_only
     if forced:
         calls = [c for c in calls if c.requires_approval] or calls
     last: ModelCallError | None = None
@@ -281,9 +281,9 @@ def _run_targets(
         except ModelCallError as exc:
             _record(agent, call, started, _failure(exc), None, type(exc).__name__)
             last = exc
-            if isinstance(exc, UsageLimitError) and call.requires_approval:
-                # A spent Claude window never pauses the ChatGPT pipeline: the
-                # item goes back on the owner's list with the best free answer.
+            if isinstance(exc, UsageLimitError) and call.requires_approval and not claude_only:
+                # A spent Claude window never pauses the ChatGPT pipeline: the item goes
+                # back on the owner's list (in Claude-only mode it pauses the run instead).
                 return _awaiting_owner(agent, call, best, None, "claude_quota")
             if isinstance(exc, UsageLimitError):
                 limited.add(call.backend)
@@ -307,6 +307,12 @@ def _run_targets(
     if last is None:
         raise ModelCallError(f"{agent.key}: no target could run")
     raise last
+
+
+def _claude_only(calls: list[ModelCall]) -> bool:
+    """The owner's temporary switch (ADR 0039): bulk agents go straight to their
+    approval-gated Claude target, skipping ChatGPT. Interactive agents are unaffected."""
+    return any(c.requires_approval for c in calls) and state.claude_only()
 
 
 def _keep(calls: list[ModelCall], n: int, reason: str, forced: bool) -> bool:

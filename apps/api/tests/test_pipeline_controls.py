@@ -69,6 +69,15 @@ def test_manual_and_quota_pauses_are_shared_and_the_owner_is_told_once() -> None
     assert not state.current(r).paused
 
 
+def test_the_claude_only_switch_ends_by_itself_and_lifts_a_chatgpt_pause() -> None:
+    r = FakeRedis()
+    state.quota_hit("chatgpt", 3600, r)
+    state.set_claude_only(4 * 3600, r)
+    assert state.claude_only(r) and not state.current(r).paused
+    state.set_claude_only(None, r)
+    assert not state.claude_only(r)
+
+
 def test_unreachable_redis_never_blocks_work() -> None:
     class Down:
         def get(self, _key: str) -> None:

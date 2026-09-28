@@ -110,3 +110,16 @@ def test_with_the_standing_ok_a_weak_answer_goes_straight_on_to_opus(
     _, result = run_agent(transport, "page_parse", "p", accept=lambda _: next(answers))
     assert transport.models == ["gpt-6-luna", "gpt-6-sol", "claude-opus-5-5"]
     assert result.escalation is None
+
+
+def test_the_owners_claude_only_switch_skips_chatgpt(monkeypatch: pytest.MonkeyPatch) -> None:
+    from packages.models import gateway
+
+    monkeypatch.setattr(gateway.state, "claude_only", lambda: True)  # ADR 0039
+    transport = _every()
+    _, result = run_agent(transport, "page_parse", "p", accept=lambda _: "low_coverage")
+    assert transport.models == ["claude-opus-5-5"]
+    assert result.shortfall == "low_coverage"  # still goes on the red review list
+    spent = _every(claude_opus_5_5=UsageLimitError("claude window", None, "claude"))
+    with pytest.raises(UsageLimitError):  # a spent Claude window pauses the run
+        run_agent(spent, "page_parse", "p")
