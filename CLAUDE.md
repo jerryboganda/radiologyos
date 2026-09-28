@@ -28,11 +28,13 @@
   embeddings). Concrete names live in `packages/models/models.yaml`, never inline
   in application code.
 
-## Deploy rule (ADR 0011)
+## Deploy rule (ADR 0040, supersedes ADR 0011)
 
-Commit and push to `main` freely. Never dispatch `deploy-production.yml`, and never
-change it back to an automatic trigger, without the owner's explicit OK for that
-deploy.
+Commit and push to `main` freely: every push deploys to production automatically
+once `CI` and `Build images` are green for that commit (the owner's decision,
+2026-09-28). Never push a change you would not deploy; never bypass or weaken the
+green-checks gate. A manual dispatch of `deploy-production.yml` for one exact SHA
+(e.g. a rollback) needs no separate OK.
 
 ## Preview surface retired
 

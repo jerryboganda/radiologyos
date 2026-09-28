@@ -10,11 +10,17 @@ name: Deploy production (shared platform VPS)
 #   /opt/radiologyos/app.env                 (compose interpolation, mode 600)
 # CI only needs SSH access, so it holds one secret: the deploy key.
 #
-# Deploys are manual only (ADR 0011): a push to main builds images but never
-# deploys. The owner approves each deploy, then it is dispatched for one exact
-# commit, and the job refuses unless CI and Build images both passed for it.
+# Deploys are automatic (ADR 0040, the owner's decision of 2026-09-28): every
+# push to main deploys as soon as CI and Build images have both passed for that
+# exact commit and it is still the head of main. Each of those two workflows
+# triggers this one when it completes; the gate waits for the second. A manual
+# dispatch for one exact commit remains available (e.g. a rollback).
 
 on:
+  workflow_run:
+    workflows: ["CI", "Build images"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       sha:
@@ -38,15 +44,22 @@ env:
   VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
 
 jobs:
-  deploy:
+  gate:
     runs-on: ubuntu-latest
-    environment: production
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push'))
+    outputs:
+      go: ${{ steps.check.outputs.go }}
+      sha: ${{ steps.check.outputs.sha }}
     steps:
       - name: Require green CI and image build for the exact commit
+        id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SHA: ${{ inputs.sha }}
+          SHA: ${{ inputs.sha || github.event.workflow_run.head_sha }}
+          AUTO: ${{ github.event_name == 'workflow_run' }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -56,27 +69,42 @@ jobs:
           # "identical" or "ahead" means the commit is main or an ancestor of it.
           status=$(gh api "repos/${REPO}/compare/${SHA}...main" --jq .status)
           case "$status" in
-            identical|ahead) ;;
+            identical) ;;
+            ahead)
+              if [ "$AUTO" = true ]; then  # a newer push deploys instead
+                echo "go=false" >> "$GITHUB_OUTPUT"; echo "main has moved on"; exit 0
+              fi ;;
             *) echo "commit is not on main (compare status: ${status})" >&2; exit 1 ;;
           esac
           for wf in ci.yml build-images.yml; do
             ok=$(gh api "repos/${REPO}/actions/workflows/${wf}/runs?head_sha=${SHA}&status=success&per_page=1" --jq .total_count)
             if [ "$ok" -lt 1 ]; then
+              if [ "$AUTO" = true ]; then  # the other workflow's completion deploys
+                echo "go=false" >> "$GITHUB_OUTPUT"; echo "${wf} not green yet"; exit 0
+              fi
               echo "${wf} has no successful run for ${SHA}" >&2; exit 1
             fi
           done
           echo "CI and Build images are green for ${SHA}"
+          { echo "go=true"; echo "sha=${SHA}"; } >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
 
       # Check out the exact revision whose images are deployed, so the
       # compose file matches the images.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.sha }}
+          ref: ${{ needs.gate.outputs.sha }}
 
       - name: Resolve image refs
         id: refs
         env:
-          tag: ${{ inputs.sha }}
+          tag: ${{ needs.gate.outputs.sha }}
         run: |
           set -euo pipefail
           ns="${IMAGE_NAMESPACE}"

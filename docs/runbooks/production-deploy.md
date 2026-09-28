@@ -32,14 +32,16 @@ same-commit OIDC, RLS, backup, security, and compliance evidence described by AD
 
 ## Normal operation
 
-A push to main runs CI and builds images, but never deploys (ADR 0011). A
-deploy happens only after the owner approves it, and is dispatched for one exact
-commit on `main`:
+Every push to main deploys automatically (ADR 0040, superseding ADR 0011's manual
+rule). The deploy starts once both `CI` and `Build images` have passed for that
+exact commit and it is still the head of `main`; an older commit whose checks finish
+late is skipped. A manual dispatch for one exact commit is still available, e.g.
+for a rollback:
 
 ```
-push to main -> CI + Build images
-owner OK     -> gh workflow run deploy-production.yml --ref main -f sha=<40-char sha>
-             -> Deploy production -> Verify production RLS + Verify production identity
+push to main -> CI + Build images (both green) -> Deploy production
+             -> Verify production RLS + Verify production identity
+rollback     -> gh workflow run deploy-production.yml --ref main -f sha=<40-char sha>
 ```
 
 The deploy job refuses unless the SHA is on `main` and both `CI` and
