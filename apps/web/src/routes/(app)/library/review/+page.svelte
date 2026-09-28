@@ -1,22 +1,34 @@
 <script lang="ts">
   import Icon from '$lib/components/Icon.svelte';
   import LoadIssue from '$lib/components/LoadIssue.svelte';
-  import Notice from '$lib/components/Notice.svelte';
-  import FlaggedFactCard from '$lib/components/library/FlaggedFactCard.svelte';
-  import RedItemCard from '$lib/components/library/RedItemCard.svelte';
-  import { redCount } from '$lib/red-list';
-  import type { ActionData, PageData } from './$types';
+  import DangerHeader from '$lib/components/library/red/DangerHeader.svelte';
+  import FileCard from '$lib/components/library/red/FileCard.svelte';
+  import { openCount, summaryCount } from '$lib/red-list';
+  import type { FileSummary } from '$lib/types/red-list';
+  import type { PageData } from './$types';
 
-  let { data, form }: { data: PageData; form: ActionData } = $props();
+  // The owner's red review list, one card per file (ADR 0038, ADR 0041).
+  let { data }: { data: PageData } = $props();
+  let filter = $state('');
 
-  let items = $derived(data.list.items);
-  let facts = $derived(data.list.flagged_facts);
-  let total = $derived(redCount(data.list));
+  let total = $derived(summaryCount(data.files));
+  let needle = $derived(filter.trim().toLowerCase());
+  let shown = $derived(
+    needle ? data.files.filter((f) => `${f.file_name} ${f.source_title}`.toLowerCase().includes(needle)) : data.files
+  );
+  let open = $derived(shown.filter((f) => openCount(f) > 0));
+  let done = $derived(shown.filter((f) => openCount(f) === 0));
 
-  function errorFor(section: 'items' | 'facts', id: string): string {
-    if (!form || !('error' in form) || form.section !== section || form.id !== id) return '';
-    return form.error;
+  function sum(key: keyof Omit<FileSummary, 'source_id' | 'source_title' | 'file_name' | 'reasons'>): number {
+    return data.files.reduce((n, f) => n + f[key], 0);
   }
+  let stats = $derived([
+    { label: 'Pages open', n: sum('open_pages') },
+    { label: 'Figures open', n: sum('open_figures') },
+    { label: 'Note sections open', n: sum('open_notes') },
+    { label: 'Facts open', n: sum('open_facts') }
+  ]);
+  let reviewed = $derived(sum('reviewed'));
 </script>
 
 <svelte:head><title>{total ? `(${total}) ` : ''}Needs your review · radbrain</title></svelte:head>
@@ -25,55 +37,66 @@
   <a href="/library" class="label inline-flex items-center gap-1 hover:text-ink"><Icon name="left" size={12} /> Library</a>
 </p>
 
-<header class="mb-8 flex items-start gap-4 rounded-xl border border-l-4 border-danger/40 border-l-danger bg-danger-soft p-4 sm:p-5">
-  <svg viewBox="0 0 24 24" class="h-10 w-10 shrink-0 text-danger sm:h-12 sm:w-12" aria-hidden="true">
-    <path fill="currentColor" d="M10.3 3.9a2 2 0 0 1 3.4 0l8.5 14.1a2 2 0 0 1-1.7 3H3.5a2 2 0 0 1-1.7-3z" />
-    <path stroke="var(--danger-soft)" stroke-width="2.2" stroke-linecap="round" d="M12 9v4.5M12 17.2h.01" />
-  </svg>
-  <div class="min-w-0">
-    <p class="label text-danger">Danger · check before you trust</p>
-    <h1 class="mt-1 text-3xl leading-tight font-semibold text-danger sm:text-4xl">Needs your review</h1>
-    <p class="mt-2 max-w-2xl text-[0.9375rem] leading-relaxed text-ink">
-      These parts of your library fell short of the quality check, or no model could read them. Check each one against the original page.
-    </p>
-  </div>
-</header>
-
-{#if form && 'message' in form && form.message}
-  <div class="mb-4"><Notice tone="ok">{form.message}</Notice></div>
-{:else if form && 'error' in form && form.error && !form.id}
-  <div class="mb-4"><Notice tone="danger">{form.error}</Notice></div>
-{/if}
+<DangerHeader title="Needs your review">
+  These parts of your library fell short of the quality check, or no model could read them. Open each file, compare the
+  evidence with the original page, and give your verdict.
+</DangerHeader>
 
 {#if data.problem}
   <LoadIssue problem={data.problem} title="The review list is unreachable" icon="library" />
 {:else}
-  <section aria-labelledby="below-bar" class="mb-10">
-    <h2 id="below-bar" class="mb-3 flex items-center gap-2 text-xl font-semibold text-ink">
-      Below the quality bar
-      <span class="rounded-full px-2 py-0.5 font-mono text-xs {items.length ? 'bg-danger text-surface' : 'bg-surface-2 text-muted'}">{items.length}</span>
+  <section aria-labelledby="totals" class="mb-8">
+    <h2 id="totals" class="sr-only">Totals</h2>
+    <dl class="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      {#each stats as stat (stat.label)}
+        <div class="min-w-0 rounded-lg border px-3 py-2 {stat.n ? 'border-danger/40 bg-danger-soft' : 'border-line bg-surface'}">
+          <dt class="label break-words">{stat.label}</dt>
+          <dd class="font-mono text-2xl font-semibold {stat.n ? 'text-danger' : 'text-muted'}">{stat.n}</dd>
+        </div>
+      {/each}
+      <div class="min-w-0 rounded-lg border border-ok/30 bg-ok-soft px-3 py-2">
+        <dt class="label">Reviewed</dt>
+        <dd class="font-mono text-2xl font-semibold text-ok">{reviewed}</dd>
+      </div>
+    </dl>
+    <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <a class="btn btn-ghost min-h-11 self-start bg-surface px-4" href="/library/review/export.csv" download data-sveltekit-reload>
+        <Icon name="file" size={16} /> Download everything (CSV)
+      </a>
+      {#if data.files.length > 6}
+        <div class="min-w-0 sm:w-72">
+          <label for="file-filter" class="mb-1 block text-sm font-medium text-ink">Find a file</label>
+          <input id="file-filter" type="search" class="field text-sm" bind:value={filter} placeholder="File name or title" />
+        </div>
+      {/if}
+    </div>
+  </section>
+
+  <section aria-labelledby="open-files" class="mb-10">
+    <h2 id="open-files" class="mb-3 flex items-center gap-2 text-xl font-semibold text-ink">
+      Files to review
+      <span class="rounded-full px-2 py-0.5 font-mono text-xs {open.length ? 'bg-danger text-surface' : 'bg-surface-2 text-muted'}">{open.length}</span>
     </h2>
-    {#if items.length === 0}
-      <p class="flex items-center gap-2 text-sm text-ok"><Icon name="check" size={16} /> Nothing needs review right now.</p>
+    {#if open.length === 0}
+      <p class="flex items-center gap-2 text-sm text-ok">
+        <Icon name="check" size={16} />
+        {needle ? 'No open file matches.' : 'Nothing needs review right now.'}
+      </p>
     {:else}
-      <ul class="flex flex-col gap-3">
-        {#each items as item (item.id)}<RedItemCard {item} error={errorFor('items', item.id)} />{/each}
+      <ul class="grid gap-3 lg:grid-cols-2">
+        {#each open as file (file.source_id)}<FileCard {file} />{/each}
       </ul>
     {/if}
   </section>
 
-  <section aria-labelledby="flagged-facts">
-    <h2 id="flagged-facts" class="mb-1 flex items-center gap-2 text-xl font-semibold text-ink">
-      Facts that may contradict standard teaching
-      <span class="rounded-full px-2 py-0.5 font-mono text-xs {facts.length ? 'bg-warn text-surface' : 'bg-surface-2 text-muted'}">{facts.length}</span>
-    </h2>
-    <p class="mb-3 text-sm text-ink-2">Keep each fact as your source states it, or reject it.</p>
-    {#if facts.length === 0}
-      <p class="flex items-center gap-2 text-sm text-ok"><Icon name="check" size={16} /> Nothing needs review right now.</p>
-    {:else}
-      <ul class="flex flex-col gap-3">
-        {#each facts as fact (fact.id)}<FlaggedFactCard {fact} error={errorFor('facts', fact.id)} />{/each}
+  {#if done.length}
+    <section aria-labelledby="done-files">
+      <h2 id="done-files" class="mb-3 flex items-center gap-2 text-lg font-semibold text-ok">
+        <Icon name="check" size={18} /> All reviewed <span class="font-mono text-xs">({done.length})</span>
+      </h2>
+      <ul class="flex flex-col gap-2">
+        {#each done as file (file.source_id)}<FileCard {file} />{/each}
       </ul>
-    {/if}
-  </section>
+    </section>
+  {/if}
 {/if}

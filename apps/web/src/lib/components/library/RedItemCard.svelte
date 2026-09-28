@@ -1,51 +1,58 @@
 <script lang="ts">
-  import { enhance } from '$app/forms';
   import Icon from '$lib/components/Icon.svelte';
-  import { readerHref } from '$lib/citations';
   import { formatDate } from '$lib/format';
-  import { itemPage, kindLabel, pagesLabel, reasonText } from '$lib/red-list';
+  import { kindLabel, pagesLabel, reasonHint, reasonText } from '$lib/red-list';
   import type { RedItem } from '$lib/types/red-list';
+  import FigureEvidence from './red/FigureEvidence.svelte';
+  import NotesEvidence from './red/NotesEvidence.svelte';
+  import PageEvidence from './red/PageEvidence.svelte';
+  import VerdictChip from './red/VerdictChip.svelte';
+  import VerdictForm from './red/VerdictForm.svelte';
 
-  let { item, error = '' }: { item: RedItem; error?: string } = $props();
-  let busy = $state(false);
+  // One red-list entry with everything needed to judge it (ADR 0041).
+  let { item, error = '', message = '' }: { item: RedItem; error?: string; message?: string } = $props();
   let pages = $derived(pagesLabel(item.page_from, item.page_to));
+  let page = $derived(item.page_from ?? item.page_to);
+  let reviewed = $derived(item.status === 'reviewed');
 </script>
 
-<li class="rounded-xl border border-l-4 border-danger/40 border-l-danger bg-danger-soft p-4 sm:p-5 {busy ? 'opacity-60' : ''}">
-  <div class="flex items-start gap-3">
-    <Icon name="alert" size={22} class="mt-0.5 text-danger" />
+<li
+  class="rounded-xl border border-l-4 p-4 [contain-intrinsic-size:auto_640px] [content-visibility:auto] sm:p-5 {reviewed
+    ? 'border-line border-l-line-strong bg-surface-2'
+    : 'border-danger/40 border-l-danger bg-danger-soft'}"
+  aria-labelledby="item-{item.id}"
+>
+  <div class="flex min-w-0 items-start gap-3">
+    <Icon name={reviewed ? 'check' : 'alert'} size={22} class="mt-0.5 hidden sm:block {reviewed ? 'text-muted' : 'text-danger'}" />
     <div class="min-w-0 flex-1">
-      <p class="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <h3 id="item-{item.id}" class="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span class="rounded-md bg-danger px-1.5 py-0.5 font-mono text-[0.6875rem] font-semibold tracking-wide text-surface uppercase">
           {kindLabel(item.kind)}
         </span>
-        <span class="font-display text-base font-semibold break-words text-ink">{item.source_title}</span>
-        {#if pages}<span class="text-sm text-ink-2">· {pages}</span>{/if}
-      </p>
+        <span class="min-w-0 font-display text-base font-semibold wrap-anywhere text-ink">{item.file_name}</span>
+        <span class="text-sm font-semibold text-ink">· {pages || 'page unknown'}</span>
+      </h3>
       <p class="mt-1.5 font-medium text-danger">{reasonText(item.reason)}</p>
-      <p class="mt-1 text-xs text-muted">Flagged {formatDate(item.created_at)}</p>
-      {#if error}<p class="mt-2 text-sm font-medium text-danger" role="alert">{error}</p>{/if}
-      <div class="mt-3 flex flex-wrap items-center gap-2">
-        <a class="btn btn-ghost min-h-9 bg-surface px-3 py-1.5 text-sm" href={readerHref(item.source_id, itemPage(item.page_from, item.page_to))}>
-          Open the page <Icon name="right" size={14} />
-        </a>
-        <form
-          method="POST"
-          action="?/reviewed"
-          use:enhance={() => {
-            busy = true;
-            return async ({ update }) => {
-              await update();
-              busy = false;
-            };
-          }}
-        >
-          <input type="hidden" name="id" value={item.id} />
-          <button class="btn btn-danger min-h-9 px-3 py-1.5 text-sm" disabled={busy}>
-            <Icon name="check" size={14} /> Mark as reviewed
-          </button>
-        </form>
+      <p class="mt-1 text-sm text-ink"><span class="font-semibold">What to check:</span> {reasonHint(item.reason)}</p>
+      <p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+        Flagged {formatDate(item.created_at)}
+        {#if reviewed}<VerdictChip verdict={item.verdict} />{/if}
+      </p>
+      {#if reviewed && item.note}
+        <p class="mt-2 text-sm break-words text-ink-2"><span class="font-semibold text-ink">Your note:</span> {item.note}</p>
+      {/if}
+
+      <div class="mt-4">
+        {#if item.kind === 'page'}
+          <PageEvidence {item} {page} />
+        {:else if item.kind === 'figure'}
+          <FigureEvidence {item} {page} />
+        {:else}
+          <NotesEvidence {item} {page} />
+        {/if}
       </div>
+
+      <VerdictForm id={item.id} verdict={item.verdict} note={item.note} {error} {message} />
     </div>
   </div>
 </li>
