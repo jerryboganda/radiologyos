@@ -79,8 +79,10 @@ async def approve(engine: AsyncEngine, tenant_id: UUID, user_id: UUID) -> dict[s
     for (job_id,) in jobs:
         celery_app.send_task("radbrain.ingest_source", args=[str(tenant_id), str(job_id)])
     knowledge = {s for s, agent, _ in rows if agent not in PAGE_AGENTS}
-    for source_id in knowledge:
-        enqueue_knowledge(tenant_id, source_id)
+    if knowledge:  # re-opens finished knowledge passes too, so the redo really runs
+        from apps.worker.app.ops.red_list_ops import redo_approved
+
+        await redo_approved(engine, tenant_id, user_id)
     return {"approved": len(rows), "page_jobs": len(jobs), "knowledge_sources": len(knowledge)}
 
 

@@ -1948,13 +1948,13 @@
         }
       }
     },
-    "/v1/library/red-list": {
+    "/v1/library/red-list/summary": {
       "get": {
         "tags": [
           "library"
         ],
-        "summary": "Red List",
-        "operationId": "red_list_v1_library_red_list_get",
+        "summary": "Red Summary",
+        "operationId": "red_summary_v1_library_red_list_summary_get",
         "security": [
           {
             "HTTPBearer": []
@@ -2008,10 +2008,384 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FileSummary"
+                  },
+                  "title": "Response Red Summary V1 Library Red List Summary Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/library/red-list": {
+      "get": {
+        "tags": [
+          "library"
+        ],
+        "summary": "Red List",
+        "operationId": "red_list_v1_library_red_list_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "open",
+                "reviewed"
+              ],
+              "type": "string",
+              "default": "open",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "source_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "page",
+                    "figure",
+                    "notes"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2000,
+              "minimum": 1,
+              "default": 500,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
                   "$ref": "#/components/schemas/RedList"
                 }
               }
             }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/library/red-list/export.csv": {
+      "get": {
+        "tags": [
+          "library"
+        ],
+        "summary": "Export Csv",
+        "description": "Every open and reviewed entry with its evidence, one row each.",
+        "operationId": "export_csv_v1_library_red_list_export_csv_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/library/red-list/{item_id}/verdict": {
+      "post": {
+        "tags": [
+          "library"
+        ],
+        "summary": "Give Verdict",
+        "operationId": "give_verdict_v1_library_red_list__item_id__verdict_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Role"
+            }
+          },
+          {
+            "name": "x-radbrain-assertion",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "X-Radbrain-Assertion"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerdictBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "401": {
             "content": {
@@ -2153,7 +2527,7 @@
           "library"
         ],
         "summary": "Decide Fact",
-        "description": "Keep the flagged fact as your source states it, or reject it.",
+        "description": "Keep the flagged fact as your source states it, or reject it (a later\ndecision on the same fact replaces the earlier one).",
         "operationId": "decide_fact_v1_library_red_list_claims__claim_id__post",
         "security": [
           {
@@ -14967,6 +15341,18 @@
               "reject"
             ],
             "title": "Decision"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
           }
         },
         "type": "object",
@@ -15891,6 +16277,117 @@
         ],
         "title": "ExtractResponse"
       },
+      "FigureDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "figure_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Figure No"
+          },
+          "caption": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caption"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "modality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modality"
+          },
+          "anatomy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anatomy"
+          },
+          "findings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "source_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Quote"
+          },
+          "impression_origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impression Origin"
+          },
+          "has_image": {
+            "type": "boolean",
+            "title": "Has Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "figure_no",
+          "caption",
+          "description",
+          "modality",
+          "anatomy",
+          "findings",
+          "source_quote",
+          "impression_origin",
+          "has_image"
+        ],
+        "title": "FigureDetail"
+      },
       "FigureHit": {
         "properties": {
           "figure_id": {
@@ -15953,6 +16450,63 @@
         ],
         "title": "FigureHit"
       },
+      "FileSummary": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Id"
+          },
+          "source_title": {
+            "type": "string",
+            "title": "Source Title"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "File Name"
+          },
+          "open_pages": {
+            "type": "integer",
+            "title": "Open Pages"
+          },
+          "open_figures": {
+            "type": "integer",
+            "title": "Open Figures"
+          },
+          "open_notes": {
+            "type": "integer",
+            "title": "Open Notes"
+          },
+          "open_facts": {
+            "type": "integer",
+            "title": "Open Facts"
+          },
+          "reviewed": {
+            "type": "integer",
+            "title": "Reviewed"
+          },
+          "reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_id",
+          "source_title",
+          "file_name",
+          "open_pages",
+          "open_figures",
+          "open_notes",
+          "open_facts",
+          "reviewed",
+          "reasons"
+        ],
+        "title": "FileSummary"
+      },
       "FlaggedFact": {
         "properties": {
           "id": {
@@ -15988,6 +16542,10 @@
             "type": "string",
             "title": "Source Title"
           },
+          "file_name": {
+            "type": "string",
+            "title": "File Name"
+          },
           "page_from": {
             "type": "integer",
             "title": "Page From"
@@ -15995,6 +16553,55 @@
           "page_to": {
             "type": "integer",
             "title": "Page To"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "section_heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Heading"
+          },
+          "section_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Text"
           }
         },
         "type": "object",
@@ -16005,8 +16612,10 @@
           "evidence_span",
           "source_id",
           "source_title",
+          "file_name",
           "page_from",
-          "page_to"
+          "page_to",
+          "status"
         ],
         "title": "FlaggedFact"
       },
@@ -18426,6 +19035,10 @@
             "type": "string",
             "title": "Source Title"
           },
+          "file_name": {
+            "type": "string",
+            "title": "File Name"
+          },
           "kind": {
             "type": "string",
             "enum": [
@@ -18461,10 +19074,116 @@
             "type": "string",
             "title": "Reason"
           },
+          "status": {
+            "type": "string",
+            "enum": [
+              "review",
+              "reviewed"
+            ],
+            "title": "Status"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "correct",
+                  "needs_fix",
+                  "remove"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "page_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Status"
+          },
+          "own_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Own Text"
+          },
+          "reading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading"
+          },
+          "figures": {
+            "items": {
+              "$ref": "#/components/schemas/FigureDetail"
+            },
+            "type": "array",
+            "title": "Figures",
+            "default": []
+          },
+          "section_heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Heading"
+          },
+          "section_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Text"
+          },
+          "statements": {
+            "items": {
+              "$ref": "#/components/schemas/Statement"
+            },
+            "type": "array",
+            "title": "Statements",
+            "default": []
           }
         },
         "type": "object",
@@ -18472,10 +19191,10 @@
           "id",
           "source_id",
           "source_title",
+          "file_name",
           "kind",
-          "page_from",
-          "page_to",
           "reason",
+          "status",
           "created_at"
         ],
         "title": "RedItem"
@@ -20143,6 +20862,29 @@
         ],
         "title": "SourceSummary"
       },
+      "Statement": {
+        "properties": {
+          "statement": {
+            "type": "string",
+            "title": "Statement"
+          },
+          "evidence_span": {
+            "type": "string",
+            "title": "Evidence Span"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "statement",
+          "evidence_span",
+          "status"
+        ],
+        "title": "Statement"
+      },
       "StatsRecomputeResponse": {
         "properties": {
           "computed": {
@@ -21304,6 +22046,36 @@
           "enabled"
         ],
         "title": "VapidKey"
+      },
+      "VerdictBody": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "correct",
+              "needs_fix",
+              "remove"
+            ],
+            "title": "Verdict"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict"
+        ],
+        "title": "VerdictBody"
       },
       "VerifyRequest": {
         "properties": {

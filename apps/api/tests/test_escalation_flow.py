@@ -123,3 +123,16 @@ def test_the_owners_claude_only_switch_skips_chatgpt(monkeypatch: pytest.MonkeyP
     spent = _every(claude_opus_5_5=UsageLimitError("claude window", None, "claude"))
     with pytest.raises(UsageLimitError):  # a spent Claude window pauses the run
         run_agent(spent, "page_parse", "p")
+
+
+def test_when_opus_errors_the_best_answer_is_kept_for_the_red_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BULK_CLAUDE_FALLBACK_APPROVED", "true")
+    transport = _every(claude_opus_5_5=ModelCallError("no structured output"))
+    parsed, result = run_agent(transport, "page_parse", "p", accept=lambda _: "low_coverage")
+    assert transport.models == ["gpt-6-luna", "gpt-6-sol", "claude-opus-5-5"]
+    assert result.shortfall == "low_coverage" and parsed.model_dump()["page_type"] == "text"
+    quota = _every(claude_opus_5_5=UsageLimitError("claude window", None, "claude"))
+    _, waiting = run_agent(quota, "page_parse", "p", accept=lambda _: "low_coverage")
+    assert waiting.escalation == "claude_quota"  # unchanged: saved for later, not kept

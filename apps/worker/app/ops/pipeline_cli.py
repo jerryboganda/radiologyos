@@ -19,7 +19,9 @@ described before diagnoses were checked against the source (ADR 0036), and
 5.5 high; ``dismiss`` closes them without using Claude. ``red-list`` puts earlier work that
 fell short of the quality bar on the owner's red review list (ADR 0038). ``claude-only``
 runs all bulk work on Claude Opus 5.5 high instead of ChatGPT for ``--hours`` (the
-owner's switch, ADR 0039; ``--hours 0`` turns it off). Counts only.
+owner's switch, ADR 0039; ``--hours 0`` turns it off). ``redo-approved`` runs approved
+note sections that never got their Opus redo; ``red-list --prune`` takes items fixed
+since they were listed off the red list (ADR 0041). Counts only.
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ import json
 from apps.worker.app.ingest import bulk
 from apps.worker.app.ingest.db import make_engine, tenant_tx
 from apps.worker.app.ops import pipeline_control as control
+from apps.worker.app.ops import red_list_ops
 from packages.models.gateway import load_agent
 from packages.pipeline import state
 from sqlalchemy import text
@@ -68,8 +71,13 @@ async def main(args: argparse.Namespace) -> None:
         elif args.command == "approve":
             print(json.dumps(await control.approve(engine, tenant, user)), flush=True)
         elif args.command == "red-list":
+            if args.prune:
+                print(f"fixed since listed, taken off: "
+                      f"{await red_list_ops.prune(engine, tenant, user)}", flush=True)
             print(f"items on the red review list: "
                   f"{await control.backfill_red_list(engine, tenant, user)}", flush=True)
+        elif args.command == "redo-approved":
+            print(json.dumps(await red_list_ops.redo_approved(engine, tenant, user)), flush=True)
         elif args.command == "dismiss":
             print(json.dumps({"dismissed": await control.dismiss(engine, tenant, user)}))
         elif args.command == "relaunch":
@@ -98,8 +106,9 @@ if __name__ == "__main__":
     parser.add_argument("--subject", required=True)
     parser.add_argument("command", choices=["status", "pause", "resume", "relaunch", "approve",
                                             "dismiss", "clear-quota", "red-list",
-                                            "claude-only"])
+                                            "claude-only", "redo-approved"])
     parser.add_argument("--redo-unchecked-figures", action="store_true")
     parser.add_argument("--redo-old-knowledge", action="store_true")
     parser.add_argument("--hours", type=float, default=0.0)
+    parser.add_argument("--prune", action="store_true")
     asyncio.run(main(parser.parse_args()))

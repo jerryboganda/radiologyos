@@ -304,6 +304,21 @@ def _run_targets(
                     agent.key, call.backend, reason)
         _record(agent, call, started, "rejected", result, "quality_gate")
         last = ModelCallError(f"{agent.key} output rejected: {reason}")
+    return _exhausted(agent, best, last)
+
+
+def _exhausted(
+    agent: Agent, best: tuple[BaseModel, ModelResult, str] | None, last: ModelCallError | None
+) -> tuple[BaseModel, ModelResult]:
+    """Every target was tried. A valid answer below the bar still beats none: it is
+    kept for the owner's red review list (ADR 0038) instead of failing the item,
+    unless a quota stopped the run (the caller pauses and retries it later)."""
+    if best is not None and not isinstance(last, UsageLimitError):
+        parsed, result, reason = best
+        log.warning("quality gate agent=%s reason=%s action=kept_best_after_failure",
+                    agent.key, reason)
+        result.shortfall = reason
+        return parsed, result
     if last is None:
         raise ModelCallError(f"{agent.key}: no target could run")
     raise last
