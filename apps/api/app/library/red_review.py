@@ -20,6 +20,7 @@ EXCERPT = 2000
 SECTION = 4000
 KIND = {"page_parse": "page", "image_case": "figure", "knowledge_extract": "notes"}
 AGENTS = {v: k for k, v in KIND.items()}
+OPEN_KEY = {"page": "open_pages", "figure": "open_figures", "notes": "open_notes"}
 STATUSES = {"open": ("review",), "reviewed": ("reviewed",)}
 UNIT_HASH = "'chunk:' || left(encode(sha256(convert_to(c.text, 'UTF8')), 'hex'), 32)"
 
@@ -37,9 +38,16 @@ _FACTS = """
     SELECT c.id, c.statement, c.doubt, c.evidence_span, c.source_id, s.title AS source_title,
            coalesce(s.original_filename, s.title) AS file_name, c.page_from, c.page_to,
            c.status, c.owner_note, c.owner_decided_at,
-           ch.heading AS section_heading, left(ch.text, :sec) AS section_text
+           coalesce(ch.heading, alt.heading) AS section_heading,
+           left(coalesce(ch.text, alt.text), :sec) AS section_text
     FROM claims c JOIN sources s ON s.id = c.source_id AND s.tenant_id = c.tenant_id
     LEFT JOIN chunks ch ON ch.id = c.chunk_id
+    LEFT JOIN LATERAL (  -- the section was replaced by a re-read: the one now on that page
+        SELECT x.heading, x.text FROM chunks x
+        WHERE ch.id IS NULL AND x.source_id = c.source_id
+          AND c.page_from BETWEEN x.page_from AND x.page_to
+        ORDER BY strpos(lower(x.text), lower(left(c.evidence_span, 60))) > 0 DESC, x.chunk_no
+        LIMIT 1) alt ON true
     WHERE s.uploaded_by = :u AND s.deleted_at IS NULL
       AND (CAST(:src AS uuid) IS NULL OR c.source_id = CAST(:src AS uuid))
       AND (CASE WHEN CAST(:open AS boolean) THEN c.status = 'flagged'
@@ -132,7 +140,7 @@ async def summary(session: AsyncSession, user_id: UUID) -> list[dict[str, Any]]:
         if row.status == "reviewed":
             e["reviewed"] += int(row.n)
             continue
-        e[f"open_{KIND.get(row.agent, 'notes')}s"] += int(row.n)
+        e[OPEN_KEY[KIND.get(row.agent, "notes")]] += int(row.n)
         e["reasons"][row.reason] = e["reasons"].get(row.reason, 0) + int(row.n)
     for row in await session.execute(text(_SUMMARY_FACTS), {"u": user_id}):
         e = entry(row)

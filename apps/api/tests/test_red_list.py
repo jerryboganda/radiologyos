@@ -49,7 +49,11 @@ class _Session:
             return _Result([{**row, "agent": "image_case", "reason": "empty_reading",
                              "status": "review", "n": 3},
                             {**row, "agent": "page_parse", "reason": "x", "status": "reviewed",
-                             "n": 2}])
+                             "n": 2},
+                            {**row, "agent": "knowledge_extract", "reason": "unsupported_claims",
+                             "status": "review", "n": 5},
+                            {**row, "agent": "page_parse", "reason": "low_text_coverage",
+                             "status": "review", "n": 1}])
         if "GROUP BY 1, 2, 3, 4" in sql:
             return _Result([{"source_id": SOURCE, "title": "IMM deck",
                              "file_name": "imm-deck.pdf", "open": True, "n": 4}])
@@ -120,9 +124,10 @@ def test_the_summary_counts_open_and_reviewed_work_per_file() -> None:
     finally:
         app.dependency_overrides.clear()
     assert body == [{"source_id": str(SOURCE), "source_title": "IMM deck",
-                     "file_name": "imm-deck.pdf", "open_pages": 0, "open_figures": 3,
-                     "open_notes": 0, "open_facts": 4, "reviewed": 2,
-                     "reasons": {"empty_reading": 3}}]
+                     "file_name": "imm-deck.pdf", "open_pages": 1, "open_figures": 3,
+                     "open_notes": 5, "open_facts": 4, "reviewed": 2,
+                     "reasons": {"empty_reading": 3, "unsupported_claims": 5,
+                                 "low_text_coverage": 1}}]
 
 
 def test_verdicts_notes_and_fact_decisions_are_saved() -> None:
