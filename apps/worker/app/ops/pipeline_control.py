@@ -103,13 +103,11 @@ async def requeue_knowledge(engine: AsyncEngine, tenant_id: UUID, user_id: UUID)
     return len(sources)
 
 
-# The owner's red list (ADR 0038), filled once for work done before it existed:
-# items Opus already redid (their "kept although short" flag was not stored per
-# item, so all are listed), pages every model failed, and knowledge units every
-# model failed. Idempotent: rows already on the list keep their state.
+# The owner's red list (ADR 0038): pages and knowledge units every model failed.
+# Idempotent: rows already on the list keep their state, and a closed item is
+# never re-opened (the one-off listing of Opus redos before ADR 0038 was run on
+# 2026-09-27; repeating it re-opened items fixed since, ADR 0041).
 BACKFILL = (
-    f"UPDATE model_escalations SET status = 'review', resolved_at = NULL "
-    f"WHERE status = 'done' AND source_id IN ({MINE})",  # nosec B608 - constant SQL
     f"INSERT INTO model_escalations (tenant_id, source_id, agent, unit, reason, status) "
     f"SELECT p.tenant_id, p.source_id, 'page_parse', 'page:' || p.page_no, "
     f"'all_models_failed', 'review' FROM source_pages p "

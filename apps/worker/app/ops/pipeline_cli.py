@@ -71,11 +71,12 @@ async def main(args: argparse.Namespace) -> None:
         elif args.command == "approve":
             print(json.dumps(await control.approve(engine, tenant, user)), flush=True)
         elif args.command == "red-list":
-            if args.prune:
+            if args.prune:  # never followed by the backfill in the same run
                 print(f"fixed since listed, taken off: "
                       f"{await red_list_ops.prune(engine, tenant, user)}", flush=True)
-            print(f"items on the red review list: "
-                  f"{await control.backfill_red_list(engine, tenant, user)}", flush=True)
+            else:
+                print(f"items on the red review list: "
+                      f"{await control.backfill_red_list(engine, tenant, user)}", flush=True)
         elif args.command == "redo-approved":
             print(json.dumps(await red_list_ops.redo_approved(engine, tenant, user)), flush=True)
         elif args.command == "dismiss":
