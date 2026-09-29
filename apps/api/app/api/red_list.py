@@ -14,7 +14,8 @@ owner has judged it; the owner's verdict and note are kept for the follow-up.
 * ``POST /v1/library/red-list/claims/{id}``    - keep or reject a flagged fact, and a note.
 
 Only the caller's own sources. The evidence is the owner's own content, shown to
-the owner; nothing here is logged.
+the owner; nothing here is logged. Every write commits: ``tenant_session`` never
+does, so an uncommitted route returns a 204 that means nothing was saved.
 """
 
 from __future__ import annotations
@@ -208,6 +209,7 @@ async def give_verdict(
          "note": (body.note or "").strip() or None})
     if not getattr(done, "rowcount", 0):
         raise HTTPException(status_code=404, detail="not on your red list")
+    await session.commit()  # the tenant session never commits; a 204 must mean saved
     return Response(status_code=204)
 
 
@@ -219,6 +221,7 @@ async def mark_reviewed(item_id: UUID, principal: PrincipalDep, session: Session
         "AND s.uploaded_by = :u AND s.deleted_at IS NULL"), {"id": item_id, "u": principal.user_id})
     if not getattr(done, "rowcount", 0):
         raise HTTPException(status_code=404, detail="not on your red list")
+    await session.commit()  # see give_verdict: a 204 must mean saved
     return Response(status_code=204)
 
 
@@ -238,4 +241,5 @@ async def decide_fact(
          "note": (body.note or "").strip() or None})
     if not getattr(done, "rowcount", 0):
         raise HTTPException(status_code=404, detail="not a flagged fact of yours")
+    await session.commit()  # see give_verdict: a 204 must mean saved
     return Response(status_code=204)

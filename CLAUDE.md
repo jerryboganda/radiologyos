@@ -17,6 +17,8 @@
 
 - `apps/api`: Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 async, Alembic;
   Ruff, strict mypy, pytest. Integration/RLS tests must use the app database role.
+  The request-scoped tenant session never commits, so every write route commits
+  itself; otherwise the change is rolled back on close and a success code lies.
 - `apps/worker`: Celery 5 on Redis; every task is idempotent on entity, step, and
   `PIPELINE_VERSION`, with visible resumable step status.
 - `apps/web`: SvelteKit 2, TypeScript, Tailwind; run `make types` to generate API

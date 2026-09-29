@@ -217,6 +217,35 @@ def test_admin_pause_resume_and_approve(monkeypatch: pytest.MonkeyPatch) -> None
     assert sent == ["radbrain.approve_escalations"]
 
 
+def test_dismiss_commits_the_escalations_it_reports() -> None:
+    from apps.api.app.api import admin_pipeline
+
+    class Session:
+        def __init__(self) -> None:
+            self.commits = 0
+            self.rowcount = 0
+
+        async def execute(self, *_a: Any, **_k: Any) -> Any:
+            return type("R", (), {"rowcount": self.rowcount})()
+
+        async def commit(self) -> None:
+            self.commits += 1
+
+    admin = {**HEADERS, "x-role": "org_admin"}
+    session = Session()
+    app.dependency_overrides[admin_pipeline.tenant_db_session] = lambda: session
+    try:
+        client = TestClient(app)
+        assert client.post("/v1/admin/pipeline/dismiss", headers=admin).json() == {"dismissed": 0}
+        assert session.commits == 0
+        session.rowcount = 2
+        assert client.post("/v1/admin/pipeline/dismiss", headers=admin).json() == {"dismissed": 2}
+        # The tenant session never commits, so the number reported must be the number kept.
+        assert session.commits == 1
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_escalation_migration_is_expand_only_with_forced_rls() -> None:
     from pathlib import Path
 

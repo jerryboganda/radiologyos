@@ -103,7 +103,10 @@ async def dismiss(principal: PrincipalDep, session: SessionDep) -> dict[str, int
         f"UPDATE model_escalations SET status = 'dismissed', resolved_at = now() "
         f"WHERE status = 'pending' AND source_id IN ({MINE})"),  # nosec B608 - constant SQL
         {"u": principal.user_id})
-    return {"dismissed": int(getattr(done, "rowcount", 0) or 0)}
+    count = int(getattr(done, "rowcount", 0) or 0)
+    if count:
+        await session.commit()  # the tenant session never commits
+    return {"dismissed": count}
 
 
 def _send(name: str, tenant_id: UUID, user_id: UUID) -> None:

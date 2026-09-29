@@ -41,6 +41,10 @@ BASE = {"source_id": SOURCE, "source_title": "IMM deck", "file_name": "imm-deck.
 class _Session:
     def __init__(self) -> None:
         self.updates: list[dict[str, Any]] = []
+        self.commits = 0
+
+    async def commit(self) -> None:
+        self.commits += 1
 
     async def execute(self, statement: Any, params: Any = None) -> _Result:
         sql = str(statement)
@@ -139,10 +143,13 @@ def test_verdicts_notes_and_fact_decisions_are_saved() -> None:
                            ).status_code == 204
         assert session.updates[-1]["v"] == "needs_fix"
         assert session.updates[-1]["note"] == "wrong organ"
+        assert session.commits == 1  # tenant_session never commits: 204 must mean saved
         assert client.post(f"/v1/library/red-list/{UUID(int=9)}/verdict", headers=HEADERS,
                            json={"verdict": "correct"}).status_code == 404  # not yours
+        assert session.commits == 1
         assert client.post(f"/v1/library/red-list/{UUID(int=1)}/verdict", headers=HEADERS,
                            json={"verdict": "maybe"}).status_code == 422
+        assert session.commits == 1
         assert client.post(f"/v1/library/red-list/{UUID(int=1)}/reviewed",
                            headers=HEADERS).status_code == 204
         assert client.post(f"/v1/library/red-list/claims/{UUID(int=3)}", headers=HEADERS,
@@ -152,6 +159,7 @@ def test_verdicts_notes_and_fact_decisions_are_saved() -> None:
         assert session.updates[-1]["note"] == "old teaching"
         assert client.post(f"/v1/library/red-list/claims/{UUID(int=3)}", headers=HEADERS,
                            json={"decision": "maybe"}).status_code == 422
+        assert session.commits == 3  # verdict, reviewed, fact decision
     finally:
         app.dependency_overrides.clear()
 
